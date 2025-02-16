@@ -18,10 +18,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <SessionProviderWrapper>
-          <Container>
+          {/* <Container> */}
 
            {children}
-          </Container>
+          {/* </Container> */}
         </SessionProviderWrapper>
        
       </body>

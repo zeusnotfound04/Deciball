@@ -111,11 +111,7 @@ const [authError , setAuthError] = useState<string>("")
                 </span>
               )}
           </LabelInputContainer>
-
-     
-
-
-{authError && (
+          {authError && (
               <div className="text-red-500 text-sm p-2 bg-red-50 dark:bg-red-900/10 rounded-md">
                 {authError}
               </div>

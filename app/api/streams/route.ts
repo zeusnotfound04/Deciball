@@ -1,9 +1,11 @@
 import { prisma } from '@/app/lib/db';
 import { NextRequest, NextResponse } from "next/server"
 import {z} from "zod"
-const YT_REGEX = new RegExp("^https:\/\/www\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}$")
 
-const CreatStreamSchema = z.object({
+import youtubesearchapi from 'youtube-search-api'
+const YT_REGEX = /^(?:(?:https?:)?\/\/)?(?:www\.)?(?:m\.)?(?:youtu(?:be)?\.com\/(?:v\/|embed\/|watch(?:\/|\?v=))|youtu\.be\/)((?:\w|-){11})(?:\S+)?$/;
+
+const CreateStreamSchema = z.object({
     creatorId : z.string(),
     url : z.string()
 })
@@ -12,23 +14,43 @@ const CreatStreamSchema = z.object({
 export async function POST(req:NextRequest) {
 
     try {
-        const data = CreatStreamSchema.parse(await req.json())
-        const isYt = YT_REGEX.test(data.url)
+        const data = CreateStreamSchema.parse(await req.json())
+        
+        const isYt = data.url.match(YT_REGEX)
         if(!isYt){
             return NextResponse.json({
                 message : "Wrong URL format"
             }, {
-                status : 441
+                status : 411
             })
         }
         const extractedId = data.url.split("?v=")[1]
-        await prisma.stream.create({
+
+        const res = await youtubesearchapi.GetVideoDetails(extractedId)
+
+
+        const smallImage = JSON.stringify(res.thumbnail.thumbnails[0].url);
+        
+        const bigImage = JSON.stringify(res.thumbnail.thumbnails.at(-1).url);
+
+
+        const stream = await prisma.stream.create({
             data : {
                 userId :data.creatorId,
                 url : data.url,
                 extractedId,
+                title : res.title,
+                smallImage : smallImage,
+                bigImage : bigImage,
                 type : "Youtube"
             }
+        })
+
+        console.log(stream)
+
+        return NextResponse.json({
+            message : "Stream added successfully",
+            id : stream.id
         })
     } catch (e) {
         return NextResponse.json({

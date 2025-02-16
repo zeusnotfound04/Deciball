@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from '@/app/lib/db';
+import { authOptions } from "@/app/lib/auth";
 
 
 
@@ -12,10 +13,11 @@ const UpvoteSchema = z.object({
 
 export async function POST(req: NextRequest) {
     // Get the session, ensure to await the result since it's an async function
-    const session = await getServerSession(); // Make sure to await the session
+    const session = await getServerSession(authOptions); // Make sure to await the session
 
 
     //TODO : you can get rid of the db call here
+    
 
     const user = await prisma.user.findFirst({
         where:{
@@ -30,11 +32,11 @@ export async function POST(req: NextRequest) {
             });
         }
 
-    // Validate the request body using Zod
+   
     try {
         const data = UpvoteSchema.parse(await req.json());
         
-        // Check if the stream exists in the database
+  
         const stream = await prisma.stream.findUnique({
             where: { id: data.streamId }
         });
