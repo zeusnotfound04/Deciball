@@ -38,3 +38,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+
+
+db-docker/global/*
+db-docker/pg_wal/*
+db-docker/postmaster.pid
