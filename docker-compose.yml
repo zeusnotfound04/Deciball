@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: decibalDB
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: PASSWORD
+      POSTGRES_DB: decibalDB
+    volumes:
+      - ./db-docker:/var/lib/postgresql/data  
+    restart: always
