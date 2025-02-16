@@ -45,6 +45,7 @@ session : {
                     select: {
                         id: true,
                         email: true,
+                        username: true,
                         password: true,
                     },
                 });
@@ -71,6 +72,7 @@ session : {
             if (user) {
                 token.id = user.id;
                 token.email = user.email;
+                token.username = user.username;
             }
             console.log('JWT callback', token);
             return token;
@@ -79,6 +81,7 @@ session : {
             session.user = {
                 id : token.id,
                 email : token.email,
+                username : token.username,
             }
             console.log('Session callback', session);
             return session;
