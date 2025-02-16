@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import SessionProviderWrapper from "./SessionProviderWrapper";
+import Container from "./components/ui/Container";
 
 
 export const metadata: Metadata = {
@@ -17,7 +18,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <SessionProviderWrapper>
+          <Container>
+
            {children}
+          </Container>
         </SessionProviderWrapper>
        
       </body>

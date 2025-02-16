@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prismaClient } from '../../../lib/db';
+import { prisma } from '@/app/lib/db';
 
 
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     //TODO : you can get rid of the db call here
 
-    const user = await prismaClient.user.findFirst({
+    const user = await prisma.user.findFirst({
         where:{
             email : session?.user?.email ?? ""
         }
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         const data = UpvoteSchema.parse(await req.json());
         
         // Check if the stream exists in the database
-        const stream = await prismaClient.stream.findUnique({
+        const stream = await prisma.stream.findUnique({
             where: { id: data.streamId }
         });
 
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     
 
         // Add the upvote
-        await prismaClient.upvote.create({
+        await prisma.upvote.create({
             data: {
                 userId: user.id,
                 streamId: data.streamId
