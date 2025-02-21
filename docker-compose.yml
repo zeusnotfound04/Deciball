@@ -1,0 +1,79 @@
+services:
+  app:
+    container_name: main-Deciball
+    build:
+      context: ./next-app
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./next-app/.env
+    ports:
+      - "3000:3000"
+      - "5555:5555"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./next-app:/usr/src/app
+      - /usr/src/app/node_modules
+
+  postgres:
+    container_name: prisma-postgres
+    image: postgres:latest
+    restart: always
+    env_file:
+      - ./next-app/.env
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  redis:
+    container_name: redis-server
+    image: redis/redis-stack:latest
+    restart: always
+    env_file:
+      - ./ws/.env
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+    environment:
+      REDIS_ARGS: "--requirepass root --user admin on >root ~* allcommands --user default off nopass nocommands"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  websockets:
+    container_name: websockets
+    restart: always
+    build:
+      context: ./ws
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./ws/.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./ws:/usr/src/app
+      - /usr/src/app/node_modules
+
+volumes:
+  postgres-data:
+    external: false
+  redis-data:
+    external: false
