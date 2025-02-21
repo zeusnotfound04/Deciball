@@ -1,0 +1,37 @@
+{
+  "name": "ws",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.ts",
+  "scripts": {
+    "dev": "nodemon",
+    "start": "node dist/app.js",
+    "build": "npm run postinstall && tsc -b",
+    "postinstall": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "5.19.1",
+    "axios": "^1.7.7",
+    "bullmq": "^5.12.14",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "jsonwebtoken": "^8.5.1",
+    "prisma": "^5.19.1",
+    "redis": "^4.7.0",
+    "ws": "^8.18.0",
+    "youtube-search-api": "^1.2.2"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^22.13.4",
+    "@types/ws": "^8.5.12",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

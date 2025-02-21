@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                          // Modern JS features
+    "module": "CommonJS",                        // Node.js uses CommonJS
+    "lib": ["ES2020", "DOM"],                    // Includes Node & Browser APIs
+    "outDir": "dist",                            // Output directory for compiled files
+    "rootDir": "src",                            // Source directory
+    "strict": true,                              // Strict TypeScript checks
+    "esModuleInterop": true,                     // Compatibility for CommonJS modules
+    "moduleResolution": "node",                  // Resolve modules like Node.js
+    "resolveJsonModule": true,                   // Allow importing JSON files
+    "skipLibCheck": true,                        // Skip type checks in node_modules
+    "sourceMap": true                            // Generate source maps for debugging
+  },
+  "include": ["src"],                            // Files to include in compilation
+  "exclude": ["node_modules", "dist"]            // Ignore these folders
+}
