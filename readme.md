@@ -1,4 +1,4 @@
-# ⚡🎵 DECIBALL 🎵⚡  
+# ⚡🎵 DECIBALL 🎵⚡ -> (still in development)  
 *Where Code Meets Chaos & Beats Hit Harder!*  
 
 ![DeciBall Animation](https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif)  
