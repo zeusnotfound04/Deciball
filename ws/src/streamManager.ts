@@ -5,7 +5,10 @@ import youtubesearchapi from "youtube-search-api";
 import { Job, Queue, Worker } from "bullmq";
 import { PrismaClient } from "@prisma/client";
 import { getVideoId, isValidYoutubeURL } from "./utils";
-import { spec } from "node:test/reporters";
+
+
+
+
 const redisUrl = process.env.REDIS_URL
 
 
@@ -888,8 +891,6 @@ export class RoomManager {
               existingActiveStream: previousQueueLength,
             });
           }
-    
-
 }
 
 
