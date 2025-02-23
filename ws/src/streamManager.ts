@@ -117,6 +117,108 @@ export class RoomManager {
     }
 
 
+    async adminPlayNext(spaceId : string , userId : string){
+        const creatorId = this.spaces.get(spaceId)?.creatorId;
+        console.log("adminPlayNext" , creatorId , userId)
+        let targetUser = this.users.get(userId)
+
+        if(!targetUser){
+            return
+        }
+
+        if (targetUser.userId !== creatorId){
+            targetUser.ws.forEach((ws : WebSocket) => {
+                ws.send(
+                    JSON.stringify({
+                        type : "error",
+                        data : {
+                            message : "You cant perform this action"
+                        }
+                    })
+                )
+                
+            });
+            return
+        }
+
+        const mostUpVotedStream = await this.prisma.stream.findFirst({
+            where : {
+                played : false,
+                spaceId : spaceId,
+            },
+            orderBy: {
+                upvotes : {
+                    _count: "desc",
+                }
+            }
+            
+        }) 
+
+        if (!mostUpVotedStream){
+            targetUser.ws.forEach((ws :WebSocket) => {
+                ws.send(
+                    JSON.stringify({
+                        type : "error",
+                        data : {
+                            message : "Please add video in queue"
+                        }
+                    })
+                )
+                
+            });
+
+            return
+        }
+
+        await Promise.all([
+            this.prisma.currentStream.upsert({
+                where : {
+                    spaceId : spaceId,
+                },
+                update : {
+                    spaceId : spaceId,
+                    userId,
+                    streamId: mostUpVotedStream.id
+                },
+                create : {
+                    spaceId : spaceId,
+                    userId,
+                    streamId : mostUpVotedStream.id
+                }
+            }),
+            this.prisma.stream.update({
+                where : {
+                    id : mostUpVotedStream.id
+                },
+                data : {
+                    played: true,
+                    playedTs : new Date()
+                }
+            })
+        ])
+
+
+        let previousQueueLength = parseInt(
+            (await this.redisClient.get(`queue-length-${spaceId}`)) || "1",
+            10
+        )
+
+        if (previousQueueLength){
+            await this.redisClient.set(
+                `queue-length-${spaceId}`, 
+                previousQueueLength - 1
+            )
+        }
+
+        await this.publisher.publish(
+            spaceId,
+            JSON.stringify({
+                type : "play-next"
+            })
+        )
+    }
+
+
     publishNewVote(
         spaceId : string ,
         streamId : string,
