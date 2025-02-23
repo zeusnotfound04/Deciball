@@ -112,10 +112,92 @@ export class RoomManager {
             users : new Map<string , Users>(),
             creatorId : "",
          })
-         await this.subscriber.subscribe(spaceId , thiss)
+         await this.subscriber.subscribe(spaceId , this)
         }
     }
 
+    async payAndPlayNext(spaceId: string, userId: string, url: string) {
+        const creatorId = this.spaces.get(spaceId)?.creatorId;
+        console.log("payAndNext", creatorId, userId);
+    
+        const targetUser = this.users.get(userId);
+        if (!targetUser || !creatorId) return;
+    
+        const extractedId = getVideoId(url);
+        if (!extractedId) {
+            targetUser?.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        data: { message: "Invalid YouTube URL" },
+                    }));
+                }
+            });
+            return;
+        }
+    
+        let res;
+        try {
+            res = await youtubesearchapi.GetVideoDetails(extractedId);
+        } catch (error) {
+            console.error("YouTube API error:", error);
+            targetUser?.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        data: { message: "Failed to fetch video details" },
+                    }));
+                }
+            });
+            return;
+        }
+    
+        if (!res.thumbnail) {
+            targetUser?.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        data: { message: "Unable to fetch video details" },
+                    }));
+                }
+            });
+            return;
+        }
+    
+        const stream = await this.prisma.stream.create({
+            data: {
+                id: crypto.randomUUID(),
+                userId: creatorId,
+                url,
+                extractedId,
+                type: "Youtube",
+                addedBy: userId,
+                title: res.title ?? "Can't find video",
+                smallImg: res.thumbnail.thumbnails[0].url,
+                bigImg: res.thumbnail.thumbnails.at(-1).url,
+                spaceId,
+            },
+        });
+    
+        await Promise.all([
+            this.prisma.currentStream.upsert({
+                where: { spaceId },
+                update: { spaceId, userId, streamId: stream.id },
+                create: { id: crypto.randomUUID(), spaceId, userId, streamId: stream.id },
+            }),
+            this.prisma.stream.update({
+                where: { id: stream.id },
+                data: { played: true, playedTs: new Date() },
+            }),
+        ]);
+    
+        try {
+            await this.publisher.publish(spaceId, JSON.stringify({ type: "play-next" }));
+        } catch (error) {
+            console.error("Publish error:", error);
+        }
+    }
+    
 
     async adminPlayNext(spaceId : string , userId : string){
         const creatorId = this.spaces.get(spaceId)?.creatorId;
