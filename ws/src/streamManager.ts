@@ -118,6 +118,64 @@ export class RoomManager {
         }
     }
 
+    publishEmptyQueue(spaceId: string) {
+        const space = this.spaces.get(spaceId);
+        space?.users.forEach((user, userId) => {
+          user?.ws.forEach((ws : WebSocket ) => {
+            ws.send(
+              JSON.stringify({
+                type: `empty-queue/${spaceId}`,
+              })
+            );
+          });
+        });
+      }
+
+    async adminEmptyQueue(spaceId: string) {
+        const room = this.spaces.get(spaceId);
+        const userId = this.spaces.get(spaceId)?.creatorId;
+        const user = this.users.get(userId as string);
+    
+        if (room && user) {
+          await this.prisma.stream.updateMany({
+            where: {
+              played: false,
+              spaceId: spaceId,
+            },
+            data: {
+              played: true,
+              playedTs: new Date(),
+            },
+          });
+          await this.publisher.publish(
+            spaceId,
+            JSON.stringify({
+              type: "empty-queue",
+            })
+          );
+        }
+      }
+      
+    publishRemoveSong(spaceId : string , streamId : string){
+        console.log("publishRemoveSong")
+        const space = this.spaces.get(spaceId);
+        space?.users.forEach((user , userId) => {
+            user?.ws.forEach((ws : WebSocket) => {
+                ws.send(
+                    JSON.stringify({
+                        type: `remove-song/${spaceId}`,
+                        data: {
+                          streamId,
+                          spaceId,
+                        }
+                    })
+                )
+                
+            });
+        });
+    }
+
+
     
     async adminRemoveSong(spaceId : string , userId : string , streamId : string  ){
         console.log("adminRemoveSong")
