@@ -116,6 +116,24 @@ export class RoomManager {
         }
     }
 
+    publishNewStream(spaceId : string , data : any){
+        console.log(process.pid + ": PublishNewStream");
+        console.log("Publish New Stream" , spaceId)
+        const space = this.spaces.get(spaceId);
+
+        if (space){
+            space?.users.forEach((user ,userId) => {
+                user?.ws.forEach((ws : WebSocket) {
+                    ws.send(
+                        JSON.stringify({
+                            type : `new-stream/${spaceId}`,
+                            data : data
+                        })
+                    )
+                })
+            })
+        }
+    }
 
     async adminStreamHandler(
         spaceId : string,
@@ -138,7 +156,7 @@ export class RoomManager {
 
 
             if(!extractedId){
-                currentUser?.ws.forEach((ws) => {
+                currentUser?.ws.forEach((ws : WebSocket ) => {
                     ws.send(
                         JSON.stringify({
                             type : "error",
@@ -163,7 +181,7 @@ export class RoomManager {
             if (res.thumbnail){
                 const stream = await this.prisma.stream.create({
                     data : {
-                        id : crypto.randomUUID();
+                        id : crypto.randomUUID(),
                         userId : userId ,
                         url : url,
                         extractedId,
@@ -203,7 +221,7 @@ export class RoomManager {
                   );
 
             } else {
-                currentUser?.ws.forEach((ws) => {
+                currentUser?.ws.forEach((ws : WebSocket) => {
                     ws.send(
                         JSON.stringify({
                             type : "error",
@@ -223,11 +241,11 @@ export class RoomManager {
 
         const space = this.spaces.get(spaceId);
         const currentUser = this.users.get(currentUserId);
-        const creatorId = this.spaces.get(spaceId)?.createdId;
+        const creatorId = this.spaces.get(spaceId)?.creatorId;
         const isCreator = currentUserId === creatorId;
         
         if (!isValidYoutubeURL(url)){
-            currentUser?.ws.forEach((ws)=> {
+            currentUser?.ws.forEach((ws : WebSocket)=> {
                 ws.send(
                     JSON.stringify({
                         type: "error",
@@ -262,7 +280,7 @@ export class RoomManager {
             )
 
             if(lastAdded){
-                currentUser.ws.forEach((ws) => {
+                currentUser.ws.forEach((ws : WebSocket) => {
                     ws.send(
                         JSON.stringify({
                             type : "error",
@@ -290,7 +308,7 @@ export class RoomManager {
             }
 
             if (previousQueueLength >=MAX_QUEUE_LENGTH){
-                currentUser.ws.forEach((ws ) => {
+                currentUser.ws.forEach((ws : WebSocket ) => {
                     ws.send(
                         JSON.stringify({
                             type : "error",
@@ -315,3 +333,16 @@ export class RoomManager {
     
 
 }
+
+
+
+type User = {
+    userId: string;
+    ws: WebSocket[];
+    token: string;
+  };
+  
+  type Space = {
+    creatorId: string;
+    users: Map<String, User>;
+  };
