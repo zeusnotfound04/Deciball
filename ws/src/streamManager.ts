@@ -117,6 +117,31 @@ export class RoomManager {
     }
 
 
+    publishNewVote(
+        spaceId : string ,
+        streamId : string,
+        vote : "upvote" | "downvote",
+        votedBy : string
+    ){
+        console.log(process.pid + " publishNewVote");
+        const spaces = this.spaces.get(spaceId);
+        spaces?.users.forEach((user , userId ) => {
+            user?.ws.forEach((ws : WebSocket)=> {
+                ws.send(
+                    JSON.stringify({
+                        type : `new-vote/${spaceId}`,
+                        data : {
+                            vote,
+                            streamId,
+                            votedBy,
+                            spaceId
+                        }
+                    })
+                )
+            })
+        } )
+    }
+
     async adminCasteVote (
         creatorId : string ,
         userId : string,
