@@ -5,6 +5,7 @@ import youtubesearchapi from "youtube-search-api";
 import { Job, Queue, Worker } from "bullmq";
 import { PrismaClient } from "@prisma/client";
 import { getVideoId, isValidYoutubeURL } from "./utils";
+import { spec } from "node:test/reporters";
 const redisUrl = process.env.REDIS_URL
 
 
@@ -90,6 +91,7 @@ export class RoomManager {
     // }
 
 
+
     async initRedisClient () {
         await this.redisClient.connect();
         await this.publisher.connect();
@@ -115,6 +117,62 @@ export class RoomManager {
          await this.subscriber.subscribe(spaceId , this)
         }
     }
+
+    
+    async adminRemoveSong(spaceId : string , userId : string , streamId : string  ){
+        console.log("adminRemoveSong")
+        const user = this.users.get(userId);
+        const creatorId = this.spaces.get(spaceId)?.creatorId;
+
+        if (user && userId == creatorId){
+            await this.prisma.stream.delete({
+                where : {
+                    id :streamId,
+                    spaceId : spaceId
+                }
+            })
+
+            await this.publisher.publish(
+                spaceId,
+                JSON.stringify({
+                    type : "remove-song",
+                    data :{
+                        streamId,
+                        spaceId
+                    }
+
+                })
+            )
+        } else {
+            user?.ws.forEach((ws : WebSocket) => {
+                ws.send(
+                    JSON.stringify({
+                        type : "error",
+                        data : {
+                            message : "You cant remove the song. You are not the host"
+                        }
+                    })
+                )
+                
+            });
+        }
+
+    }
+
+
+    publishPlayNext(spaceId: string) {
+        const space = this.spaces.get(spaceId);
+        space?.users.forEach((user, userId) => {
+          user?.ws.forEach((ws) => {
+            ws.send(
+              JSON.stringify({
+                type: `play-next/${spaceId}`,
+              })
+            );
+          });
+        });
+      }
+
 
     async payAndPlayNext(spaceId: string, userId: string, url: string) {
         const creatorId = this.spaces.get(spaceId)?.creatorId;
