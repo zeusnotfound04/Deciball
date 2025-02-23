@@ -28,7 +28,7 @@ export class RoomManager {
 
     private static instance : RoomManager;
     public spaces : Map<string , Space>;
-    public users : Map<string , Users>
+    public users : Map<string , User>
     public redisClient : RedisClientType;
     public publisher : RedisClientType;
     public subscriber : RedisClientType;
@@ -82,14 +82,37 @@ export class RoomManager {
         return RoomManager.instance;
     }
 
-//
-    // async processJob (job : Job){
-    //     const {data , name} = job;
-    //     if(name  === "cast-vote"){
-    //         await RoomManager.getInstance().admin
-    //     }
-    // }
 
+    async processJob(job: Job) {
+        const { data, name } = job;
+        if (name === "cast-vote") {
+          await RoomManager.getInstance().adminCasteVote(
+            data.creatorId,
+            data.userId,
+            data.streamId,
+            data.vote,
+            data.spaceId
+          );
+        } else if (name === "add-to-queue") {
+          await RoomManager.getInstance().adminStreamHandler(
+            data.spaceId,
+            data.userId,
+            data.url,
+            data.existingActiveStream
+          );
+        } else if (name === "play-next") {
+          await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId);
+        } else if (name === "remove-song") {
+          await RoomManager.getInstance().adminRemoveSong(
+            data.spaceId,
+            data.userId,
+            data.streamId
+          );
+        } else if (name === "empty-queue") {
+          await RoomManager.getInstance().adminEmptyQueue(data.spaceId);
+        }
+      }
+    
 
 
     async initRedisClient () {
@@ -98,25 +121,96 @@ export class RoomManager {
         await this.subscriber.connect();
         console.log("✅ Connected to Upstash Redis");
     }
-
-    onSubscribeRoom( message : string , spaceId : string ){
-        console.log("Subscribe Room" , spaceId )
-        const {type , data } = JSON.parse(message);
-        if (type === "new-stream"){
-            RoomManager.getInstance().puli
+    onSubscribeRoom(message: string, spaceId: string) {
+        console.log("Subscibe Room", spaceId);
+        const { type, data } = JSON.parse(message);
+        if (type === "new-stream") {
+          RoomManager.getInstance().publishNewStream(spaceId, data);
+        } else if (type === "new-vote") {
+          RoomManager.getInstance().publishNewVote(
+            spaceId,
+            data.streamId,
+            data.vote,
+            data.votedBy
+          );
+        } else if (type === "play-next") {
+          RoomManager.getInstance().publishPlayNext(spaceId);
+        } else if (type === "remove-song") {
+          RoomManager.getInstance().publishRemoveSong(spaceId, data.streamId);
+        } else if (type === "empty-queue") {
+          RoomManager.getInstance().publishEmptyQueue(spaceId);
         }
-    }
+      }
 
-    async CreateRoom(spaceId : string) {
-        console.log(process.pid + ": createRoom" , {spaceId});
-        if (!this.spaces.has(spaceId)){
-         this.spaces.set(spaceId , {
-            users : new Map<string , Users>(),
-            creatorId : "",
-         })
-         await this.subscriber.subscribe(spaceId , this)
+
+    async createRoom(spaceId: string) {
+        console.log(process.pid + ": createRoom: ", { spaceId });
+        if (!this.spaces.has(spaceId)) {
+          this.spaces.set(spaceId, {
+            users: new Map<string, User>(),
+            creatorId: "",
+          });
+        
+          await this.subscriber.subscribe(spaceId, this.onSubscribeRoom);
         }
-    }
+      }
+    
+
+
+    async addUser(userId: string, ws: WebSocket, token: string) {
+        let user = this.users.get(userId);
+        if (!user) {
+          this.users.set(userId, {
+            userId,
+            ws: [ws],
+            token,
+          });
+        } else {
+          if (!user.ws.some((existingWs : any ) => existingWs === ws)) {
+            user.ws.push(ws);
+          }
+        }
+      }
+    
+
+
+      async joinRoom(
+        spaceId: string,
+        creatorId: string,
+        userId: string,
+        ws: WebSocket,
+        token: string
+      ) {
+        console.log("Join Room" + spaceId);
+    
+        let space = this.spaces.get(spaceId);
+        let user = this.users.get(userId);
+    
+        if (!space) {
+          await this.createRoom(spaceId);
+          space = this.spaces.get(spaceId);
+        }
+    
+        if (!user) {
+          await this.addUser(userId, ws, token);
+          user = this.users.get(userId);
+        } else {
+          if (!user.ws.some((existingWs : any) => existingWs === ws)) {
+            user.ws.push(ws);
+          }
+        }
+    
+        this.wsToSpace.set(ws, spaceId);
+    
+        if (space && user) {
+          space.users.set(userId, user);
+          this.spaces.set(spaceId, {
+            ...space,
+            users: new Map(space.users),
+            creatorId: creatorId,
+          });
+        }
+      }
 
     publishEmptyQueue(spaceId: string) {
         const space = this.spaces.get(spaceId);
@@ -155,7 +249,7 @@ export class RoomManager {
           );
         }
       }
-      
+
     publishRemoveSong(spaceId : string , streamId : string){
         console.log("publishRemoveSong")
         const space = this.spaces.get(spaceId);
@@ -541,24 +635,27 @@ export class RoomManager {
     }
 
 
-    publishNewStream(spaceId : string , data : any){
+    publishNewStream(spaceId: string, data: any) {
         console.log(process.pid + ": PublishNewStream");
-        console.log("Publish New Stream" , spaceId)
+        console.log("Publish New Stream", spaceId);
         const space = this.spaces.get(spaceId);
-
-        if (space){
-            space?.users.forEach((user ,userId) => {
-                user?.ws.forEach((ws : WebSocket) {
+    
+        if (space) {
+            space.users.forEach((user, userId) => {
+                user?.ws?.forEach((ws: WebSocket) => { 
                     ws.send(
                         JSON.stringify({
-                            type : `new-stream/${spaceId}`,
-                            data : data
+                            type: `new-stream/${spaceId}`,
+                            data: data
                         })
-                    )
-                })
-            })
+                    );
+                });
+            });
+        } else {
+            console.error(`Space with ID ${spaceId} not found.`);
         }
     }
+    
 
     async adminStreamHandler(
         spaceId : string,
@@ -661,6 +758,40 @@ export class RoomManager {
 
         }
 
+        disconnect(ws : WebSocket){
+            console.log(process.pid + ": disconnect");
+            let userId: string | null = null;
+            const spaceId = this.wsToSpace.get(ws);
+            this.users.forEach((user , id)=>{
+                const wsIndex = user.ws.indexOf(ws);
+
+                if(wsIndex !== -1 ){
+                    userId = id;
+                    user.ws.splice(wsIndex, 1);
+                }
+
+                if (user.ws.length === 0){
+                    this.users.delete(id);
+                }
+            })
+
+            if (userId && spaceId){
+                const space = this.spaces.get(spaceId);
+                if(space){
+                    const updatedUsers = new Map(
+                        Array.from(space.users).filter(([userId]) => userId !== userId )
+                    );
+
+                    this.spaces.set(spaceId , {
+                        ...space,
+                        users : updatedUsers
+                    } );
+                }
+            }
+
+        }
+
+        
     async addToQueue(spaceId : string , currentUserId : string , url : string ){
         console.log(process.pid + ": addToQueue");
 
