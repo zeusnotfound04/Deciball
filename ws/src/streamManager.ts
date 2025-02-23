@@ -116,6 +116,60 @@ export class RoomManager {
         }
     }
 
+
+
+    async casteVote( 
+
+        userId : string,
+        streamId : string,
+        vote : "upvote" | "downvote",
+        spaceId : string
+    ){
+        console.log(process.pid + "casteVote")
+        const space = this.spaces.get(spaceId)
+        const currentUser = this.users.get(userId)
+        const creatorId = this.spaces.get(spaceId)?.creatorId;
+        const isCreator = currentUser?.userId === creatorId;
+
+        if(!space || !currentUser){
+            return;
+        }
+
+        if (!isCreator){
+            const lastVoted = await this.redisClient.get(
+                `lastVoted-${spaceId}-${userId}`
+            )
+            if (lastVoted){
+                currentUser?.ws.forEach((ws : WebSocket)=> {
+                    ws.send(
+                        JSON.stringify({
+                            type : "error",
+                            data : {
+                                message : "You can vote after 20 mins"
+                            }
+                        })
+                    )
+                    
+                });
+
+                return;
+            }
+
+            await this.queue.add("cast-vote" , {
+                creatorId,
+                userId,
+                streamId,
+                vote,
+                spaceId : spaceId
+            })
+        }
+
+
+
+
+    }
+
+
     publishNewStream(spaceId : string , data : any){
         console.log(process.pid + ": PublishNewStream");
         console.log("Publish New Stream" , spaceId)
