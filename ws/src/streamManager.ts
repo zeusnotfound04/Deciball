@@ -7,6 +7,12 @@ import { PrismaClient } from "@prisma/client";
 import { getVideoId, isValidYoutubeURL } from "./utils";
 const redisUrl = process.env.REDIS_URL
 
+
+
+
+const TIME_SPAN_FOR_VOTE = 1200000; // 20min
+const TIME_SPAN_FOR_QUEUE = 1200000; // 20min
+const TIME_SPAN_FOR_REPEAT = 3600000;
 const MAX_QUEUE_LENGTH = 20;
 
 
@@ -110,6 +116,108 @@ export class RoomManager {
         }
     }
 
+
+    async adminStreamHandler(
+        spaceId : string,
+        userId : string,
+        url : string,
+        existingActiveStream : string
+        ){
+            console.log(process.pid+"adminAddStreamHandler")
+            console.log("adminAddStreamHandler" , spaceId)
+            const room = this.spaces.get(spaceId)
+            const currentUser = this.users.get(userId)
+
+
+            if(!room || typeof existingActiveStream !== "number"){
+                return
+            }
+
+
+            const extractedId = getVideoId(url)
+
+
+            if(!extractedId){
+                currentUser?.ws.forEach((ws) => {
+                    ws.send(
+                        JSON.stringify({
+                            type : "error",
+                            data : {
+                                message : "Invalid Youtube URL"
+                            }
+                        })
+                    )
+                    
+                });
+                return
+            }
+
+            await this.redisClient.set(
+                `queue-length-${spaceId}`,
+                existingActiveStream + 1
+            )
+
+            const res = await  youtubesearchapi.GetVideoDetails(extractedId)
+
+
+            if (res.thumbnail){
+                const stream = await this.prisma.stream.create({
+                    data : {
+                        id : crypto.randomUUID();
+                        userId : userId ,
+                        url : url,
+                        extractedId,
+                        type : "Youtube",
+                        addedBy : userId,
+                        title : res.title ?? "Cant Find the video",
+                        smallImg : res.thumbnail.thumbnails[0].url,
+                        bigImg : res.thumbnail.thumbnails.at(-1).url,
+                        spaceId : spaceId
+
+                    }
+                })
+
+                await this.redisClient.set(`${spaceId}-${url}`, new Date().getTime(), {
+                    EX : TIME_SPAN_FOR_REPEAT / 1000,
+                }  )
+
+                await this.redisClient.set(
+                    `lastAdded-${spaceId}-${userId}`,
+                    new Date().getTime(),
+                    {
+                        EX : TIME_SPAN_FOR_REPEAT / 1000
+                    }
+
+                )
+
+                await this.publisher.publish(
+                    spaceId,
+                    JSON.stringify({
+                      type: "new-stream",
+                      data: {
+                        ...stream,
+                        hasUpvoted: false,
+                        upvotes: 0,
+                      },
+                    })
+                  );
+
+            } else {
+                currentUser?.ws.forEach((ws) => {
+                    ws.send(
+                        JSON.stringify({
+                            type : "error",
+                            data : {
+                                message : "Video Not Found"
+                            }
+                        })
+                    )
+                    
+                });
+            }
+
+        }
+
     async addToQueue(spaceId : string , currentUserId : string , url : string ){
         console.log(process.pid + ": addToQueue");
 
@@ -182,7 +290,7 @@ export class RoomManager {
             }
 
             if (previousQueueLength >=MAX_QUEUE_LENGTH){
-                currentUser.ws.forEach((ws) => {
+                currentUser.ws.forEach((ws ) => {
                     ws.send(
                         JSON.stringify({
                             type : "error",
