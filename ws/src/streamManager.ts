@@ -117,6 +117,56 @@ export class RoomManager {
     }
 
 
+    async adminCasteVote (
+        creatorId : string ,
+        userId : string,
+        streamId : string,
+        vote : string,
+        spaceId : string
+    ) {
+        console.log(process.pid + "adminCaste");
+        if (vote === "upvote"){
+            await this.prisma.upvote.create({
+              data: {
+                id : crypto.randomUUID(),
+                userId ,
+                streamId 
+              }
+            })
+        } else {
+            await this.prisma.upvote.delete({
+                where : {
+                    userId_streamId : {
+                        userId,
+                        streamId
+                    }
+                }
+            })
+        }
+
+        await this.redisClient.set(
+            `lastVoted-${spaceId}-${userId}`,
+            new Date().getTime(),
+            {
+                EX : TIME_SPAN_FOR_VOTE /1000,
+            }
+        )
+
+
+        await this.publisher.publish(
+            spaceId,
+            JSON.stringify({
+                type : "new-type",
+                data : {
+                    streamId,
+                    vote,
+                    voteBy : userId
+                }
+            })
+
+        )
+    }
+
 
     async casteVote( 
 
@@ -163,10 +213,6 @@ export class RoomManager {
                 spaceId : spaceId
             })
         }
-
-
-
-
     }
 
 
