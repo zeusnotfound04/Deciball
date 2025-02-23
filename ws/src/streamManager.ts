@@ -792,100 +792,102 @@ export class RoomManager {
         }
 
         
-    async addToQueue(spaceId : string , currentUserId : string , url : string ){
-        console.log(process.pid + ": addToQueue");
-
-        const space = this.spaces.get(spaceId);
-        const currentUser = this.users.get(currentUserId);
-        const creatorId = this.spaces.get(spaceId)?.creatorId;
-        const isCreator = currentUserId === creatorId;
+        async addToQueue(spaceId: string, currentUserId: string, url: string) {
+            console.log(process.pid + ": addToQueue");
         
-        if (!isValidYoutubeURL(url)){
-            currentUser?.ws.forEach((ws : WebSocket)=> {
+            const space = this.spaces.get(spaceId);
+            const currentUser = this.users.get(currentUserId);
+            const creatorId = this.spaces.get(spaceId)?.creatorId;
+            const isCreator = currentUserId === creatorId;
+        
+            if (!space || !currentUser) {
+              console.log("433: Room or User not defined");
+              return;
+            }
+        
+            if (!isValidYoutubeURL(url)) {
+              currentUser?.ws.forEach((ws) => {
                 ws.send(
+                  JSON.stringify({
+                    type: "error",
+                    data: { message: "Invalid YouTube URL" },
+                  })
+                );
+              });
+              return;
+            }
+        
+            let previousQueueLength = parseInt(
+              (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
+              10
+            );
+        
+            // Checking if its zero that means there was no record in
+            if (!previousQueueLength) {
+              previousQueueLength = await this.prisma.stream.count({
+                where: {
+                  spaceId: spaceId,
+                  played: false,
+                },
+              });
+            }
+        
+            if (!isCreator) {
+              let lastAdded = await this.redisClient.get(
+                `lastAdded-${spaceId}-${currentUserId}`
+              );
+        
+              if (lastAdded) {
+                currentUser.ws.forEach((ws) => {
+                  ws.send(
                     JSON.stringify({
-                        type: "error",
-                        data : { message : "Invalid Youtube URL"}
+                      type: "error",
+                      data: {
+                        message: "You can add again after 20 min.",
+                      },
                     })
-                )
-                
+                  );
+                });
+                return;
+              }
+              let alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`);
+        
+              if (alreadyAdded) {
+                currentUser.ws.forEach((ws) => {
+                  ws.send(
+                    JSON.stringify({
+                      type: "error",
+                      data: {
+                        message: "This song is blocked for 1 hour",
+                      },
+                    })
+                  );
+                });
+                return;
+              }
+        
+              if (previousQueueLength >= MAX_QUEUE_LENGTH) {
+                currentUser.ws.forEach((ws) => {
+                  ws.send(
+                    JSON.stringify({
+                      type: "error",
+                      data: {
+                        message: "Queue limit reached",
+                      },
+                    })
+                  );
+                });
+                return;
+              }
+            }
+        
+            await this.queue.add("add-to-queue", {
+              spaceId,
+              userId: currentUser.userId,
+              url,
+              existingActiveStream: previousQueueLength,
             });
-            return;
-        }
-
-        let previousQueueLength = parseInt(
-         (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
-         10
-        )
-
-
-        // checking if its zero that means theres is no record in
-
-        if (!previousQueueLength){
-            previousQueueLength = await this.prisma.stream.count({
-                where : {
-                    spaceId : spaceId,
-                    played : false,
-                }
-            })
-        }
-
-        if (!isCreator){
-            let lastAdded = await this.redisClient.get(
-                `lastAdded-${spaceId}-${currentUserId} `
-            )
-
-            if(lastAdded){
-                currentUser.ws.forEach((ws : WebSocket) => {
-                    ws.send(
-                        JSON.stringify({
-                            type : "error",
-                            data : {
-                                message : "You can add again after 20 min"
-                            }
-                        })
-                    )
-                    
-                });
-                return;
-            }
-            let alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`)
-
-            if (alreadyAdded){
-                currentUser.ws.forEach(() => {
-                    JSON.stringify({
-                        type : "error",
-                        data : {
-                            message :"This song is Blocked for 1 hour"
-                        }
-                    })
-                });
-                return;
-            }
-
-            if (previousQueueLength >=MAX_QUEUE_LENGTH){
-                currentUser.ws.forEach((ws : WebSocket ) => {
-                    ws.send(
-                        JSON.stringify({
-                            type : "error",
-                            data : {
-                                message : "Queue limit reached"
-                            }
-                        })
-                    )
-                    
-                });
-                return;
-            }
-
-            await this.queue.add("add-to-queue" ,{
-                spaceId,
-                userId : currentUser.userId,
-                url,
-                existingActiveStream : previousQueueLength,
-            })
-        }
-    }
+          }
     
 
 }
