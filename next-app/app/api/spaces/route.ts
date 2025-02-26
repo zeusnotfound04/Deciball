@@ -147,21 +147,25 @@ export async function GET(req:NextRequest) {
           }
       
          
-        const spaces=await prisma.space.findMany({
+        const spaces = await prisma.space.findMany({
             where:{
                 hostId:session.user.id
             }
         })
         return NextResponse.json(
             { success: true, message: "Spaces retrieved successfully", spaces },
-            { status: 200 })
+            { status: 200 }
+        )
       
     } catch (error:any) {
+
+
         console.error("Error retrieving space:", error);
-    return NextResponse.json(
-      { success: false, message: `Error retrieving space: ${error.message}` },
-      { status: 500 }
-    );
-        
+
+        return NextResponse.json(
+            { success: false, message: `Error retrieving space: ${error.message}` },
+            { status: 500 }
+        );
+            
     }
 }
