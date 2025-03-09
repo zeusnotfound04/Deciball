@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import ErrorScreen from "@/app/components/ErrorScreen";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import { useRouter } from "next/navigation";
+import StreamView from "@/app/components/StreamView";
 
 
 export default function Page({params : {spaceId}}: {params : {spaceId : string}}){
@@ -85,5 +86,5 @@ export default function Page({params : {spaceId}}: {params : {spaceId : string}}
 
 
 
-    return <div></div>
+    return <StreamView creatorId={creatorId as string} playVideo={true} spaceId={spaceId}/>
 }
