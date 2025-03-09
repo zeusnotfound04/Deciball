@@ -1,5 +1,5 @@
     import { useSession } from "next-auth/react";
-    import { createContext, Dispatch, SetStateAction , PropsWithChildren, useState, useEffect, useContext } from "react";
+    import { createContext, Dispatch, SetStateAction , PropsWithChildren, useState, useEffect, useContext, useCallback } from "react";
 
 
 
@@ -78,7 +78,7 @@
     export const useSocket = () => {
         const { socket , user , setUser , connectionError ,loading} = useContext(SocketContext);
 
-        const sendMessage = (type: string, data: { [key: string]: any }) => {
+        const sendMessage = useCallback((type: string, data: { [key: string]: any }) => {
             socket?.send(
             JSON.stringify({
                 type,
@@ -88,7 +88,7 @@
                 },
             })
             );
-        };
+        }, [socket , user]);
 
         return { socket , loading , setUser , sendMessage , user , connectionError}
     }
