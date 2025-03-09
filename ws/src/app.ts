@@ -136,6 +136,7 @@ async function handleUserAction(ws:WebSocket , type : string , data : Data) {
 
 async function handleConnection(ws:WebSocket) {
     ws.on("message" , async (raw : {toString : ()=> string}) => {
+        console.log(`Received: ${raw}`);
         const {type , data} = JSON.parse(raw.toString()) || {};
 
         switch (type){
@@ -148,7 +149,17 @@ async function handleConnection(ws:WebSocket) {
     } )
 
 
+    ws.on("error", (err : any) => {
+        if (err.code === "ECONNRESET") {
+            console.warn("⚠️ Client disconnected unexpectedly.");
+        } else {
+            console.error("WebSocket error:", err);
+        }
+    });
+
+
     ws.on("close" , () => {
+        console.log("❌ WebSocket connection disconnected.");
         RoomManager.getInstance().disconnect(ws)
     })
 }
@@ -157,8 +168,14 @@ async function handleConnection(ws:WebSocket) {
 async function main() {
     const server = createHttpServer();
     const wss = new WebSocketServer({server})
+    console.log("heii")
     await RoomManager.getInstance().initRedisClient();
-    wss.on("connection", (ws) => handleConnection(ws));
+    console.log("byeee")
+    wss.on("connection", (ws) => {
+        console.log("✅ New WebSocket connection established.");
+        handleConnection(ws)
+    }
+    );
     // wss.on("connection", (ws)=> handleConnection(ws))
 
     const PORT = process.env.PORT ?? 8080;

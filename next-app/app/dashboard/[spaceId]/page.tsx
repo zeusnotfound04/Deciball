@@ -5,20 +5,25 @@ import { useEffect, useState } from "react";
 import jwt from "jsonwebtoken";
 import ErrorScreen from "@/app/components/ErrorScreen";
 import LoadingScreen from "@/app/components/LoadingScreen";
-import { useRouter , useParams } from "next/navigation";
+import { useRouter  , useParams } from "next/navigation";
 import StreamView from "@/app/components/StreamView";
 
 
 export default function Page(){
-    const { socket , user  , setUser , connectionError , loading} = useSocket()
-
-    const [creatorId , setCreatorId] = useState<string | null>(null)
-    const [isLoading , setLoading] = useState<boolean>(true)
-
-    const router = useRouter();
     const params = useParams();
-    const spaceId = params.spaceId as string;
-    console.log("Bc Space Id yeh Hai ",spaceId)
+    const spaceId   = params.spaceId as string;
+
+    const { socket, user, setUser, connectionError, loading } = useSocket();
+    const [creatorId, setCreatorId] = useState("");
+    const [isLoading, setLoading] = useState(true);
+    const router = useRouter();
+
+    // Log space ID for debugging
+    useEffect(() => {
+        console.log("Space ID:", spaceId);
+    }, [spaceId]);
+
+    console.log("Websocket :" , socket)
 
     useEffect(()=> {
         async function fetchHostId() {
@@ -46,34 +51,44 @@ export default function Page(){
 
 
     useEffect(()=> {
-        if(user && socket && creatorId) {
-            const token = user.token || jwt.sign(
-                {
-                    creatorId : creatorId,
-                    userId : user?.id ,
-                },
-                process.env.NEXT_PUBLIC_SECRET || "",
-                {
-                    expiresIn : "24h"
+        async function connectToWebSocket() {
+            console.log("Second UseEffect Ran")
+            console.log("Creator Id" , creatorId)
+            if(user && socket && creatorId) {
+                console.log("trying to connect with websocket....")
+                const response = await axios.post("/api/generate-token", {
+                    creatorId,
+                    userId: user?.id,
+                });
+                const { token } = response.data;
+
+                console.log("trying to connect with websocket....")
+                socket?.send(
+                    JSON.stringify({
+                        type : "join-room",
+                        data : {
+                            token,
+                            spaceId
+                        },
+                    })
+                );
+
+                if (!user.token){
+                    setUser({...user , token})
                 }
-            );
-
-            socket?.send(
-                JSON.stringify({
-                    type : "join-room",
-                    data : {
-                        token,
-                        spaceId
-                    },
-                })
-            );
-
-            if (!user.token){
-                setUser({...user , token})
             }
-        }
+            }
+
+
+        connectToWebSocket();
+        
     } , [user , spaceId , creatorId , socket])
 
+    useEffect(() => {
+        if (creatorId && user?.id && creatorId === user.id) {
+            router.push(`/dashboard/${spaceId}`);
+        }
+    }, [creatorId, user?.id, spaceId, router]); 
     
 
     if(connectionError){
@@ -91,11 +106,11 @@ export default function Page(){
         return <LoadingScreen></LoadingScreen> 
     }
 
-    if(creatorId=== user?.id){
-        router.push(`/dashboard/${spaceId}`)
-    }
+    // if(creatorId=== user?.id){
+    //     router.push(`/dashboard/${spaceId}`)
+    // }
 
 
 
-    return <StreamView creatorId={creatorId as string} playVideo={true} spaceId={spaceId}/>
+    return <StreamView creatorId={creatorId} playVideo={true} spaceId={spaceId}/>
 }

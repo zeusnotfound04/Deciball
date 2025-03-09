@@ -1,7 +1,10 @@
+
 import type { Metadata } from "next";
 import "./globals.css";
 import SessionProviderWrapper from "./SessionProviderWrapper";
-import Container from "./components/ui/Container";
+// import Container from "./components/ui/Container";
+// import { SocketContextProvider } from "@/context/socket-context";
+import { Providers } from "./provider";
 
 
 export const metadata: Metadata = {
@@ -17,12 +20,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <SessionProviderWrapper>
+        {/* <SessionProviderWrapper> */}
           {/* <Container> */}
+           {/* <SocketContextProvider> */}
+<Providers>
 
-           {children}
+{children}
+</Providers>
+           {/* </SocketContextProvider> */}
+           
           {/* </Container> */}
-        </SessionProviderWrapper>
+        {/* </SessionProviderWrapper> */}
        
       </body>
     </html>
