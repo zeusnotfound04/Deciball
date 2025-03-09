@@ -1,3 +1,4 @@
+"use client"
 import { useSocket } from "@/context/socket-context";
 import { useState } from "react";
 import { useAutoAnimate } from "@formkit/auto-animate/react";

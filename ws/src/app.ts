@@ -108,8 +108,8 @@ async function  processUserAction(type: string , data : Data ) {
             });
             break;
     
-        case "pay-and-play-next":
-            await RoomManager.getInstance().payAndPlayNext(
+        case "next-play":
+            await RoomManager.getInstance().PlayNext(
             data.spaceId,
             data.userId,
             data.url

@@ -329,9 +329,9 @@ export class RoomManager {
       }
 
 
-    async payAndPlayNext(spaceId: string, userId: string, url: string) {
+    async PlayNext(spaceId: string, userId: string, url: string) {
         const creatorId = this.spaces.get(spaceId)?.creatorId;
-        console.log("payAndNext", creatorId, userId);
+        console.log("PlayNext", creatorId, userId);
     
         const targetUser = this.users.get(userId);
         if (!targetUser || !creatorId) return;

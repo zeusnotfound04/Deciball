@@ -1,6 +1,8 @@
 {
   "dependencies": {
-    "jsonwebtoken": "^9.0.2"
+    "@formkit/auto-animate": "^0.8.2",
+    "jsonwebtoken": "^9.0.2",
+    "sonner": "^2.0.1"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.9"
