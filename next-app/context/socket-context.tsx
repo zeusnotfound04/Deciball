@@ -1,91 +1,94 @@
-import { useSession } from "next-auth/react";
-import { createContext, Dispatch, SetStateAction , PropsWithChildren, useState, useEffect, useContext } from "react";
+    import { useSession } from "next-auth/react";
+    import { createContext, Dispatch, SetStateAction , PropsWithChildren, useState, useEffect, useContext } from "react";
 
 
 
-type SocketContextType = {
-    socket : null | WebSocket;
-    user : null | { id : string , token? : string}  ;
-    connectionError : boolean;
-    setUser : Dispatch<SetStateAction<{id : string , token ? : string} | null>>;
-    loading : boolean;
-}
+    type SocketContextType = {
+        socket : null | WebSocket;
+        user : null | { id : string , token? : string}  ;
+        connectionError : boolean;
+        setUser : Dispatch<SetStateAction<{id : string , token ? : string} | null>>;
+        loading : boolean;
+    }
 
 
-const SocketContext = createContext<SocketContextType>({
-    socket : null ,
-    user : null,
-    connectionError : false ,
-    setUser : () => {},
-    loading : true,
-})
+    const SocketContext = createContext<SocketContextType>({
+        socket : null ,
+        user : null,
+        connectionError : false ,
+        setUser : () => {},
+        loading : true,
+    })
 
 
-export const SocketContextProvider = ({ children } : PropsWithChildren) => {
-    const [socket , setSocket] = useState<WebSocket |   null>(null);
-    const [user , setUser] = useState<{id : string ; token ?: string} | null>(null);
-    const [connectionError , setConnectionError ] = useState<boolean>(false);
-    const [loading , setLoading] = useState(true);
-    const session = useSession();
+    export const SocketContextProvider = ({ children } : PropsWithChildren) => {
+        const [socket , setSocket] = useState<WebSocket |   null>(null);
+        const [user , setUser] = useState<{id : string ; token ?: string} | null>(null);
+        const [connectionError , setConnectionError ] = useState<boolean>(false);
+        const [loading , setLoading] = useState(true);
+        const session = useSession();
 
 
 
-    useEffect(() => {
-        if (!socket && session.data?.user.id){
-            const ws = new WebSocket(process.env.NEXT_PUBLIC_WSS_URL as string);
-            ws.onopen = () => {
-                setSocket(ws);
-                setUser(session.data?.user || null);
-                setLoading(false);
+        useEffect(() => {
+            if (!socket && session.data?.user.id){
+                const ws = new WebSocket(process.env.NEXT_PUBLIC_WSS_URL as string);
+                ws.onopen = () => {
+                    setSocket(ws);
+                    setUser(session.data?.user || null);
+                    setLoading(false);
+                }
+
+                ws.onclose = () =>{
+                    setSocket(null)
+                    setTimeout(()=> {
+                        setSocket(new WebSocket(process.env.NEXT_PUBLIC_WSS_URL as string))
+                    }, 5000 )
+                    setLoading(false)
+                }
+
+                ws.onerror =() => {
+                    setSocket(null)
+                    setConnectionError(true);
+                    setLoading(false)
+                }
+
+                () => {
+                    ws.close();
+                }
             }
+        } , [socket , session.data] )
 
-            ws.onclose = () =>{
-                setSocket(null)
-                setLoading(false)
-            }
+        return (
+            <SocketContext.Provider value={{
+                socket,
+                user,
+                connectionError,
+                setUser,
+                loading,
+            }}
+            >
 
-            ws.onerror =() => {
-                setSocket(null)
-                setConnectionError(true);
-                setLoading(false)
-            }
-
-            () => {
-                ws.close();
-            }
-        }
-    } , [socket , session.data] )
-
-    return (
-        <SocketContext.Provider value={{
-            socket,
-            user,
-            connectionError,
-            setUser,
-            loading,
-        }}
-        >
-
-            {children}
-        </SocketContext.Provider>
-    )
-}
+                {children}
+            </SocketContext.Provider>
+        )
+    }
 
 
-export const useSocket = () => {
-    const { socket , user , setUser , connectionError ,loading} = useContext(SocketContext);
+    export const useSocket = () => {
+        const { socket , user , setUser , connectionError ,loading} = useContext(SocketContext);
 
-    const sendMessage = (type: string, data: { [key: string]: any }) => {
-        socket?.send(
-          JSON.stringify({
-            type,
-            data: {
-              ...data,
-              token: user?.token,
-            },
-          })
-        );
-      };
+        const sendMessage = (type: string, data: { [key: string]: any }) => {
+            socket?.send(
+            JSON.stringify({
+                type,
+                data: {
+                ...data,
+                token: user?.token,
+                },
+            })
+            );
+        };
 
-    return { socket , loading , setUser , sendMessage , user , connectionError}
-}
+        return { socket , loading , setUser , sendMessage , user , connectionError}
+    }
