@@ -25,7 +25,7 @@ export default function Header() {
           whileTap={{ scale: 0.95 }}
           className="text-3xl font-extrabold font-display bg-gradient-to-r from-teal-400 to-blue-500 text-transparent bg-clip-text"
         >
-          StreamSync
+          Deciball
         </motion.div>
 
       

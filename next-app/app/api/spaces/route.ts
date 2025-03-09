@@ -16,6 +16,7 @@ export async function POST(req:NextRequest) {
         }
 
         const data = await req.json();
+        console.log(data)
 
         if (!data.spaceName ) {
             return NextResponse.json(

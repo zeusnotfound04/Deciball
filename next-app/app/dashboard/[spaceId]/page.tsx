@@ -5,19 +5,20 @@ import { useEffect, useState } from "react";
 import jwt from "jsonwebtoken";
 import ErrorScreen from "@/app/components/ErrorScreen";
 import LoadingScreen from "@/app/components/LoadingScreen";
-import { useRouter } from "next/navigation";
+import { useRouter , useParams } from "next/navigation";
 import StreamView from "@/app/components/StreamView";
 
 
-export default function Page({params : {spaceId}}: {params : {spaceId : string}}){
+export default function Page(){
     const { socket , user  , setUser , connectionError , loading} = useSocket()
 
     const [creatorId , setCreatorId] = useState<string | null>(null)
     const [isLoading , setLoading] = useState<boolean>(true)
-    
-    const router = useRouter();
 
-    console.log(spaceId)
+    const router = useRouter();
+    const params = useParams();
+    const spaceId = params.spaceId as string;
+    console.log("Bc Space Id yeh Hai ",spaceId)
 
     useEffect(()=> {
         async function fetchHostId() {
