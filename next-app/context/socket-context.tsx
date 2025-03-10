@@ -71,10 +71,13 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
 export const useSocket = () => {
   const { socket, user, setUser, connectionError, loading } = useContext(SocketContext);
-  console.log("Logging the Socket form the context", socket)
+  // console.log("Logging the Socket form the context", socket)
 
   const sendMessage = useCallback(
     (type: string, data: { [key: string]: any }) => {
+      console.log("DATA SENDING TO SOCKET SERVER : " , data)
+      console.log("TOKEN SENDING TO SOCKET SERVER : " , user?.token)
+      
       if (!socket || socket.readyState !== WebSocket.OPEN) {
         console.warn("WebSocket is not connected.");
         return;

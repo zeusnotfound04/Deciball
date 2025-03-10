@@ -45,9 +45,10 @@ function createHttpServer() {
 
 
 async function handleJoinRoom(ws: WebSocket , data : Data){
+    console.log("Joining the room")
     jwt.verify(
         data.token,
-        process.env.NEXTAUTH_SECRET as string,
+        process.env.JWT_SECRET as string,
         (err : any , decoded : any) => {
             if(err){
                 console.log(err)
@@ -78,6 +79,7 @@ async function  processUserAction(type: string , data : Data ) {
             break;
         
         case "add-to-queue":
+            console.log("ADD TO QUEUE FUNCTION IS GOING TO TRIGGER")
             await RoomManager.getInstance().addToQueue(
                   data.spaceId,
                   data.userId,
@@ -124,6 +126,8 @@ async function  processUserAction(type: string , data : Data ) {
 
 async function handleUserAction(ws:WebSocket , type : string , data : Data) {
     const user = RoomManager.getInstance().users.get(data.userId);
+    console.log("Checking user in RoomManager:", data.userId);
+    console.log("All users:", RoomManager.getInstance().users);
 
 
     if (user){

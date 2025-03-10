@@ -30,13 +30,14 @@ import {
   Input
 } from "@/app/components/ui/input"
 import axios from "axios"
+import { useRouter } from "next/navigation"
 
 const formSchema = z.object({
   spaceName: z.string().min(1)
 });
 
 export default function Page() {
-
+  const router = useRouter()
   const form = useForm < z.infer < typeof formSchema >> ({
     resolver: zodResolver(formSchema),
 
@@ -46,13 +47,11 @@ export default function Page() {
     try {
       console.log(values);
       const response = await axios.post("/api/spaces" , values)
-      console.log(response)
+      const spaceId = response.data.space.id;
+
+      router.push(`/dashboard/${spaceId}`)
       
-      toast(
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(values, null, 2)}</code>
-        </pre>
-      );
+      
     } catch (error) {
       console.error("Form submission error", error);
       toast.error("Failed to submit the form. Please try again.");
@@ -72,7 +71,7 @@ export default function Page() {
               <FormControl>
                 <Input 
                 placeholder="Space Name"
-                
+
                 type=""
                 {...field} />
               </FormControl>

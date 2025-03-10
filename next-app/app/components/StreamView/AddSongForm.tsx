@@ -38,10 +38,11 @@ export default function AddSongForm({
         const {sendMessage} = useSocket();
         const user = useSession().data?.user;
         const handleSubmit = async (e: React.FormEvent) => {
+
             e.preventDefault();
             if (inputLink.match(YT_REGEX)) {
               setLoading(true);
-              
+              console.log("Adding the song from the client")
               sendMessage("add-to-queue", {
                 spaceId,
                 userId,

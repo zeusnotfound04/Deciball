@@ -2,7 +2,7 @@
 import { useSocket } from "@/context/socket-context";
 import axios from "axios";
 import { useEffect, useState } from "react";
-import jwt from "jsonwebtoken";
+
 import ErrorScreen from "@/app/components/ErrorScreen";
 import LoadingScreen from "@/app/components/LoadingScreen";
 import { useRouter  , useParams } from "next/navigation";
@@ -56,11 +56,13 @@ export default function Page(){
             console.log("Creator Id" , creatorId)
             if(user && socket && creatorId) {
                 console.log("trying to connect with websocket....")
+                console.log("USER ID : ", user?.id )
                 const response = await axios.post("/api/generate-token", {
                     creatorId,
                     userId: user?.id,
                 });
                 const { token } = response.data;
+                console.log(token)
 
                 console.log("trying to connect with websocket....")
                 socket?.send(

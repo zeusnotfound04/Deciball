@@ -5,6 +5,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { creatorId, userId } = body;
+        console.log( "Logging the creator ID and USER ID" ,  creatorId , userId)
 
         if (!creatorId || !userId) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });

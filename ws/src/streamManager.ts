@@ -834,7 +834,7 @@ export class RoomManager {
                 },
               });
             }
-        
+            console.log("PREVIOUS QUEUE LENGTH" , previousQueueLength)
             if (!isCreator) {
               let lastAdded = await this.redisClient.get(
                 `lastAdded-${spaceId}-${currentUserId}`
@@ -883,6 +883,7 @@ export class RoomManager {
                 return;
               }
             }
+            console.log("GOING TO ADD THE QUEUE")
         
             await this.queue.add("add-to-queue", {
               spaceId,
