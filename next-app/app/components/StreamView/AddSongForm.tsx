@@ -22,8 +22,6 @@ type Props = {
     isSpectator : boolean
 }
 
-
-
 export default function AddSongForm({
     inputLink,
     enqueueToast,
@@ -124,6 +122,4 @@ export default function AddSongForm({
             )}
           </>
           )
-
-
 }

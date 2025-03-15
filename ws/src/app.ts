@@ -1,4 +1,4 @@
-import { WebSocket , WebSocketServer } from "ws";
+import { CONNECTING, WebSocket , WebSocketServer } from "ws";
 import cluster from "cluster";
 import http from "http"
 import dotenv from "dotenv"
@@ -88,10 +88,12 @@ async function  processUserAction(type: string , data : Data ) {
             break;
 
         case "play-next":
-            await RoomManager.getInstance().queue.add("play-next",{
-                    spaceId: data.spaceId,
-                    userId : data.userId
-                } )
+            console.log("PLAY NEXT FUNCTION IS GOING TO TRIGGER")
+            await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId);
+            // await RoomManager.getInstance().queue.add("play-next",{
+            //         spaceId: data.spaceId,
+            //         userId : data.userId
+            //     } )
             break;
 
         case "remove-song":

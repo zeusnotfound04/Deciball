@@ -2,7 +2,7 @@ import WebSocket from "ws";
 import { createClient, RedisClientType } from "redis";
 //@ts-ignore
 import youtubesearchapi from "youtube-search-api";
-import { Job, Queue, Worker } from "bullmq";
+import { Job, Queue, tryCatch, Worker } from "bullmq";
 import { PrismaClient } from "@prisma/client";
 import { getVideoId, isValidYoutubeURL } from "./utils";
 
@@ -87,6 +87,7 @@ export class RoomManager {
 
 
     async processJob(job: Job) {
+      try{
         const { data, name } = job;
         if (name === "cast-vote") {
           await RoomManager.getInstance().adminCasteVote(
@@ -97,12 +98,14 @@ export class RoomManager {
             data.spaceId
           );
         } else if (name === "add-to-queue") {
+          console.log("Processing add-to-queue job", data);
           await RoomManager.getInstance().adminStreamHandler(
             data.spaceId,
             data.userId,
             data.url,
             data.existingActiveStream
           );
+          console.log("Finished processing add-to-queue job");
         } else if (name === "play-next") {
           await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId);
         } else if (name === "remove-song") {
@@ -114,6 +117,11 @@ export class RoomManager {
         } else if (name === "empty-queue") {
           await RoomManager.getInstance().adminEmptyQueue(data.spaceId);
         }
+      } catch(error : any){
+        console.error("Error processing job:", error);
+        throw error; // Re-throw to mark job as failed
+      }
+        
       }
     
 
@@ -664,7 +672,7 @@ export class RoomManager {
         spaceId : string,
         userId : string,
         url : string,
-        existingActiveStream : string
+        existingActiveStream? : any
         ){
             console.log(process.pid+"adminAddStreamHandler")
             console.log("adminAddStreamHandler" , spaceId)
@@ -672,9 +680,9 @@ export class RoomManager {
             const currentUser = this.users.get(userId)
 
 
-            if(!room || typeof existingActiveStream !== "number"){
-                return
-            }
+            // if(!room || typeof existingActiveStream !== "number"){
+            //     return
+            // }
 
 
             const extractedId = getVideoId(url)
@@ -834,6 +842,9 @@ export class RoomManager {
                 },
               });
             }
+
+            const isFirstSong = previousQueueLength === 0;
+
             console.log("PREVIOUS QUEUE LENGTH" , previousQueueLength)
             if (!isCreator) {
               let lastAdded = await this.redisClient.get(
@@ -885,12 +896,29 @@ export class RoomManager {
             }
             console.log("GOING TO ADD THE QUEUE")
         
-            await this.queue.add("add-to-queue", {
+            await this.adminStreamHandler(
               spaceId,
-              userId: currentUser.userId,
+              currentUserId, 
               url,
-              existingActiveStream: previousQueueLength,
-            });
+              previousQueueLength,
+          );
+
+            // await this.queue.add("add-to-queue", {
+            //   spaceId,
+            //   userId: currentUser.userId,
+            //   url,
+            //   existingActiveStream: previousQueueLength,
+            // });
+
+
+            if (isFirstSong) {
+              console.log("🎗️First song in queue, playing immediately");
+
+              setTimeout(async () => {
+                  await this.adminPlayNext(spaceId, currentUserId);
+              }, 1000);
+          }
+
           }
 }
 
