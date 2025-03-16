@@ -33,5 +33,5 @@ A place where **real-time communication** meets a **powerful UI**. Built for per
 
 ### 1️⃣ **Clone this banger:**  
 ```bash
-git clone https://github.com/your-username/deciball.git
+git clone https://github.com/zeusnotfound04/deciball.git
 cd deciball
