@@ -90,8 +90,9 @@ export class RoomManager {
       try{
         const { data, name } = job;
         if (name === "cast-vote") {
+          console.log("From the Process Job 💦 Going to caste the vote (btw em minor)")
           await RoomManager.getInstance().adminCasteVote(
-            data.creatorId,
+            // data.creatorId,
             data.userId,
             data.streamId,
             data.vote,
@@ -548,13 +549,17 @@ export class RoomManager {
     }
 
     async adminCasteVote (
-        creatorId : string ,
+        // creatorId : string ,
         userId : string,
         streamId : string,
         vote : string,
         spaceId : string
     ) {
+
+
         console.log(process.pid + "adminCaste");
+
+        console.log("Inside the admin caste vote 🥶")
         if (vote === "upvote"){
             await this.prisma.upvote.create({
               data: {
@@ -598,53 +603,67 @@ export class RoomManager {
     }
 
 
-    async casteVote( 
+    async casteVote(
+      userId: string,
+      streamId: string,
+      vote: "upvote" | "downvote",
+      spaceId: string
+  ) {
+      console.log(process.pid + "casteVote")
+      console.log("Inside the casting vote function 🥳")
+      
+      const space = this.spaces.get(spaceId)
+      const currentUser = this.users.get(userId)
+      const creatorId = this.spaces.get(spaceId)?.creatorId;
+      const isCreator = currentUser?.userId === creatorId;
+  
+      console.log(userId)
+      console.log(streamId)
+      console.log(vote)
+      console.log(spaceId)
+    
+      // Make sure space and currentUser exist
+      // if(!space || !currentUser){
+      //     return;
+      // }
 
-        userId : string,
-        streamId : string,
-        vote : "upvote" | "downvote",
-        spaceId : string
-    ){
-        console.log(process.pid + "casteVote")
-        const space = this.spaces.get(spaceId)
-        const currentUser = this.users.get(userId)
-        const creatorId = this.spaces.get(spaceId)?.creatorId;
-        const isCreator = currentUser?.userId === creatorId;
-
-        if(!space || !currentUser){
-            return;
+      console.log("Calling the admin caste vote function")
+          // Fix: Match the parameters with the adminCasteVote function
+          await this.adminCasteVote(
+              userId,
+              streamId,
+              vote,
+              spaceId
+          );
+  
+      if (!isCreator){
+          const lastVoted = await this.redisClient.get(
+              `lastVoted-${spaceId}-${userId}`
+          )
+          if (lastVoted){
+              currentUser?.ws.forEach((ws : WebSocket)=> {
+                  ws.send(
+                      JSON.stringify({
+                          type : "error",
+                          data : {
+                              message : "You can vote after 20 mins"
+                          }
+                      })
+                  )
+              });
+              return;
         }
-
-        if (!isCreator){
-            const lastVoted = await this.redisClient.get(
-                `lastVoted-${spaceId}-${userId}`
-            )
-            if (lastVoted){
-                currentUser?.ws.forEach((ws : WebSocket)=> {
-                    ws.send(
-                        JSON.stringify({
-                            type : "error",
-                            data : {
-                                message : "You can vote after 20 mins"
-                            }
-                        })
-                    )
-                    
-                });
-
-                return;
-            }
-
-            await this.queue.add("cast-vote" , {
-                creatorId,
-                userId,
-                streamId,
-                vote,
-                spaceId : spaceId
-            })
-        }
-    }
-
+          
+          console.log("Calling the admin caste vote function")
+          // Fix: Match the parameters with the adminCasteVote function
+          await this.adminCasteVote(
+              userId,
+              streamId,
+              vote,
+              spaceId
+          );
+      }
+  }
 
     publishNewStream(spaceId: string, data: any) {
         console.log(process.pid + ": PublishNewStream");

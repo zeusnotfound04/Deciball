@@ -70,6 +70,7 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
 async function  processUserAction(type: string , data : Data ) {
     switch (type) {
         case "cast-vote":
+            console.log("🐉 Going to caste the vote (btw em minor)")
             await RoomManager.getInstance().casteVote(
                 data.userId,
                 data.streamId,
