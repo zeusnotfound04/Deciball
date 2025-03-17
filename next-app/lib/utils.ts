@@ -1,3 +1,4 @@
+import { searchResults } from "@/types";
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -16,4 +17,17 @@ export function generateSpaceId(length = 8) {
     roomId += characters.charAt(Math.floor(Math.random() * characters.length));
   }
   return roomId;
+}
+
+
+
+export default function getURL(currentSong: searchResults) {
+  const currentSongUrl =
+    currentSong?.downloadUrl[currentSong.downloadUrl.length - 1]?.url;
+  const currentVideoUrl = currentSongUrl?.startsWith("http")
+    ? currentSongUrl
+    : `${process.env.STREAM_URL}/${currentSongUrl}` ||
+      "https://fzrikj5pca.ufs.sh/f/5YNrqr2QLJnxupp8GI0qKT58dI3l4qaoDABLFybZUQJitNgR";
+
+  return currentVideoUrl;
 }
