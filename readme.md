@@ -7,7 +7,7 @@
 
 ## 💥 What is DeciBall?  
 **DeciBall** is not your average project — it's a **beat-driven**, **real-time**, and **electrifying** platform that merges **WebSockets**, **Redis**, **Prisma**, and **Next.js** to make the data flow like a bass drop! 🚀🎧  
-
+-----------------------------------------------
 > **“Turn up the decibels, and let the data dance!”** 🎛️🎶  
 
 A place where **real-time communication** meets a **powerful UI**. Built for performance, scalability, and chaos — because who doesn't love a little bit of both? 🤯💥  
