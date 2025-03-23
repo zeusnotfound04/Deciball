@@ -50,11 +50,11 @@ model Stream {
 
 model CurrentStream {
   id            String @id @default(uuid())
-  userId       String  
-  streamId String? @unique
-  stream   Stream? @relation(fields: [streamId], references: [id])
-  spaceId     String? @unique
-  space    Space?    @relation(fields: [spaceId], references: [id],onDelete: Cascade)
+  userId        String  
+  streamId      String? @unique
+  stream        Stream? @relation(fields: [streamId], references: [id])
+  spaceId       String? @unique
+  space         Space?    @relation(fields: [spaceId], references: [id],onDelete: Cascade)
 }
 
 model Upvote {
@@ -67,13 +67,13 @@ model Upvote {
   @@unique([userId, streamId])
 }
 model Space {
-  id            String      @id @default(uuid())
-  name          String
-  streams        Stream[]     @relation("spaceStreams")
-  hostId        String
-  host          User        @relation("hostedBy", fields: [hostId], references: [id])
-  isActive      Boolean     @default(true)
-  currentStream CurrentStream?
+  id              String      @id @default(uuid())
+  name            String
+  streams         Stream[]     @relation("spaceStreams")
+  hostId          String
+  host            User        @relation("hostedBy", fields: [hostId], references: [id])
+  isActive        Boolean     @default(true)
+  currentStream   CurrentStream?
 }
 enum StreamType {
   Spotify
