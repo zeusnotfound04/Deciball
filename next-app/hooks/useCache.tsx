@@ -1,7 +1,6 @@
 import getURL, { getBackgroundURL } from "@/lib/utils";
 import { useAudio } from "@/store/audioStore";
 import { useUserStore } from "@/store/userStore";
-import { getRequestMeta } from "next/dist/server/request-meta";
 import { useCallback, useEffect, useMemo } from "react";
 
 
