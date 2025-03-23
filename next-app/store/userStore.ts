@@ -138,7 +138,6 @@ export const useUserStore = create<UserStoreState>()(
       name: "user-store", 
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        // Exclude WebSocket from being persisted
         ...state,
         ws: null
       }),
