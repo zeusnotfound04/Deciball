@@ -1,9 +1,6 @@
 
 import type { Metadata } from "next";
 import "./globals.css";
-import SessionProviderWrapper from "./SessionProviderWrapper";
-// import Container from "./components/ui/Container";
-// import { SocketContextProvider } from "@/context/socket-context";
 import { Providers } from "./provider";
 
 

@@ -2,86 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 2, 6, 23;
-    --background-end-rgb: 10, 25, 41;
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
   }
-  
-  body {
-    color: rgb(var(--foreground-rgb));
-    background: linear-gradient(to bottom, transparent, rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.1);
+    border-radius: 10px;
   }
-  
-  @layer utilities {
-    .text-gradient {
-      @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300;
-    }
-  
-    .bg-glass {
-      @apply bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg;
-    }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(14, 165, 233, 0.5);
+    border-radius: 10px;
   }
-  
-  .glow-effect {
-    box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
-    transition: box-shadow 0.3s ease-in-out;
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(14, 165, 233, 0.7);
   }
-  
-  .glow-effect:hover {
-    box-shadow: 0 0 30px rgba(56, 189, 248, 0.8);
-  }
-  
-  @keyframes float {
-    0% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-20px);
-    }
-    100% {
-      transform: translateY(0px);
-    }
-  }
-  
-  .float-animation {
-    animation: float 6s ease-in-out infinite;
-  }
-  
-  @keyframes pulse {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.05);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-  
-  .pulse-animation {
-    animation: pulse 4s ease-in-out infinite;
-  }
-  
-  @keyframes shimmer {
-    0% {
-      background-position: -1000px 0;
-    }
-    100% {
-      background-position: 1000px 0;
-    }
-  }
-  
-  .shimmer-effect {
-    background: linear-gradient(
-      to right,
-      rgba(56, 189, 248, 0.1) 8%,
-      rgba(56, 189, 248, 0.2) 18%,
-      rgba(56, 189, 248, 0.1) 33%
-    );
-    background-size: 1000px 100%;
-    animation: shimmer 2s linear infinite;
-  }
-  
-  
+}
+
