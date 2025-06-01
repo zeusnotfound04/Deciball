@@ -10,7 +10,7 @@
 -----------------------------------------------
 > **“Turn up the decibels, and let the data dance!”** 🎛️🎶  
 
-A place where **real-time communication** meets a **powerful UI**. Built for performance, scalability, and chaos — because who doesn't love a little bit of both? 🤯💥  
+A place where **real-time communication** meets a **powerful UI**. Built for performance, scalability, and chaos — because who doesn't love a little bit of both? 💥  
 
 ---
 
