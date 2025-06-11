@@ -1,131 +1,60 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { useState } from "react"
-import { Menu, X } from "lucide-react"
-import { signIn, signOut, useSession } from "next-auth/react"
-import { Button } from "./ui/button"
+import { useState, useEffect } from "react"
 import Link from "next/link"
+import { Button } from "@/app/components/ui/button"
+import { Menu } from "lucide-react"
 
 export default function Header() {
-  const session = useSession()
-  const [isOpen, setIsOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0)
+    }
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   return (
-    <motion.header
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="fixed w-full z-50 bg-[rgba(15,15,15,0.75)] backdrop-blur-lg shadow-lg border-b border-gray-800"
-    >
-      <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-        {/* Logo */}
-        <motion.div
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="text-3xl font-extrabold font-display bg-gradient-to-r from-teal-400 to-blue-500 text-transparent bg-clip-text"
+    <header className={`fixed w-full z-10 transition-all duration-300 ${isScrolled ? "bg-black" : "bg-transparent"}`}>
+      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+        <Link href="/" className="text-3xl font-bold tracking-tighter">
+          deciball
+        </Link>
+        <div className="md:hidden">
+          <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            <Menu />
+          </Button>
+        </div>
+        <nav
+          className={`${isMenuOpen ? "block" : "hidden"} md:block absolute md:relative top-full left-0 w-full md:w-auto bg-black md:bg-transparent`}
         >
-          Deciball
-        </motion.div>
-
-      
-        <nav className="hidden md:flex space-x-6 items-center">
-          {session.data?.user ? (
-            <>
-
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="text-gray-300 font-semibold px-5 py-2 rounded-lg border border-gray-700 bg-gray-900 shadow-md"
-              >
-                {session.data.user.username}
-              </motion.div>
-
-              {/* Sign Out Button */}
-              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Button
-                  className="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-500 transition-all duration-200"
-                  onClick={() => signOut()}
-                >
-                  Sign Out
-                </Button>
-              </motion.div>
-            </>
-          ) : (
-            <>
-              
-              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Link href="/signup">
-                  <Button className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-500 transition-all duration-200">
-                    Sign Up
-                  </Button>
-                </Link>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Link href="/login">
-                  <Button className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-500 transition-all duration-200">
-                    Login
-                  </Button>
-                </Link>
-              </motion.div>
-            </>
-          )}
+          <ul className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-8 p-4 md:p-0">
+            <li>
+              <Link href="#beats" className="hover:text-purple-400 transition-colors">
+                Beats
+              </Link>
+            </li>
+            <li>
+              <Link href="#about" className="hover:text-purple-400 transition-colors">
+                About
+              </Link>
+            </li>
+            <li>
+              <Link href="#contact" className="hover:text-purple-400 transition-colors">
+                Contact
+              </Link>
+            </li>
+          </ul>
         </nav>
-
- 
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setIsOpen(!isOpen)}
-          className="md:hidden text-gray-300 hover:text-white transition-colors"
-        >
-          {isOpen ? <X size={28} /> : <Menu size={28} />}
-        </motion.button>
+        <Button asChild variant="outline" className="hidden md:block">
+          <a href="https://drqnnel.beatstars.com" target="_blank" rel="noopener noreferrer">
+            BeatStars
+          </a>
+        </Button>
       </div>
-
-      {isOpen && (
-        <motion.nav
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className="md:hidden bg-gray-900 py-6 space-y-4 text-center"
-        >
-          {session.data?.user ? (
-            <>
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="text-gray-300 font-semibold px-5 py-2 rounded-lg border border-gray-700 bg-gray-900 mx-auto inline-block shadow-md"
-              >
-                {session.data.user.username}
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Button
-                  className="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-500 transition-all duration-200"
-                  onClick={() => signOut()}
-                >
-                  Sign Out
-                </Button>
-              </motion.div>
-            </>
-          ) : (
-            <>
-              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Link href="/signup">
-                  <Button className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-500 transition-all duration-200">
-                    Sign Up
-                  </Button>
-                </Link>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Link href="/login">
-                  <Button className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-500 transition-all duration-200">
-                    Login
-                  </Button>
-                </Link>
-              </motion.div>
-            </>
-          )}
-        </motion.nav>
-      )}
-    </motion.header>
+    </header>
   )
 }
