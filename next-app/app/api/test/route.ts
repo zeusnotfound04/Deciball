@@ -1,27 +1,34 @@
-import { getSpotifyApi } from "@/lib/spotify";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { searchTracks, searchPlaylists } from '@/lib/spotify';
 
-export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  console.log("➡️ Raw Authorization Header:", authHeader);
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get('q');
+  const type = searchParams.get('type') || 'track'; // 'track' or 'playlist'
+  const limit = parseInt(searchParams.get('limit') || '20');
+  const offset = parseInt(searchParams.get('offset') || '0');
 
-  const token = authHeader?.replace("Bearer ", "").trim();
-  console.log("🪪 Extracted Token:", token ? "[REDACTED]" : "null");
-
-  if (!token) {
-    console.warn("❌ No token provided");
-    return new NextResponse("No token provided", { status: 401 });
+  if (!query) {
+    return NextResponse.json(
+      { error: 'Query parameter is required' },
+      { status: 400 }
+    );
   }
 
-  const spotify = getSpotifyApi(token);
-  console.log("🎧 Spotify client initialized with access token");
-
   try {
-    const me = await spotify.getMe();
-    console.log("✅ Spotify getMe response:", me.body);
-    return NextResponse.json(me.body);
+    let results;
+    
+    if (type === 'playlist') {
+      results = await searchPlaylists(query, limit, offset);
+    } else {
+      results = await searchTracks(query, limit, offset);
+    }
+
+    return NextResponse.json(results);
   } catch (error: any) {
-    console.error("❌ Spotify API error:", error.message || error);
-    return new NextResponse("Spotify API error", { status: 500 });
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 }
