@@ -1,32 +1,34 @@
-// app/api/search/route.ts
-import { getAccessToken } from '@/lib/spotify';
 import { NextRequest, NextResponse } from 'next/server';
+import { searchTracks, searchPlaylists } from '@/lib/spotify';
 
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get('q');
+  const type = searchParams.get('type') || 'track'; // 'track' or 'playlist'
+  const limit = parseInt(searchParams.get('limit') || '20');
+  const offset = parseInt(searchParams.get('offset') || '0');
 
-export async function GET(req: NextRequest) {
-  const query = req.nextUrl.searchParams.get('q');
   if (!query) {
-    return NextResponse.json({ error: 'Missing query parameter' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Query parameter is required' },
+      { status: 400 }
+    );
   }
 
   try {
-    const token = await getAccessToken();
-    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=10`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      return NextResponse.json({ error: errorData.error.message }, { status: res.status });
+    let results;
+    
+    if (type === 'playlist') {
+      results = await searchPlaylists(query, limit, offset);
+    } else {
+      results = await searchTracks(query, limit, offset);
     }
 
-    const data = await res.json();
-    console.log('Fetched data:', data); // Log the fetched tracks
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error('Error fetching tracks:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(results);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    );
   }
 }
