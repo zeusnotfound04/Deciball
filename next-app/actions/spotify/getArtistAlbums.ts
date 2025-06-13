@@ -1,4 +1,4 @@
-import { getSpotifyApi } from "./getToken";
+import { getSpotifyApi } from "@/lib/spotify";
 
 export async function getArtistAlbums(artistId: string, options?: {
   include_groups?: string;

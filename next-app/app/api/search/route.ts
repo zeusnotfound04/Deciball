@@ -1,5 +1,7 @@
+import { searchPlaylists } from '@/actions/spotify/searchPlayList';
+import { searchTracks } from '@/actions/spotify/searchTracks';
 import { NextRequest, NextResponse } from 'next/server';
-import { searchTracks, searchPlaylists } from '@/lib/spotify';
+// import { searchTracks, searchPlaylists } from '@/lib/spotify';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -23,6 +25,7 @@ export async function GET(request: NextRequest) {
     } else {
       results = await searchTracks(query, limit, offset);
     }
+    console.log(results)
 
     return NextResponse.json(results);
   } catch (error: any) {

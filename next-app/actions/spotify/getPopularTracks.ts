@@ -1,4 +1,4 @@
-import { getSpotifyApi } from "./getToken";
+import { getSpotifyApi } from "@/lib/spotify";
 
 export async function getPopularTracks(country: string = 'US', limit: number = 50) {
   const api = await getSpotifyApi();

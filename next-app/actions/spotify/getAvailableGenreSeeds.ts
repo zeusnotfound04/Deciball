@@ -1,4 +1,4 @@
-import { getSpotifyApi } from "./getToken";
+import { getSpotifyApi } from "@/lib/spotify";
 
 export async function getAvailableGenreSeeds() {
   const api = await getSpotifyApi();

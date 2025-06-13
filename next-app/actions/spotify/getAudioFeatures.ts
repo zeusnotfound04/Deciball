@@ -1,4 +1,4 @@
-import { getSpotifyApi } from "./getToken";
+import { getSpotifyApi } from "@/lib/spotify";
 
 export async function getAudioFeatures(trackId: string) {
   const api = await getSpotifyApi();

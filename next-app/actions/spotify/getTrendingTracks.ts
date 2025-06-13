@@ -1,5 +1,5 @@
 import { getFeaturedPlaylists } from "./getFeaturedPlaylist";
-import { getSpotifyApi } from "./getToken";
+import { getSpotifyApi } from "@/lib/spotify";
 
 export async function getTrendingTracks(limit: number = 20) {
   const api = await getSpotifyApi();

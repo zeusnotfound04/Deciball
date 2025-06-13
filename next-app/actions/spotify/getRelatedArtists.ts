@@ -1,4 +1,4 @@
-import { getSpotifyApi } from "./getToken";
+import { getSpotifyApi } from "@/lib/spotify";
 
 export async function getRelatedArtists(artistId: string) {
   const api = await getSpotifyApi();
