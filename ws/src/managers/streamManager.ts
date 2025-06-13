@@ -4,7 +4,8 @@ import { createClient, RedisClientType } from "redis";
 import youtubesearchapi from "youtube-search-api";
 import { Job, Queue, tryCatch, Worker } from "bullmq";
 import { PrismaClient } from "@prisma/client";
-import { getVideoId, isValidYoutubeURL } from "./utils";
+import { getVideoId, isValidYoutubeURL } from "../utils/utils";
+import { MusicSourceManager } from "../handlers";
 
 
 
@@ -28,7 +29,7 @@ const connection = {
   };
   
 export class RoomManager {
-
+    private musicSourceManager: MusicSourceManager;
     private static instance : RoomManager;
     public spaces : Map<string , Space>;
     public users : Map<string , User>
@@ -69,6 +70,7 @@ export class RoomManager {
             }
         })
         this.prisma = new PrismaClient();
+        this.musicSourceManager = new MusicSourceManager();
         this.queue = new Queue(process.pid.toString(), {
             connection
         })
@@ -108,7 +110,7 @@ export class RoomManager {
           );
           console.log("Finished processing add-to-queue job");
         } else if (name === "play-next") {
-          await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId);
+          await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId , data.url);
         } else if (name === "remove-song") {
           await RoomManager.getInstance().adminRemoveSong(
             data.spaceId,
@@ -421,106 +423,167 @@ export class RoomManager {
     }
     
 
-    async adminPlayNext(spaceId : string , userId : string){
-        const creatorId = this.spaces.get(spaceId)?.creatorId;
-        console.log("adminPlayNext" , creatorId , userId)
-        let targetUser = this.users.get(userId)
+    async adminPlayNext(spaceId : string , userId : string , URL : string){
 
-        if(!targetUser){
-            return
-        }
+       const creatorId = this.spaces.get(spaceId)?.creatorId;
+        const targetUser = this.users.get(userId);
+        
+        if (!targetUser || !creatorId) return;
 
-        if (targetUser.userId !== creatorId){
-            targetUser.ws.forEach((ws : WebSocket) => {
-                ws.send(
-                    JSON.stringify({
-                        type : "error",
-                        data : {
-                            message : "You cant perform this action"
-                        }
-                    })
-                )
-                
-            });
-            return
-        }
-
-        const mostUpVotedStream = await this.prisma.stream.findFirst({
-            where : {
-                played : false,
-                spaceId : spaceId,
-            },
-            orderBy: {
-                upvotes : {
-                    _count: "desc",
+        // Use the new music source manager
+        const trackDetails = await this.musicSourceManager.getTrackDetails(URL);
+        
+        if (!trackDetails) {
+            targetUser?.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        data: { message: "Invalid track URL or unable to fetch details" },
+                    }));
                 }
-            }
-            
-        }) 
-
-        if (!mostUpVotedStream){
-            targetUser.ws.forEach((ws :WebSocket) => {
-                ws.send(
-                    JSON.stringify({
-                        type : "error",
-                        data : {
-                            message : "Please add video in queue"
-                        }
-                    })
-                )
-                
             });
-
-            return
+            return;
         }
+
+        const stream = await this.prisma.stream.create({
+            data: {
+                id: crypto.randomUUID(),
+                userId: creatorId,
+                url : URL,
+                type: trackDetails.source,
+                extractedId: trackDetails.extractedId,
+                title: trackDetails.title,
+                artist: trackDetails.artist,
+                album: trackDetails.album,
+                duration: trackDetails.duration,
+                smallImg: trackDetails.smallImg,
+                bigImg: trackDetails.bigImg,
+                privousURL: trackDetails.previewUrl,
+                addedBy: userId,
+                spaceId,
+            },
+        });
 
         await Promise.all([
             this.prisma.currentStream.upsert({
-                where : {
-                    spaceId : spaceId,
-                },
-                update : {
-                    spaceId : spaceId,
-                    userId,
-                    streamId: mostUpVotedStream.id
-                },
-                create : {
-                    spaceId : spaceId,
-                    userId,
-                    streamId : mostUpVotedStream.id
-                }
+                where: { spaceId },
+                update: { spaceId, userId, streamId: stream.id },
+                create: { id: crypto.randomUUID(), spaceId, userId, streamId: stream.id },
             }),
             this.prisma.stream.update({
-                where : {
-                    id : mostUpVotedStream.id
-                },
-                data : {
-                    played: true,
-                    playedTs : new Date()
-                }
-            })
-        ])
+                where: { id: stream.id },
+                data: { played: true, playedTs: new Date() },
+            }),
+        ]);
 
-
-        let previousQueueLength = parseInt(
-            (await this.redisClient.get(`queue-length-${spaceId}`)) || "1",
-            10
-        )
-
-        if (previousQueueLength){
-            await this.redisClient.set(
-                `queue-length-${spaceId}`, 
-                previousQueueLength - 1
-            )
+        try {
+            await this.publisher.publish(spaceId, JSON.stringify({ type: "play-next" }));
+        } catch (error) {
+            console.error("Publish error:", error);
         }
 
-        await this.publisher.publish(
-            spaceId,
-            JSON.stringify({
-                type : "play-next"
-            })
-        )
+
+
     }
+    //     const creatorId = this.spaces.get(spaceId)?.creatorId;
+    //     console.log("adminPlayNext" , creatorId , userId)
+    //     let targetUser = this.users.get(userId)
+
+    //     if(!targetUser){
+    //         return
+    //     }
+
+    //     if (targetUser.userId !== creatorId){
+    //         targetUser.ws.forEach((ws : WebSocket) => {
+    //             ws.send(
+    //                 JSON.stringify({
+    //                     type : "error",
+    //                     data : {
+    //                         message : "You cant perform this action"
+    //                     }
+    //                 })
+    //             )
+                
+    //         });
+    //         return
+    //     }
+
+    //     const mostUpVotedStream = await this.prisma.stream.findFirst({
+    //         where : {
+    //             played : false,
+    //             spaceId : spaceId,
+    //         },
+    //         orderBy: {
+    //             upvotes : {
+    //                 _count: "desc",
+    //             }
+    //         }
+            
+    //     }) 
+
+    //     if (!mostUpVotedStream){
+    //         targetUser.ws.forEach((ws :WebSocket) => {
+    //             ws.send(
+    //                 JSON.stringify({
+    //                     type : "error",
+    //                     data : {
+    //                         message : "Please add video in queue"
+    //                     }
+    //                 })
+    //             )
+                
+    //         });
+
+    //         return
+    //     }
+
+    //     await Promise.all([
+    //         this.prisma.currentStream.upsert({
+    //             where : {
+    //                 spaceId : spaceId,
+    //             },
+    //             update : {
+    //                 spaceId : spaceId,
+    //                 userId,
+    //                 streamId: mostUpVotedStream.id
+    //             },
+    //             create : {
+    //                 spaceId : spaceId,
+    //                 userId,
+    //                 streamId : mostUpVotedStream.id
+    //             }
+    //         }),
+    //         this.prisma.stream.update({
+    //             where : {
+    //                 id : mostUpVotedStream.id
+    //             },
+    //             data : {
+    //                 played: true,
+    //                 playedTs : new Date()
+    //             }
+    //         })
+    //     ])
+
+
+    //     let previousQueueLength = parseInt(
+    //         (await this.redisClient.get(`queue-length-${spaceId}`)) || "1",
+    //         10
+    //     )
+
+    //     if (previousQueueLength){
+    //         await this.redisClient.set(
+    //             `queue-length-${spaceId}`, 
+    //             previousQueueLength - 1
+    //         )
+    //     }
+
+    //     await this.publisher.publish(
+    //         spaceId,
+    //         JSON.stringify({
+    //             type : "play-next"
+    //         })
+    //     )
+    // }
 
 
     publishNewVote(
@@ -698,95 +761,171 @@ export class RoomManager {
             const room = this.spaces.get(spaceId)
             const currentUser = this.users.get(userId)
 
-
+             if (!this.musicSourceManager.validateUrl(url)) {
+            currentUser?.ws.forEach((ws: WebSocket) => {
+                ws.send(
+                    JSON.stringify({
+                        type: "error",
+                        data: {
+                            message: "Invalid music URL. Supported: YouTube, Spotify"
+                        }
+                    })
+                );
+            });
+            return;
+        }
             // if(!room || typeof existingActiveStream !== "number"){
             //     return
             // }
+        await this.redisClient.set(
+            `queue-length-${spaceId}`,
+            existingActiveStream + 1
+        );
 
+        // Get track details using the unified interface
+        const trackDetails = await this.musicSourceManager.getTrackDetails(url);
 
-            const extractedId = getVideoId(url)
-
-
-            if(!extractedId){
-                currentUser?.ws.forEach((ws : WebSocket ) => {
-                    ws.send(
-                        JSON.stringify({
-                            type : "error",
-                            data : {
-                                message : "Invalid Youtube URL"
-                            }
-                        })
-                    )
-                    
-                });
-                return
-            }
-
-            await this.redisClient.set(
-                `queue-length-${spaceId}`,
-                existingActiveStream + 1
-            )
-
-            const res = await  youtubesearchapi.GetVideoDetails(extractedId)
-
-
-            if (res.thumbnail){
-                const stream = await this.prisma.stream.create({
-                    data : {
-                        id : crypto.randomUUID(),
-                        userId : userId ,
-                        url : url,
-                        extractedId,
-                        type : "Youtube",
-                        addedBy : userId,
-                        title : res.title ?? "Cant Find the video",
-                        smallImg : res.thumbnail.thumbnails[0].url,
-                        bigImg : res.thumbnail.thumbnails.at(-1).url,
-                        spaceId : spaceId
-
-                    }
-                })
-
-                await this.redisClient.set(`${spaceId}-${url}`, new Date().getTime(), {
-                    EX : TIME_SPAN_FOR_REPEAT / 1000,
-                }  )
-
-                await this.redisClient.set(
-                    `lastAdded-${spaceId}-${userId}`,
-                    new Date().getTime(),
-                    {
-                        EX : TIME_SPAN_FOR_REPEAT / 1000
-                    }
-
-                )
-
-                await this.publisher.publish(
-                    spaceId,
+        if (!trackDetails) {
+            currentUser?.ws.forEach((ws: WebSocket) => {
+                ws.send(
                     JSON.stringify({
-                      type: "new-stream",
-                      data: {
-                        ...stream,
-                        hasUpvoted: false,
-                        upvotes: 0,
-                      },
+                        type: "error",
+                        data: {
+                            message: "Could not fetch track details"
+                        }
                     })
-                  );
-
-            } else {
-                currentUser?.ws.forEach((ws : WebSocket) => {
-                    ws.send(
-                        JSON.stringify({
-                            type : "error",
-                            data : {
-                                message : "Video Not Found"
-                            }
-                        })
-                    )
-                    
-                });
-            }
-
+                );
+            });
+            return;
         }
+         const stream = await this.prisma.stream.create({
+            data: {
+                id: crypto.randomUUID(),
+                userId: userId,
+                url: url,
+                type: trackDetails.source,
+
+                extractedId: trackDetails.extractedId,
+                title: trackDetails.title,
+                artist: trackDetails.artist,
+                album: trackDetails.album,
+                duration: trackDetails.duration,
+                smallImg: trackDetails.smallImg,
+                bigImg: trackDetails.bigImg,
+                privousURL: trackDetails.previewUrl,
+                addedBy: userId,
+                spaceId: spaceId
+            }
+        });
+
+        await this.redisClient.set(`${spaceId}-${url}`, new Date().getTime(), {
+            EX: TIME_SPAN_FOR_REPEAT / 1000,
+        });
+
+        await this.redisClient.set(
+            `lastAdded-${spaceId}-${userId}`,
+            new Date().getTime(),
+            {
+                EX: TIME_SPAN_FOR_REPEAT / 1000
+            }
+        );
+
+        await this.publisher.publish(
+            spaceId,
+            JSON.stringify({
+                type: "new-stream",
+                data: {
+                    ...stream,
+                    hasUpvoted: false,
+                    upvotes: 0,
+                },
+            })
+        );
+    }
+
+            // const extractedId = getVideoId(url)
+
+
+            // if(!extractedId){
+            //     currentUser?.ws.forEach((ws : WebSocket ) => {
+            //         ws.send(
+            //             JSON.stringify({
+            //                 type : "error",
+            //                 data : {
+            //                     message : "Invalid Youtube URL"
+            //                 }
+            //             })
+            //         )
+                    
+            //     });
+            //     return
+            // }
+
+            // await this.redisClient.set(
+            //     `queue-length-${spaceId}`,
+            //     existingActiveStream + 1
+            // )
+
+            // const res = await  youtubesearchapi.GetVideoDetails(extractedId)
+
+
+            // if (res.thumbnail){
+            //     const stream = await this.prisma.stream.create({
+            //         data : {
+            //             id : crypto.randomUUID(),
+            //             userId : userId ,
+            //             url : url,
+            //             extractedId,
+            //             type : "Youtube",
+            //             addedBy : userId,
+            //             title : res.title ?? "Cant Find the video",
+            //             smallImg : res.thumbnail.thumbnails[0].url,
+            //             bigImg : res.thumbnail.thumbnails.at(-1).url,
+            //             spaceId : spaceId
+
+            //         }
+            //     })
+
+            //     await this.redisClient.set(`${spaceId}-${url}`, new Date().getTime(), {
+            //         EX : TIME_SPAN_FOR_REPEAT / 1000,
+            //     }  )
+
+            //     await this.redisClient.set(
+            //         `lastAdded-${spaceId}-${userId}`,
+            //         new Date().getTime(),
+            //         {
+            //             EX : TIME_SPAN_FOR_REPEAT / 1000
+            //         }
+
+            //     )
+
+            //     await this.publisher.publish(
+            //         spaceId,
+            //         JSON.stringify({
+            //           type: "new-stream",
+            //           data: {
+            //             ...stream,
+            //             hasUpvoted: false,
+            //             upvotes: 0,
+            //           },
+            //         })
+            //       );
+
+            // } else {
+            //     currentUser?.ws.forEach((ws : WebSocket) => {
+            //         ws.send(
+            //             JSON.stringify({
+            //                 type : "error",
+            //                 data : {
+            //                     message : "Video Not Found"
+            //                 }
+            //             })
+            //         )
+                    
+            //     });
+            // }
+
+        // }
 
         disconnect(ws : WebSocket){
             console.log(process.pid + ": disconnect");
@@ -823,104 +962,210 @@ export class RoomManager {
 
         
         async addToQueue(spaceId: string, currentUserId: string, url: string) {
-            console.log(process.pid + ": addToQueue");
-        
-            const space = this.spaces.get(spaceId);
-            const currentUser = this.users.get(currentUserId);
-            const creatorId = this.spaces.get(spaceId)?.creatorId;
-            const isCreator = currentUserId === creatorId;
-        
-            if (!space || !currentUser) {
-              console.log("433: Room or User not defined");
-              return;
-            }
-        
-            if (!isValidYoutubeURL(url)) {
-              currentUser?.ws.forEach((ws) => {
+           console.log(process.pid + ": addToQueue");
+
+        const space = this.spaces.get(spaceId);
+        const currentUser = this.users.get(currentUserId);
+        const creatorId = this.spaces.get(spaceId)?.creatorId;
+        const isCreator = currentUserId === creatorId;
+
+        if (!space || !currentUser) {
+            console.log("Room or User not defined");
+            return;
+        }
+
+        // Updated validation using music source manager
+        if (!this.musicSourceManager.validateUrl(url)) {
+            currentUser?.ws.forEach((ws) => {
                 ws.send(
-                  JSON.stringify({
-                    type: "error",
-                    data: { message: "Invalid YouTube URL" },
-                  })
+                    JSON.stringify({
+                        type: "error",
+                        data: { message: "Invalid music URL. Supported: YouTube, Spotify" },
+                    })
                 );
-              });
-              return;
-            }
-        
-            let previousQueueLength = parseInt(
-              (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
-              10
+            });
+            return;
+        }
+
+        // Rest of the method remains the same...
+        let previousQueueLength = parseInt(
+            (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
+            10
+        );
+
+        if (!previousQueueLength) {
+            previousQueueLength = await this.prisma.stream.count({
+                where: {
+                    spaceId: spaceId,
+                    played: false,
+                },
+            });
+        }
+
+        const isFirstSong = previousQueueLength === 0;
+
+        if (!isCreator) {
+            let lastAdded = await this.redisClient.get(
+                `lastAdded-${spaceId}-${currentUserId}`
             );
+
+            if (lastAdded) {
+                currentUser.ws.forEach((ws) => {
+                    ws.send(
+                        JSON.stringify({
+                            type: "error",
+                            data: {
+                                message: "You can add again after 20 min.",
+                            },
+                        })
+                    );
+                });
+                return;
+            }
+
+            let alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`);
+
+            if (alreadyAdded) {
+                currentUser.ws.forEach((ws) => {
+                    ws.send(
+                        JSON.stringify({
+                            type: "error",
+                            data: {
+                                message: "This song is blocked for 1 hour",
+                            },
+                        })
+                    );
+                });
+                return;
+            }
+
+            if (previousQueueLength >= MAX_QUEUE_LENGTH) {
+                currentUser.ws.forEach((ws) => {
+                    ws.send(
+                        JSON.stringify({
+                            type: "error",
+                            data: {
+                                message: "Queue limit reached",
+                            },
+                        })
+                    );
+                });
+                return;
+            }
+        }
+
+        await this.adminStreamHandler(
+            spaceId,
+            currentUserId,
+            url,
+            previousQueueLength,
+        );
+
+        if (isFirstSong) {
+            setTimeout(async () => {
+                await this.adminPlayNext(spaceId, currentUserId , url);
+            }, 1000);
+        }
+    }
+  }
+            // console.log(process.pid + ": addToQueue");
+        
+            // const space = this.spaces.get(spaceId);
+            // const currentUser = this.users.get(currentUserId);
+            // const creatorId = this.spaces.get(spaceId)?.creatorId;
+            // const isCreator = currentUserId === creatorId;
+        
+            // if (!space || !currentUser) {
+            //   console.log("433: Room or User not defined");
+            //   return;
+            // }
+        
+            // if (!isValidYoutubeURL(url)) {
+            //   currentUser?.ws.forEach((ws) => {
+            //     ws.send(
+            //       JSON.stringify({
+            //         type: "error",
+            //         data: { message: "Invalid YouTube URL" },
+            //       })
+            //     );
+            //   });
+            //   return;
+            // }
+        
+            // let previousQueueLength = parseInt(
+            //   (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
+            //   10
+            // );
         
             // Checking if its zero that means there was no record in
-            if (!previousQueueLength) {
-              previousQueueLength = await this.prisma.stream.count({
-                where: {
-                  spaceId: spaceId,
-                  played: false,
-                },
-              });
-            }
+          //   if (!previousQueueLength) {
+          //     previousQueueLength = await this.prisma.stream.count({
+          //       where: {
+          //         spaceId: spaceId,
+          //         played: false,
+          //       },
+          //     });
+          //   }
 
-            const isFirstSong = previousQueueLength === 0;
+          //   const isFirstSong = previousQueueLength === 0;
 
-            console.log("PREVIOUS QUEUE LENGTH" , previousQueueLength)
-            if (!isCreator) {
-              let lastAdded = await this.redisClient.get(
-                `lastAdded-${spaceId}-${currentUserId}`
-              );
+          //   console.log("PREVIOUS QUEUE LENGTH" , previousQueueLength)
+          //   if (!isCreator) {
+          //     let lastAdded = await this.redisClient.get(
+          //       `lastAdded-${spaceId}-${currentUserId}`
+          //     );
         
-              if (lastAdded) {
-                currentUser.ws.forEach((ws) => {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      data: {
-                        message: "You can add again after 20 min.",
-                      },
-                    })
-                  );
-                });
-                return;
-              }
-              let alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`);
+          //     if (lastAdded) {
+          //       currentUser.ws.forEach((ws) => {
+          //         ws.send(
+          //           JSON.stringify({
+          //             type: "error",
+          //             data: {
+          //               message: "You can add again after 20 min.",
+          //             },
+          //           })
+          //         );
+          //       });
+          //       return;
+          //     }
+          //     let alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`);
         
-              if (alreadyAdded) {
-                currentUser.ws.forEach((ws) => {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      data: {
-                        message: "This song is blocked for 1 hour",
-                      },
-                    })
-                  );
-                });
-                return;
-              }
+          //     if (alreadyAdded) {
+          //       currentUser.ws.forEach((ws) => {
+          //         ws.send(
+          //           JSON.stringify({
+          //             type: "error",
+          //             data: {
+          //               message: "This song is blocked for 1 hour",
+          //             },
+          //           })
+          //         );
+          //       });
+          //       return;
+          //     }
         
-              if (previousQueueLength >= MAX_QUEUE_LENGTH) {
-                currentUser.ws.forEach((ws) => {
-                  ws.send(
-                    JSON.stringify({
-                      type: "error",
-                      data: {
-                        message: "Queue limit reached",
-                      },
-                    })
-                  );
-                });
-                return;
-              }
-            }
-            console.log("GOING TO ADD THE QUEUE")
+          //     if (previousQueueLength >= MAX_QUEUE_LENGTH) {
+          //       currentUser.ws.forEach((ws) => {
+          //         ws.send(
+          //           JSON.stringify({
+          //             type: "error",
+          //             data: {
+          //               message: "Qu      console.log("Inside the casting vote function 🥳")eue limit reached",
+          //             },
+          //           })
+          //         );
+          //       });
+          //       return;
+          //     }
+          //   }
+          //   console.log("GOING TO ADD THE QUEUE")
         
-            await this.adminStreamHandler(
-              spaceId,
-              currentUserId, 
-              url,
-              previousQueueLength,
-          );
+          //   await this.adminStreamHandler(
+          //     spaceId,
+          //     currentUserId, 
+          //     url,
+          //     previousQueueLength,
+          // );
 
             // await this.queue.add("add-to-queue", {
             //   spaceId,
@@ -930,16 +1175,16 @@ export class RoomManager {
             // });
 
 
-            if (isFirstSong) {
-              console.log("🎗️First song in queue, playing immediately");
+          //   if (isFirstSong) {
+          //     console.log("🎗️First song in queue, playing immediately");
 
-              setTimeout(async () => {
-                  await this.adminPlayNext(spaceId, currentUserId);
-              }, 1000);
-          }
+          //     setTimeout(async () => {
+          //         await this.adminPlayNext(spaceId, currentUserId , url);
+          //     }, 1000);
+          // }
 
-          }
-}
+          // }
+
 
 
 

@@ -11,6 +11,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl =  env("DIRECT_URL")
 }
 
 
@@ -35,8 +36,12 @@ model Stream {
   smallImg      String         @default("")
   bigImg        String         @default("")
   active        Boolean        @default(true)
+   artist      String?
+  album       String?
+  duration    Int?    
   played        Boolean        @default(false)
   playedTs      DateTime?
+  privousURL    String?
   createAt      DateTime       @default(now())
   upvotes       Upvote[]
   userId        String
@@ -46,6 +51,9 @@ model Stream {
   addedByUser   User           @relation("addedBy", fields: [addedBy], references: [id])
   spaceId      String?
   space        Space?      @relation("spaceStreams", fields: [spaceId], references: [id],onDelete: Cascade)
+
+
+    @@map("streams")
 }
 
 model CurrentStream {

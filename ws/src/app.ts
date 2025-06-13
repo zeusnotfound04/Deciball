@@ -2,9 +2,9 @@ import {  WebSocket , WebSocketServer } from "ws";
 import cluster from "cluster";
 import http from "http"
 import dotenv from "dotenv"
-import { RoomManager } from "./streamManager";
+import { RoomManager } from "./managers/streamManager";
 import jwt  from "jsonwebtoken";
-import { sendError } from "./utils";
+import { sendError } from "./utils/utils";
 
 
 
@@ -68,6 +68,7 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
 
 
 async function  processUserAction(type: string , data : Data ) {
+    console.log("Data in the user action" , data)
     switch (type) {
         case "cast-vote":
             console.log("🐉 Going to caste the vote (btw em minor)")
@@ -90,7 +91,7 @@ async function  processUserAction(type: string , data : Data ) {
 
         case "play-next":
             console.log("PLAY NEXT FUNCTION IS GOING TO TRIGGER")
-            await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId);
+            await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId , data.url);
             // await RoomManager.getInstance().queue.add("play-next",{
             //         spaceId: data.spaceId,
             //         userId : data.userId
