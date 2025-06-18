@@ -1,8 +1,6 @@
 
 "use client"
-import {
-  useState
-} from "react"
+
 import {
   toast
 } from "sonner"
@@ -11,9 +9,7 @@ import {
   zodResolver
 } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import {
-  cn
-} from "@/lib/utils"
+
 import {
   Button
 } from "@/app/components/ui/button"
@@ -31,6 +27,7 @@ import {
 } from "@/app/components/ui/input"
 import axios from "axios"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 
 const formSchema = z.object({
   spaceName: z.string().min(1)
@@ -43,6 +40,9 @@ export default function Page() {
 
   })
 
+  const { data: session } = useSession()
+
+  console.log(session?.user)
   async function onSubmit(values: z.infer < typeof formSchema > ) {
     try {
       console.log(values);

@@ -71,7 +71,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
 export const useSocket = () => {
   const { socket, user, setUser, connectionError, loading } = useContext(SocketContext);
-  // console.log("Logging the Socket form the context", socket)
+  console.log("Logging the Socket form the context", socket)
 
   const sendMessage = useCallback(
     (type: string, data: { [key: string]: any }) => {

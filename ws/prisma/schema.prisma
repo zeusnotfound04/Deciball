@@ -14,19 +14,20 @@ datasource db {
   directUrl =  env("DIRECT_URL")
 }
 
-
 model User {
-  id            String      @id  @default(uuid())
+  id            String      @id @default(uuid())
   email         String      @unique
   username      String      @unique
   password      String
   provider      Provider
   streams       Stream[]    @relation("user")
   upvotes       Upvote[]  
-  addedStreams    Stream[]   @relation("addedBy")
-  hostedSpaces    Space[]      @relation("hostedBy")
+  addedStreams  Stream[]    @relation("addedBy")
+  hostedSpaces  Space[]     @relation("hostedBy")
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
-
 model Stream {
   id            String         @id @default(uuid())
   type          StreamType
@@ -36,9 +37,9 @@ model Stream {
   smallImg      String         @default("")
   bigImg        String         @default("")
   active        Boolean        @default(true)
-   artist      String?
-  album       String?
-  duration    Int?    
+  artist        String?
+  album         String?
+  duration      Int?    
   played        Boolean        @default(false)
   playedTs      DateTime?
   privousURL    String?
@@ -49,20 +50,19 @@ model Stream {
   currentStream CurrentStream?
   addedBy       String
   addedByUser   User           @relation("addedBy", fields: [addedBy], references: [id])
-  spaceId      String?
-  space        Space?      @relation("spaceStreams", fields: [spaceId], references: [id],onDelete: Cascade)
+  spaceId       String?
+  space         Space?         @relation("spaceStreams", fields: [spaceId], references: [id], onDelete: Cascade)
 
-
-    @@map("streams")
+  @@map("streams")
 }
 
 model CurrentStream {
-  id            String @id @default(uuid())
-  userId       String  
+  id       String  @id @default(uuid())
+  userId   String  
   streamId String? @unique
   stream   Stream? @relation(fields: [streamId], references: [id])
-  spaceId     String? @unique
-  space    Space?    @relation(fields: [spaceId], references: [id],onDelete: Cascade)
+  spaceId  String? @unique
+  space    Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
 }
 
 model Upvote {
@@ -74,21 +74,23 @@ model Upvote {
 
   @@unique([userId, streamId])
 }
+
 model Space {
-  id            String      @id @default(uuid())
+  id            String         @id @default(uuid())
   name          String
-  streams        Stream[]     @relation("spaceStreams")
+  streams       Stream[]       @relation("spaceStreams")
   hostId        String
-  host          User        @relation("hostedBy", fields: [hostId], references: [id])
-  isActive      Boolean     @default(true)
+  host          User           @relation("hostedBy", fields: [hostId], references: [id])
+  isActive      Boolean        @default(true)
   currentStream CurrentStream?
 }
+
 enum StreamType {
   Spotify
   Youtube
 }
 
-enum Provider{
+enum Provider {
   Discord
   Credentials
 }
