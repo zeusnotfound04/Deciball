@@ -1,13 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
 import { Button } from "@/app/components/ui/button"
-import { Menu } from "lucide-react"
+import { Menu, LogOut } from "lucide-react"
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { data: session, status } = useSession()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -16,6 +18,15 @@ export default function Header() {
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  const handleLogout = async () => {
+    try {
+      console.log("Handle Logout clicked")
+      await signOut({ callbackUrl: "/" }) // Redirect to home page after logout
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
+  }
 
   return (
     <header className={`fixed w-full z-10 transition-all duration-300 ${isScrolled ? "bg-black" : "bg-transparent"}`}>
@@ -49,11 +60,26 @@ export default function Header() {
             </li>
           </ul>
         </nav>
-        <Button asChild variant="outline" className="hidden md:block">
-          <a href="https://drqnnel.beatstars.com" target="_blank" rel="noopener noreferrer">
-            BeatStars
-          </a>
-        </Button>
+        
+        {/* Conditional button based on session */}
+        {status === "loading" ? (
+          <div className="hidden md:block w-20 h-9 bg-gray-700 animate-pulse rounded"></div>
+        ) : session ? (
+          <Button 
+            variant="outline" 
+            className="hidden md:flex items-center gap-2"
+            onClick={handleLogout}
+          >
+            <LogOut size={16} />
+            Logout
+          </Button>
+        ) : (
+          <Button asChild variant="outline" className="hidden md:block">
+            <Link href="/beatstars">
+              BeatStars
+            </Link>
+          </Button>
+        )}
       </div>
     </header>
   )
