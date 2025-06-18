@@ -1,7 +1,9 @@
+
 import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./db";
 import  { compare } from "bcrypt";
+import { User } from "next-auth"
 
 import  CredentialsProvider  from "next-auth/providers/credentials";
 
@@ -32,37 +34,38 @@ session : {
                      }
             },
 
-            async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    throw new Error('Please enter your email and password');
-                }
+            async authorize(credentials): Promise<User | null> {
+        if (!credentials?.email || !credentials.password) {
+          throw new Error('Email and password are required');
+        }
+          
 
 
-                const user = await prisma.user.findUnique({
-                    where: {
-                        email: credentials.email,
-                    },
-                    select: {
-                        id: true,
-                        email: true,
-                        username: true,
-                        password: true,
-                    },
-                });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+          select : {
+            id : true,
+            email : true,
+            username : true,
+            // role : true,
+            password : true,
+        
+          }
+        });
 
-                if (!user) {
-                    throw new Error('No user found with the provided email');
-                }
+        if (!user) {
+          throw new Error('No user found with the provided email');
+        }
 
-                const isPasswordValid = await compare(credentials.password, user.password);
-                    if (!isPasswordValid) {
-                        throw new Error('Invalid password');
-                    }
+        const isPasswordValid = await compare(credentials.password, user!.password!);
+        if (!isPasswordValid) {
+          throw new Error('Incorrect password');
+        }
+        
+        return user
 
-                    console.log('User found', user);
+      },
 
-                    return user;
-            }
         })
     ],
 
