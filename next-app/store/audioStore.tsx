@@ -97,7 +97,7 @@ export function useAudio() {
   // Play function
   const play = async (song: searchResults) => {
     setCurrentSong(song);
-    
+    console.log("Playing Song:: " , song)
     if (audioRef.current) {
       // Clear existing sources
       if (backgroundVideoRef.current) {
@@ -110,6 +110,7 @@ export function useAudio() {
       
       // Set new source
       const currentVideoUrl = getURL(song);
+      console.log("Current video url ::" , currentVideoUrl)
       audioRef.current.src = currentVideoUrl;
 
       try {
