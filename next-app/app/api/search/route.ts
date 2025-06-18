@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // import { searchTracks, searchPlaylists } from '@/lib/spotify';
 
 export async function GET(request: NextRequest) {
+  console.log("WebSocket URL:", process.env.NEXT_PUBLIC_WSS_URL);
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
   const type = searchParams.get('type') || 'track'; // 'track' or 'playlist'
@@ -18,14 +19,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let results;
+    let results : any;
     
     if (type === 'playlist') {
       results = await searchPlaylists(query, limit, offset);
     } else {
       results = await searchTracks(query, limit, offset);
     }
-    console.log(results)
+    console.log("Response Tracks",results.body.tracks.items)
 
     return NextResponse.json(results);
   } catch (error: any) {
