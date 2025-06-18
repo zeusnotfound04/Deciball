@@ -11,9 +11,7 @@ export const spotifyApi = new SpotifyWebApi({
 let accessToken: string | null = null;
 let tokenExpiryTime: number = 0;
 
-/**
- * Get or refresh Spotify access token using client credentials flow
- */
+
  async function getAccessToken(): Promise<string> {
   const now = Date.now();
   
