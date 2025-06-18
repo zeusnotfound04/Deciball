@@ -2,58 +2,120 @@ import { authOptions } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/db";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+// import { authOptions } from "@/app/lib/auth";
+// import { prisma } from "@/app/lib/db";
+// import { getServerSession } from "next-auth";
+// import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(req:NextRequest) {
+export async function POST(req: NextRequest) {
     try {
+        console.log("=== Space Creation API Called ===");
         
+        // Check session
         const session = await getServerSession(authOptions);
+        console.log("Session:", JSON.stringify(session, null, 2));
 
         if (!session?.user?.id) {
+            console.log("No valid session found");
             return NextResponse.json(
-                { success : false , message : "You must be logged in to create a space" } ,
-                { status : 401 }
-            )
+                { success: false, message: "You must be logged in to create a space" },
+                { status: 401 }
+            );
         }
 
+        // Parse request data
         const data = await req.json();
-        console.log(data)
+        console.log("Request data:", JSON.stringify(data, null, 2));
 
-        if (!data.spaceName ) {
+        if (!data.spaceName) {
+            console.log("Missing spaceName in request");
             return NextResponse.json(
                 { success: false, message: "Space name is required" },
                 { status: 400 }
-            )
+            );
         }
 
+        // Test database connection
+        console.log("Testing database connection...");
+        await prisma.$connect();
+        console.log("Database connected successfully");
+
+
+        // Create space
+        console.log("Creating space with data:", {
+            name: data.spaceName,
+            hostId: session.user.id
+        });
+
         const space = await prisma.space.create({
-            data : {
-                name : data.spaceName,
-                hostId : session.user.id
+            data: {
+                name: data.spaceName,
+                hostId: session.user.id,
+                
             }
-        })
+        });
+
+        console.log("Space created successfully:", space);
 
         return NextResponse.json(
             { success: true, message: "Space created successfully", space },
             { status: 201 }
-        )
+        );
 
     } catch (error: any) {
+        console.error("=== ERROR IN SPACE CREATION ===");
+        console.error("Error name:", error.name);
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+        
+        // Handle specific Prisma errors
+        if (error.code === 'P2002') {
+            return NextResponse.json(
+                { success: false, message: "A space with this name already exists" },
+                { status: 409 }
+            );
+        }
+        
+        if (error.code === 'P2003' || error.message.includes('Foreign key constraint')) {
+            return NextResponse.json(
+                { 
+                    success: false, 
+                    message: "User not found in database. Please log out and log back in.",
+                    errorCode: "USER_NOT_FOUND"
+                },
+                { status: 400 }
+            );
+        }
+
+        // Handle authentication errors
         if (error.message === "Unauthenticated Request") {
             return NextResponse.json(
                 { success: false, message: "You must be logged in to create a space" },
                 { status: 401 }
-            )
+            );
         }
+
+        // Handle database connection errors
+        if (error.message.includes('connect') || error.message.includes('database')) {
+            return NextResponse.json(
+                { success: false, message: "Database connection error" },
+                { status: 500 }
+            );
+        }
+
         return NextResponse.json(
-            { success: false, message: `An unexpected error occurred: ${error.message}` },
+            { 
+                success: false, 
+                message: `An unexpected error occurred: ${error.message}`,
+                errorCode: error.code || 'UNKNOWN'
+            },
             { status: 500 }
-          );
-
+        );
+    } finally {
+        // Ensure database connection is closed
+        await prisma.$disconnect();
     }
-    
 }
-
-
 export async function DELETE(req : NextRequest){
     try {
         const spaceId = req.nextUrl.searchParams.get("spaceId");
