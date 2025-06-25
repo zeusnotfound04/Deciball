@@ -14,6 +14,9 @@ import {
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { cn } from "@/app/lib/utils";
 import { useAudio } from '@/store/audioStore'; // Import the audio store
+import { getSpotifyTrack } from '@/actions/spotify/getSpotifyTrack';
+import axios from 'axios';
+import { searchResults } from '@/types';
 
 // Track type to match Spotify API structure
 type Track = {
@@ -211,28 +214,87 @@ export default function SearchSongPopup({
       url: spotifyTrack.external_urls?.spotify || ''
     };
   };
-
-  const handleTrackSelect = async (track: Track) => {
+const handleTrackSelect = async (track: Track) => {
     try {
-      console.log("Raw Selected track" , track)
-      // Convert track format to match your music player's expected format
-      const convertedTrack = convertTrackFormat(track);
       
-      // Play the song directly (this will set currentSong and start playing)
-      await play(convertedTrack);
       
-      // Call the original onSelect callback if provided
+      const response = await axios.post("/api/spotify/getTrack", track);
+      const completeTrack = response.data.body; 
+      // console.log("response track :::" , completeTrack)
+      const songId = response.data.body[0].downloadUrl[0].url 
+      
+      
+      // const convertedTrack = convertTrackFormat(completeTrack);
+      // console.log("Completed Track :::", convertedTrack);
+      const finalTrack : searchResults = {
+      id: track.id,
+      name: track.name,
+      // type: 'song',
+      // Convert artists array to your expected format
+      artistes: {
+        primary: track.artists?.map(artist => ({
+          id: artist.id,
+          name: artist.name,
+          role: 'primary_artists',
+          image: [],
+          type: 'artist',
+          url: artist.external_urls?.spotify || ''
+        })) || [],
+        // featured: [],
+        // all: track.artists?.map(artist => ({
+        //   id: artist.id,
+        //   name: artist.name,
+        //   role: 'primary_artists',
+        //   image: [],
+        //   type: 'artist',
+        //   url: artist.external_urls?.spotify || ''
+        // })) || []
+      },
+      image: track.album?.images?.map(img => ({
+        quality: img.height >= 300 ? '500x500' : '150x150',
+        url: img.url
+      })) || [],
+      downloadUrl:  [
+        {
+          quality: '320kbps',
+          url: songId
+        }
+      ] ,
+      url : "",
+addedBy: "",
+voteCount: 0,
+isVoted: false,
+source: "youtube"
+      // Add other required fields with default values
+      // year: new Date().getFullYear().toString(),
+      // releaseDate: new Date().toISOString().split('T')[0],
+      // duration: '30', // Spotify previews are typically 30 seconds
+      // label: '',
+      // copyright: '',
+      // hasLyrics: false,
+      // lyricsId: null,
+      // playCount: 0,
+      // language: 'english',
+      // explicit: false,
+      // album: {
+      //   id: track.album?.id || '',
+      //   name: track.album?.name || '',
+      //   url: ''
+      // },
+      // url: track.external_urls?.spotify || ''
+    }
+      await play(finalTrack);
+      
+
       if (onSelect) {
         onSelect(track);
       }
       
-      // Close the dialog
       setOpen(false);
       
-      console.log('Track selected and playing:', convertedTrack.name);
+      // console.log('Track selected and playing:', convertedTrack.name);
     } catch (error) {
       console.error('Error playing selected track:', error);
-      // You might want to show an error message to the user here
       setError('Failed to play the selected track');
     }
   };

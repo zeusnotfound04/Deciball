@@ -77,7 +77,7 @@ session : {
                 token.email = user.email;
                 token.username = user.username;
             }
-            console.log('JWT callback', token);
+            // console.log('JWT callback', token);
             return token;
         },
         async session({session, token}) {
@@ -86,7 +86,7 @@ session : {
                 email : token.email,
                 username : token.username,
             }
-            console.log('Session callback', session);
+            // console.log('Session callback', session);
             return session;
         }
     }

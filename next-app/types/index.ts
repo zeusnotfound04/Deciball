@@ -38,7 +38,7 @@ export interface data {
 }
 
 export interface searchResults {
-    id : string;
+    id : string  ;
     url : string; // added by Zeus for debugging
     name : string;
     artistes : {primary : artists[]};
@@ -61,7 +61,7 @@ export interface downloadUrl{
 }
 
 export interface artists {
-    id : number;
+    id : number | string;
     name : string;
     role : string;
     image :[];

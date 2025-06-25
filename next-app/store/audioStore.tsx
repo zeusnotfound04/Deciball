@@ -10,6 +10,7 @@ import { useUserStore } from "./userStore";
 
 // Define the store state interface
 interface AudioState {
+  
   isPlaying: boolean;
   isMuted: boolean;
   currentSong: searchResults | null;
@@ -108,10 +109,10 @@ export function useAudio() {
       }
       audioRef.current.src = "";
       
-      // Set new source
-      const currentVideoUrl = getURL(song);
-      console.log("Current video url ::" , currentVideoUrl)
+      const currentVideoUrl = `https://www.youtube.com/watch?v=${song.downloadUrl[0].url}`
+
       audioRef.current.src = currentVideoUrl;
+      console.log("SOURCE:::" , audioRef.current.src)
 
       try {
         await audioRef.current.play();
@@ -158,9 +159,9 @@ export function useAudio() {
   const pause = () => {
     audioRef.current?.pause();
     // Use the ws from useUserStore to send status
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "status", data: false }));
-    }
+    // if (ws && ws.readyState === WebSocket.OPEN) {
+    //   ws.send(JSON.stringify({ type: "status", data: false }));
+    // }
     setIsPlaying(false);
   };
 
@@ -182,6 +183,7 @@ export function useAudio() {
 
   const togglePlayPause = () => {
     if (isPlaying) {
+      console.log("Stopping the current song!!!  ")
       pause();
     } else if (currentSong) {
       resume();

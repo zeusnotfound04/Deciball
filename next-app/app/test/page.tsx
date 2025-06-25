@@ -8,7 +8,10 @@ import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Separator } from '@/app/components/ui/separator';
 import MusicPlayer from '../components/MusicPlayer';
-
+// import { YouTubePlayer } from '../components/YoutubePlayer';
+import { useAudio } from '@/store/audioStore';
+import PLayerCoverComp from "@/app/components/PlayerCover"
+import AudioController from '../components/Controller';
 type Track = {
   id: string;
   name: string;
@@ -24,6 +27,8 @@ export default function TestPage() {
     console.log('Selected track:', track);
     setSelectedTrack(track);
   };
+  const { currentSong} = useAudio()
+  console.log("Current Song Playing" , currentSong)
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col items-center justify-center p-4">
@@ -112,7 +117,12 @@ export default function TestPage() {
             </CardContent>
           </Card>
         )}
-        
+      {currentSong && currentSong.downloadUrl?.[0]?.url && (
+  <div>
+  <PLayerCoverComp/>
+  <AudioController/>
+  </div>
+)}
         {!selectedTrack && (
           <div className="text-center py-16 px-6 border border-dashed border-zinc-800 rounded-lg bg-zinc-900/30">
             <MusicIcon className="h-12 w-12 mx-auto text-zinc-700 mb-3" />
