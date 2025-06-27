@@ -11,12 +11,11 @@ function PLayerCoverComp() {
   const { user, setShowAddDragOptions, emitMessage } = useUserStore();
   
   // Use the new Zustand-based hook
-  const { currentSong, isPlaying } = useAudio();
+  const { currentSong, isPlaying, setYouTubePlayer } = useAudio();
+  const { setIsPlaying } = useAudioStore();
   
-  const { setIsPlaying, setProgress } = useAudioStore();
-  
-  // Create a ref for the YouTube player (since the new hook doesn't expose playerRef)
-  const playerRef = useRef<any>(null);
+  // Remove this local playerRef since we're using the one from useAudio
+  // const playerRef = useRef<any>(null);
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
     if (currentSong) {
@@ -32,11 +31,14 @@ function PLayerCoverComp() {
 
   const onPlayerReady = (event: any) => {
     console.log("[YouTube] Player ready event triggered");
-    playerRef.current = event.target;
     
-    // if (currentSong?.source === "Spotify") {
+    // Set the YouTube player reference in the audio store FIRST
+    console.log("[YouTube] Setting YouTube player reference in audio store");
+    setYouTubePlayer(event.target);
+    
+    // Then handle current song if available
     if(currentSong){
-      console.log("[YouTube] Current song is from YouTube source");
+      console.log("[YouTube] Current song is available, setting up playback");
       
       const videoId = currentSong.downloadUrl[0].url;
       console.log("Video ID" , videoId)
@@ -44,7 +46,7 @@ function PLayerCoverComp() {
         try {
           if (isPlaying) {
             console.log("[YouTube] Loading video with ID:", videoId);
-            event.target.loadVideoById(videoId, 0); // Start from beginning since we don't have currentSeek in new hook
+            event.target.loadVideoById(videoId, 0);
           } else {
             console.log("[YouTube] Cueing video with ID:", videoId);
             event.target.cueVideoById(videoId, 0);
@@ -54,7 +56,7 @@ function PLayerCoverComp() {
           event.target.playVideo();
 
           const storedVolume = Number(localStorage.getItem("volume")) || 1;
-          console.log("[YouTube] Setting volume to:", storedVolume * 100); // Changed from 200 to 100 for more reasonable volume
+          console.log("[YouTube] Setting volume to:", storedVolume * 100);
           event.target.setVolume(storedVolume * 100);
         } catch (error) {
           console.error("YouTube player error:", error);
@@ -62,13 +64,9 @@ function PLayerCoverComp() {
       } else {
         console.warn("[YouTube] No video ID available to load");
       }
+    } else {
+      console.log("[YouTube] No current song available, player ready but waiting for song");
     }
-    // } else {
-    //   console.log(
-    //     "[YouTube] Current song is not from YouTube source:",
-    //     currentSong?.source
-    //   );
-    // }
   };
 
   return (
@@ -80,6 +78,27 @@ function PLayerCoverComp() {
               "[YouTube] Video playback ended, emitting songEnded event"
             );
             emitMessage("songEnded", "songEnded");
+          }}
+          onStateChange={(event) => {
+            console.log("[YouTube] State changed:", event.data);
+            // YouTube player states: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (cued)
+            switch (event.data) {
+              case 1: // playing
+                console.log("[YouTube] State: Playing");
+                setIsPlaying(true);
+                break;
+              case 2: // paused
+                console.log("[YouTube] State: Paused");
+                setIsPlaying(false);
+                break;
+              case 0: // ended
+                console.log("[YouTube] State: Ended");
+                setIsPlaying(false);
+                emitMessage("songEnded", "songEnded");
+                break;
+              default:
+                console.log("[YouTube] State: Other -", event.data);
+            }
           }}
           opts={{
             height: '10',
@@ -95,23 +114,12 @@ function PLayerCoverComp() {
             },
           }}
           onPause={() => {
-            console.log("[YouTube] Video paused");
-            setIsPlaying(false); // Use Zustand setter instead of dispatch
+            console.log("[YouTube] Video paused - updating state");
+            setIsPlaying(false);
           }}
           onPlay={() => {
-            console.log("[YouTube] Video started playing");
-            if (playerRef.current) {
-              try {
-                const duration = playerRef.current.getDuration();
-                console.log("[YouTube] Video duration:", duration);
-                // Note: You'll need to add setDuration to your Zustand store if you want to track duration
-                // For now, we'll just log it
-              } catch (error) {
-                console.error("Error getting duration:", error);
-              }
-              console.log("[YouTube] Playing YouTube video, updating state");
-              setIsPlaying(true); // Use Zustand setter instead of dispatch
-            }
+            console.log("[YouTube] Video started playing - updating state");
+            setIsPlaying(true);
           }}
           onReady={onPlayerReady}
         />

@@ -18,20 +18,23 @@ interface AudioState {
   currentDuration: number;
   currentVolume: number;
   background: boolean;
+  youtubePlayer: any; // Add YouTube player to the store state
 
   // Actions
   setIsPlaying: (isPlaying: boolean) => void;
   setIsMuted: (isMuted: boolean) => void;
   setCurrentSong: (song: searchResults | null) => void;
   setProgress: (progress: number) => void;
+  setDuration: (duration: number) => void;
   setVolume: (volume: number, save?: boolean) => void;
   setBackground: (background: boolean) => void;
+  setYoutubePlayer: (player: any) => void; // Add action to set YouTube player
 }
 
 export const useAudioStore = create<AudioState>()(
   devtools(
     persist(
-      (set) => ({
+      (set, get) => ({
         isPlaying: false,
         isMuted: false,
         currentSong: null,
@@ -39,12 +42,14 @@ export const useAudioStore = create<AudioState>()(
         currentDuration: 0,
         currentVolume: 1,
         background: true,
+        youtubePlayer: null,
 
         // Actions
         setIsPlaying: (isPlaying) => set({ isPlaying }),
         setIsMuted: (isMuted) => set({ isMuted }),
         setCurrentSong: (currentSong) => set({ currentSong }),
         setProgress: (currentProgress) => set({ currentProgress }),
+        setDuration: (currentDuration) => set({ currentDuration }),
         setVolume: (currentVolume, save) => {
           if (save) {
             localStorage.setItem("volume", String(currentVolume));
@@ -55,12 +60,17 @@ export const useAudioStore = create<AudioState>()(
           localStorage.setItem("background", JSON.stringify(background));
           set({ background });
         },
+        setYoutubePlayer: (youtubePlayer) => {
+          console.log("[AudioStore] Setting YouTube player in store:", !!youtubePlayer);
+          set({ youtubePlayer });
+        },
       }),
       {
         name: "audio-storage",
         partialize: (state) => ({ 
           currentVolume: state.currentVolume,
           background: state.background
+          // Don't persist youtubePlayer
         }),
       }
     )
@@ -89,28 +99,58 @@ export function useAudio() {
     currentProgress,
     currentDuration,
     currentVolume,
+    youtubePlayer, // Get YouTube player from store
     setIsPlaying,
     setCurrentSong,
     setProgress,
-    setVolume
+    setDuration,
+    setVolume,
+    setYoutubePlayer: setYoutubePlayerInStore
   } = useAudioStore();
 
   // Play function
   const play = async (song: searchResults) => {
     setCurrentSong(song);
     console.log("Playing Song:: " , song)
+    
+    // Clear existing sources
+    if (backgroundVideoRef.current) {
+      backgroundVideoRef.current.src = "";
+    }
+    if (videoRef.current) {
+      videoRef.current.src = "";
+    }
     if (audioRef.current) {
-      // Clear existing sources
-      if (backgroundVideoRef.current) {
-        backgroundVideoRef.current.src = "";
-      }
-      if (videoRef.current) {
-        videoRef.current.src = "";
-      }
       audioRef.current.src = "";
-      
+    }
+    
+    // If we have a YouTube player, use it for playback
+    if (youtubePlayer && song.downloadUrl?.[0]?.url) {
+      try {
+        const videoId = song.downloadUrl[0].url;
+        console.log("[Audio] Loading YouTube video with ID:", videoId);
+        
+        youtubePlayer.loadVideoById(videoId, 0);
+        
+        // Reset tracking on successful play
+        lastEmittedTimeRef.current = 0;
+        skipCountRef.current = 0;
+        
+        // Play videos if available
+        videoRef.current?.play();
+        backgroundVideoRef.current?.play();
+        
+        console.log("[Audio] YouTube playback initiated");
+        // Don't set isPlaying here - let YouTube events handle it
+        return;
+      } catch (e: any) {
+        console.error("Error playing YouTube video:", e);
+      }
+    }
+    
+    // Fallback to HTML Audio element if YouTube player not available
+    if (audioRef.current) {
       const currentVideoUrl = `https://www.youtube.com/watch?v=${song.downloadUrl[0].url}`
-
       audioRef.current.src = currentVideoUrl;
       console.log("SOURCE:::" , audioRef.current.src)
 
@@ -134,22 +174,7 @@ export function useAudio() {
         
         setIsPlaying(true);
       } catch (e: any) {
-        if (e.message.startsWith("Failed to load because no supported")) {
-          skipCountRef.current += 1;
-          if (skipCountRef.current >= 3) {
-            toast.error(
-              window.navigator.userAgent.includes("Electron")
-                ? "Open youtube on browser and try again"
-                : "Maximum skip limit reached. Download vibe desktop app.",
-              { style: { background: "#e94625" } }
-            );
-          } else {
-            emitMessage("songEnded", "songEnded");
-            toast.error("Song not available on web. Skipping", {
-              style: { background: "#e94625" },
-            });
-          }
-        }
+        
         console.error("Error playing audio", e.message);
       }
     }
@@ -157,55 +182,167 @@ export function useAudio() {
 
   // Pause function
   const pause = () => {
+    console.log("[Audio] pause() called");
+    console.log("[Audio] YouTube player available:", !!youtubePlayer);
+    console.log("[Audio] YouTube player object:", youtubePlayer);
+    
+    // Also pause YouTube player if it exists
+    if (youtubePlayer) {
+      try {
+        console.log("[Audio] Calling YouTube pauseVideo()");
+        youtubePlayer.pauseVideo();
+        console.log("[Audio] YouTube player paused successfully");
+        
+        // Use the ws from useUserStore to send status
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "status", data: false }));
+        }
+        
+        // Don't set isPlaying here - let YouTube events handle it
+        return;
+      } catch (error) {
+        console.error("Error pausing YouTube player:", error);
+      }
+    }
+    
+    // Fallback to HTML audio element
     audioRef.current?.pause();
+    
+    // Pause other video elements
+    videoRef.current?.pause();
+    backgroundVideoRef.current?.pause();
+    
     // Use the ws from useUserStore to send status
-    // if (ws && ws.readyState === WebSocket.OPEN) {
-    //   ws.send(JSON.stringify({ type: "status", data: false }));
-    // }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "status", data: false }));
+    }
+    
+    console.log("[Audio] Setting isPlaying to false (HTML audio fallback)");
     setIsPlaying(false);
   };
 
   const resume = () => {
-    if (audioRef.current && currentSong) {
-      audioRef.current.play()
-        .then(() => {
+    console.log("[Audio] resume() called");
+    console.log("[Audio] Current song available:", !!currentSong);
+    console.log("[Audio] YouTube player available:", !!youtubePlayer);
+    
+    if (currentSong) {
+      // Try to resume YouTube player first
+      if (youtubePlayer) {
+        try {
+          console.log("[Audio] Calling YouTube playVideo()");
+          youtubePlayer.playVideo();
+          console.log("[Audio] YouTube player resumed successfully");
+          
           // Use the ws from useUserStore to send status
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "status", data: true }));
           }
-          setIsPlaying(true);
-        })
-        .catch((error) => {
-          console.error("Error resuming audio:", error);
-        });
+          // Don't set isPlaying here - let YouTube events handle it
+          return;
+        } catch (error) {
+          console.error("Error resuming YouTube player:", error);
+        }
+      }
+      
+      // Fallback to HTML audio element
+      if (audioRef.current) {
+        audioRef.current.play()
+          .then(() => {
+            // Use the ws from useUserStore to send status
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "status", data: true }));
+            }
+            console.log("[Audio] Setting isPlaying to true (HTML audio fallback)");
+            setIsPlaying(true);
+          })
+          .catch((error) => {
+            console.error("Error resuming audio:", error);
+          });
+      }
     }
   };
 
   const togglePlayPause = () => {
+    console.log("[Audio] togglePlayPause called - isPlaying:", isPlaying);
+    console.log("[Audio] YouTube player available:", !!youtubePlayer);
+    
+    // Check actual YouTube player state if available
+    if (youtubePlayer) {
+      try {
+        const playerState = youtubePlayer.getPlayerState();
+        console.log("[Audio] YouTube player actual state:", playerState);
+        // 1 = playing, 2 = paused, -1 = unstarted, 0 = ended, 3 = buffering, 5 = cued
+      } catch (error) {
+        console.error("Error getting YouTube player state:", error);
+      }
+    }
+    
     if (isPlaying) {
-      console.log("Stopping the current song!!!  ")
+      console.log("[Audio] Pausing the current song!!!")
       pause();
     } else if (currentSong) {
+      console.log("[Audio] Resuming the current song!!!")
       resume();
+    } else {
+      console.log("[Audio] No current song to play/pause")
     }
   };
 
   const mute = () => {
+    // Mute YouTube player if available
+    if (youtubePlayer) {
+      try {
+        youtubePlayer.mute();
+        console.log("[Audio] YouTube player muted");
+      } catch (error) {
+        console.error("Error muting YouTube player:", error);
+      }
+    }
+    
+    // Also mute HTML audio element
     if (audioRef.current) {
       audioRef.current.muted = true;
-      useAudioStore.setState({ isMuted: true });
     }
+    
+    useAudioStore.setState({ isMuted: true });
   };
 
  
   const unmute = () => {
+    // Unmute YouTube player if available
+    if (youtubePlayer) {
+      try {
+        youtubePlayer.unMute();
+        console.log("[Audio] YouTube player unmuted");
+      } catch (error) {
+        console.error("Error unmuting YouTube player:", error);
+      }
+    }
+    
+    // Also unmute HTML audio element
     if (audioRef.current) {
       audioRef.current.muted = false;
-      useAudioStore.setState({ isMuted: false });
     }
+    
+    useAudioStore.setState({ isMuted: false });
   };
 
   const seek = (value: number) => {
+    // If we have a YouTube player, use it for seeking
+    if (youtubePlayer) {
+      try {
+        const duration = youtubePlayer.getDuration();
+        const seekTime = (value / 100) * duration;
+        youtubePlayer.seekTo(seekTime, true);
+        console.log("[Audio] YouTube player seeked to:", seekTime);
+        return;
+      } catch (error) {
+        console.error("Error seeking YouTube player:", error);
+      }
+    }
+    
+    // Fallback to HTML audio element
     if (audioRef.current) {
       if (videoRef.current) {
         videoRef.current.currentTime = value;
@@ -231,13 +368,68 @@ export function useAudio() {
 
   const playNext = () => {
     audioRef.current?.pause();
+    // Also pause YouTube player
+    if (youtubePlayer) {
+      try {
+        youtubePlayer.pauseVideo();
+      } catch (error) {
+        console.error("Error pausing YouTube player for next:", error);
+      }
+    }
     emitMessage("playNext", "playNext");
   };
 
   
   const playPrev = () => {
     audioRef.current?.pause();
+    // Also pause YouTube player
+    if (youtubePlayer) {
+      try {
+        youtubePlayer.pauseVideo();
+      } catch (error) {
+        console.error("Error pausing YouTube player for prev:", error);
+      }
+    }
     emitMessage("playPrev", "playPrev");
+  };
+
+  // Function to set YouTube player reference
+  const setYouTubePlayer = (player: any) => {
+    console.log("[Audio] setYouTubePlayer called with player:", !!player);
+    setYoutubePlayerInStore(player);
+    
+    // Set up basic progress tracking for YouTube player (without state interference)
+    if (player) {
+      // Clear any existing progress interval
+      if ((player as any)._progressInterval) {
+        clearInterval((player as any)._progressInterval);
+      }
+      
+      // Set up progress tracking for YouTube player (only progress, not state)
+      const updateProgress = () => {
+        try {
+          if (player.getCurrentTime && player.getDuration) {
+            const currentTime = player.getCurrentTime();
+            const duration = player.getDuration();
+            
+            if (duration > 0) {
+              setProgress(currentTime);
+              setDuration(duration);
+            }
+          }
+        } catch (error) {
+          console.error("Error updating YouTube progress:", error);
+        }
+      };
+      
+      // Update progress every second (but don't interfere with state)
+      const progressInterval = setInterval(() => {
+        updateProgress();
+      }, 1000);
+      
+      // Store interval reference to clear it later if needed
+      (player as any)._progressInterval = progressInterval;
+    }
   };
 
   // Set media session metadata
@@ -318,12 +510,19 @@ export function useAudio() {
 
     if (audioElement) {
       const handlePlay = () => {
-        setIsPlaying(true);
+        // Only set isPlaying if we're not using YouTube player
+        if (!youtubePlayer) {
+          setIsPlaying(true);
+        }
         videoRef.current?.play();
         backgroundVideoRef.current?.play();
       };
       
       const handlePause = () => {
+        // Only set isPlaying if we're not using YouTube player
+        if (!youtubePlayer) {
+          setIsPlaying(false);
+        }
         videoRef.current?.pause();
         backgroundVideoRef.current?.pause();
       };
@@ -349,7 +548,7 @@ export function useAudio() {
         audioElement.removeEventListener("canplay", handleCanPlay);
       };
     }
-  }, [setMediaSession, emitMessage]);
+  }, [setMediaSession, emitMessage, youtubePlayer]);
 
   // Effect for keyboard shortcuts
   useEffect(() => {
@@ -394,9 +593,11 @@ export function useAudio() {
     playNext,
     seek,
     setVolume,
+    setYouTubePlayer,
     audioRef,
     videoRef,
     backgroundVideoRef,
+    youtubePlayer, // Return the YouTube player from store
     isPlaying,
     isMuted: isMuted,
     currentSong,
