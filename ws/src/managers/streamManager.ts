@@ -71,7 +71,7 @@ export class RoomManager {
     public worker : Worker;
     public wsToSpace : Map<WebSocket, string>
     private timestampIntervals: Map<string, NodeJS.Timeout> = new Map();
-    private readonly TIMESTAMP_BROADCAST_INTERVAL = 2000; // Broadcast every 2 seconds
+    private readonly TIMESTAMP_BROADCAST_INTERVAL = 5000; // Broadcast every 5 seconds (reduced frequency)
 
     
     private constructor() {

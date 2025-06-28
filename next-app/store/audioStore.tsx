@@ -126,19 +126,29 @@ export const useAudioStore = create<AudioState>()(
           const state = get();
           console.log("[AudioStore] Syncing playback to timestamp:", timestamp);
           
-          // Show sync notification
-          if (typeof window !== 'undefined') {
-            const event = new CustomEvent('show-sync-toast', {
-              detail: { message: `Synced to ${Math.floor(timestamp)}s`, type: 'info' }
-            });
-            window.dispatchEvent(event);
-          }
-          
-          if (state.youtubePlayer && state.youtubePlayer.seekTo) {
+          if (state.youtubePlayer && state.youtubePlayer.seekTo && state.youtubePlayer.getCurrentTime) {
             try {
-              state.youtubePlayer.seekTo(timestamp, true);
-              set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
-              console.log("[AudioStore] YouTube player synced to:", timestamp);
+              const currentTime = state.youtubePlayer.getCurrentTime();
+              const timeDiff = Math.abs(currentTime - timestamp);
+              
+              // Only sync if the difference is significant (more than 3 seconds)
+              // This prevents choppy playback from frequent small corrections
+              if (timeDiff > 3) {
+                console.log("[AudioStore] Significant time difference detected:", timeDiff, "seconds. Syncing...");
+                state.youtubePlayer.seekTo(timestamp, true);
+                set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
+                
+                // Show sync notification only for significant corrections
+                if (typeof window !== 'undefined') {
+                  const event = new CustomEvent('show-sync-toast', {
+                    detail: { message: `Synced to ${Math.floor(timestamp)}s (${Math.floor(timeDiff)}s correction)`, type: 'info' }
+                  });
+                  window.dispatchEvent(event);
+                }
+              } else {
+                console.log("[AudioStore] Time difference within acceptable range:", timeDiff, "seconds. Skipping sync.");
+                set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
+              }
             } catch (error) {
               console.error("[AudioStore] Error syncing YouTube player:", error);
             }

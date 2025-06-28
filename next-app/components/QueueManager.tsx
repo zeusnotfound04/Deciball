@@ -188,7 +188,20 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             console.log('🎵 Video ID extracted:', youtubeVideoId);
             console.log('🎵 Original YouTube URL:', data.song.youtubeUrl);
             console.log('🎵 downloadUrl being passed:', audioSong.downloadUrl);
+            
+            // Start playing the song
             play(audioSong);
+            
+            // For new users who requested current song, check if there's pending sync to apply
+            // We'll give the player a moment to initialize before applying any pending sync
+            setTimeout(() => {
+              const { pendingSync } = useAudioStore.getState();
+              if (pendingSync) {
+                console.log('🔄 Applying pending sync after song load for new user');
+                const { handleRoomSync } = useAudioStore.getState();
+                handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong);
+              }
+            }, 1000); // 1 second delay to let the player initialize
           } else {
             console.log('🛑 No current song to play');
           }
@@ -231,6 +244,12 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           if (data.songId && !currentPlaying) {
             console.log('🎵 Timestamp sync has songId but no currentPlaying - requesting current song');
             sendMessage('get-current-song', { spaceId });
+            
+            // Store the sync data to apply once we get the song
+            // This will be handled by the audioStore's pending sync mechanism
+            const { handleRoomSync } = useAudioStore.getState();
+            handleRoomSync(data.currentTime, data.isPlaying, null);
+            return;
           }
           
           // Convert currentPlaying to audioStore format if it exists

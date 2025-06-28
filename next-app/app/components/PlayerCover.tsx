@@ -79,20 +79,21 @@ function PLayerCoverComp() {
       
       if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
         try {
-          if (isPlaying) {
-            console.log("[YouTube] Loading video with ID:", videoId);
-            event.target.loadVideoById(videoId, 0);
-          } else {
-            console.log("[YouTube] Cueing video with ID:", videoId);
-            event.target.cueVideoById(videoId, 0);
-          }
+          console.log("[YouTube] Loading video with ID:", videoId);
+          event.target.loadVideoById(videoId, 0);
 
-          console.log("[YouTube] Attempting to play video");
-          event.target.playVideo();
-
+          // Set volume before playing
           const storedVolume = Number(localStorage.getItem("volume")) || 1;
           console.log("[YouTube] Setting volume to:", storedVolume * 100);
           event.target.setVolume(storedVolume * 100);
+          
+          // Only auto-play if the store indicates we should be playing
+          if (isPlaying) {
+            console.log("[YouTube] Auto-playing since isPlaying is true");
+            event.target.playVideo();
+          } else {
+            console.log("[YouTube] Not auto-playing since isPlaying is false");
+          }
         } catch (error) {
           console.error("YouTube player error:", error);
         }
