@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
-import { Search as SearchIcon, Loader2, Music } from 'lucide-react';
+import { Search as SearchIcon, Loader2, Music, Plus, Check, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { useAudio } from '@/store/audioStore'; // Import the audio store
 import { getSpotifyTrack } from '@/actions/spotify/getSpotifyTrack';
 import axios from 'axios';
 import { searchResults } from '@/types';
+import { useSocket } from '@/context/socket-context';
 
 // Track type to match Spotify API structure
 type Track = {
@@ -45,24 +46,42 @@ type Track = {
 
 interface SearchSongPopupProps {
   onSelect?: (track: Track) => void;
+  onBatchSelect?: (tracks: Track[]) => void;
   buttonClassName?: string;
   maxResults?: number;
+  isAdmin?: boolean;
+  enableBatchSelection?: boolean;
+  spaceId?: string; // Add spaceId as a prop
 }
 
 export default function SearchSongPopup({
   onSelect,
+  onBatchSelect,
   buttonClassName = '',
-  maxResults = 10
+  maxResults = 10,
+  isAdmin = false,
+  enableBatchSelection = false,
+  spaceId = '' // Add spaceId prop with default value
 }: SearchSongPopupProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Track[]>([]);
+  const [selectedTracks, setSelectedTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // Get audio store functions
-  const { play } = useAudio();
+  // Get socket and user context for WebSocket communication
+  const { sendMessage, user: socketUser, socket } = useSocket();
+  
+  console.log("🎵 SearchSongPopup rendered with props:", {
+    isAdmin,
+    enableBatchSelection,
+    hasOnBatchSelect: !!onBatchSelect,
+    selectedTracksCount: selectedTracks.length,
+    spaceId,
+    hasSpaceId: !!spaceId
+  });
   
   // Add keyboard shortcut to open search with Ctrl+K
   useEffect(() => {
@@ -102,6 +121,7 @@ export default function SearchSongPopup({
     if (!open) {
       setQuery('');
       setResults([]);
+      setSelectedTracks([]);
       setError(null);
     }
   }, [open]);
@@ -214,89 +234,229 @@ export default function SearchSongPopup({
       url: spotifyTrack.external_urls?.spotify || ''
     };
   };
-const handleTrackSelect = async (track: Track) => {
-    try {
+
+  // Helper function to try multiple YouTube search results until one works
+  const tryMultipleResults = async (searchResults: any[], track: any, spaceId: string): Promise<boolean> => {
+    console.log(`🔄 Trying ${searchResults.length} search results for track: ${track.name}`);
+    
+    for (let i = 0; i < searchResults.length; i++) {
+      const result = searchResults[i];
+      const videoId = result.downloadUrl[0].url;
       
+      console.log(`🎯 Trying result ${i + 1}/${searchResults.length} for "${track.name}": ${videoId}`);
+      
+      // Validate video ID format
+      if (!videoId || videoId.length !== 11 || !/^[a-zA-Z0-9_-]+$/.test(videoId)) {
+        console.warn(`⚠️ Invalid video ID format: ${videoId}`);
+        continue;
+      }
+
+      const finalUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      
+      try {
+        // Send message and check success response
+        const success = sendMessage("add-to-queue", {
+          spaceId: spaceId,
+          url: finalUrl,
+          trackData: {
+            title: track.name,
+            artist: track.artists?.[0]?.name || 'Unknown Artist',
+            image: track.album?.images?.[0]?.url || '',
+            source: 'Youtube',
+            spotifyId: track.id,
+            youtubeId: videoId,
+            addedByUser: {
+              id: socketUser?.id || '',
+              username: socketUser?.username || 'Unknown'
+            }
+          },
+          // Legacy fields for backward compatibility
+          title: track.name,
+          artist: track.artists?.[0]?.name || 'Unknown Artist',
+          image: track.album?.images?.[0]?.url || '',
+          source: 'Youtube',
+          spotifyId: track.id,
+          youtubeId: videoId
+        });
+
+        if (success) {
+          console.log(`✅ Successfully sent "${track.name}" using result ${i + 1} - assuming success`);
+          return true;
+        }
+        
+        console.log(`❌ Failed to send result ${i + 1} for "${track.name}", trying next...`);
+        // Wait a bit before trying next result
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (error) {
+        console.error(`❌ Error with result ${i + 1} for "${track.name}":`, error);
+      }
+    }
+    
+    console.error(`❌ All ${searchResults.length} results failed for "${track.name}"`);
+    return false;
+  };
+
+  const handleTrackSelect = async (track: Track) => {
+    console.log("🎵 handleTrackSelect called:", {
+      trackName: track.name,
+      enableBatchSelection,
+      isAdmin,
+      currentSelectionCount: selectedTracks.length
+    });
+    
+    // If batch selection is enabled and this is an admin, toggle selection
+    if (enableBatchSelection && isAdmin) {
+      const isSelected = selectedTracks.some(t => t.id === track.id);
+      console.log("🎵 Batch selection mode - toggling track:", {
+        trackName: track.name,
+        wasSelected: isSelected,
+        willBeSelected: !isSelected
+      });
+      
+      if (isSelected) {
+        setSelectedTracks(prev => prev.filter(t => t.id !== track.id));
+      } else {
+        setSelectedTracks(prev => [...prev, track]);
+      }
+      return;
+    }
+
+    console.log("🎵 Single selection mode - adding to queue immediately");
+
+    // Add song to queue via WebSocket
+    try {
+      console.log("🎵 Processing Spotify track:", track.name);
       
       const response = await axios.post("/api/spotify/getTrack", track);
-      const completeTrack = response.data.body; 
-      // console.log("response track :::" , completeTrack)
-      const songId = response.data.body[0].downloadUrl[0].url 
+      console.log("🔍 Full API response:", response.data);
       
-      
-      // const convertedTrack = convertTrackFormat(completeTrack);
-      // console.log("Completed Track :::", convertedTrack);
-      const finalTrack : searchResults = {
-      id: track.id,
-      name: track.name,
-      // type: 'song',
-      // Convert artists array to your expected format
-      artistes: {
-        primary: track.artists?.map(artist => ({
-          id: artist.id,
-          name: artist.name,
-          role: 'primary_artists',
-          image: [],
-          type: 'artist',
-          url: artist.external_urls?.spotify || ''
-        })) || [],
-        // featured: [],
-        // all: track.artists?.map(artist => ({
-        //   id: artist.id,
-        //   name: artist.name,
-        //   role: 'primary_artists',
-        //   image: [],
-        //   type: 'artist',
-        //   url: artist.external_urls?.spotify || ''
-        // })) || []
-      },
-      image: track.album?.images?.map(img => ({
-        quality: img.height >= 300 ? '500x500' : '150x150',
-        url: img.url
-      })) || [],
-      downloadUrl:  [
-        {
-          quality: '320kbps',
-          url: songId
-        }
-      ] ,
-      url : "",
-addedBy: "",
-voteCount: 0,
-isVoted: false,
-source: "youtube"
-      // Add other required fields with default values
-      // year: new Date().getFullYear().toString(),
-      // releaseDate: new Date().toISOString().split('T')[0],
-      // duration: '30', // Spotify previews are typically 30 seconds
-      // label: '',
-      // copyright: '',
-      // hasLyrics: false,
-      // lyricsId: null,
-      // playCount: 0,
-      // language: 'english',
-      // explicit: false,
-      // album: {
-      //   id: track.album?.id || '',
-      //   name: track.album?.name || '',
-      //   url: ''
-      // },
-      // url: track.external_urls?.spotify || ''
-    }
-      await play(finalTrack);
-      
-
-      if (onSelect) {
-        onSelect(track);
+      if (!response.data?.body || response.data.body.length === 0) {
+        throw new Error("No search results found for this track");
       }
       
-      setOpen(false);
+      const searchResults = response.data.body;
+      console.log(`� Found ${searchResults.length} search results for "${track.name}"`);
       
-      // console.log('Track selected and playing:', convertedTrack.name);
+      // Use spaceId prop instead of extracting from URL
+      if (!spaceId) {
+        console.error("❌ No spaceId provided as prop");
+        setError('Room ID not found. Please rejoin the room.');
+        return;
+      }
+      
+      console.log("🏠 Using spaceId:", spaceId);
+      
+      // Try multiple results using fallback logic
+      const success = await tryMultipleResults(searchResults, track, spaceId);
+      
+      if (success) {
+        console.log("✅ Song added to queue successfully");
+        if (onSelect) {
+          onSelect(track);
+        }
+        setOpen(false);
+      } else {
+        throw new Error("Failed to add track - all video sources failed");
+      }
     } catch (error) {
-      console.error('Error playing selected track:', error);
-      setError('Failed to play the selected track');
+      console.error('❌ Error adding selected track to queue:', error);
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid response structure')) {
+          setError('Failed to convert Spotify track to YouTube. Please try a different song.');
+        } else if (error.message.includes('Invalid YouTube video ID')) {
+          setError('Could not find a valid YouTube version of this song.');
+        } else if (error.message.includes('Invalid YouTube URL format')) {
+          setError('The YouTube video format is invalid. Please try a different song.');
+        } else if (error.message.includes('WebSocket')) {
+          setError('Connection lost. Please refresh the page and try again.');
+        } else {
+          setError(`Failed to add song: ${error.message}`);
+        }
+      } else {
+        setError('Failed to add the selected track to queue');
+      }
     }
+  };
+
+  const handleAddSelectedToQueue = async () => {
+    if (selectedTracks.length === 0) return;
+
+    try {
+      console.log("🎵 Adding multiple tracks to queue:", selectedTracks.length);
+      
+      // Use spaceId prop instead of extracting from URL
+      if (!spaceId) {
+        console.error("❌ No spaceId provided as prop");
+        setError('Room ID not found. Please rejoin the room.');
+        return;
+      }
+      
+      console.log("🏠 Using spaceId for batch:", spaceId);
+
+      // Process each selected track with fallback logic
+      const results = [];
+      for (const track of selectedTracks) {
+        try {
+          console.log("🎵 Processing track:", track.name);
+          
+          const response = await axios.post("/api/spotify/getTrack", track);
+          const searchResults = response.data.body; 
+          
+          if (!searchResults || searchResults.length === 0) {
+            console.error("❌ No search results for track:", track.name);
+            results.push({ track: track.name, success: false, error: "No search results" });
+            continue;
+          }
+          
+          console.log(`🔍 Found ${searchResults.length} search results for "${track.name}"`);
+          
+          // Try multiple results using fallback logic
+          const success = await tryMultipleResults(searchResults, track, spaceId);
+          results.push({ track: track.name, success, error: success ? null : "All video sources failed" });
+          
+          // Small delay between tracks
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error) {
+          console.error("❌ Error processing track:", track.name, error);
+          results.push({ track: track.name, success: false, error: error instanceof Error ? error.message : "Unknown error" });
+        }
+      }
+
+      // Log final results
+      const successful = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+      
+      console.log(`📊 Batch selection complete: ${successful} successful, ${failed} failed`);
+      
+      if (failed > 0) {
+        console.log("❌ Failed tracks:", results.filter(r => !r.success).map(r => `${r.track}: ${r.error}`));
+      }
+
+      if (onBatchSelect) {
+        onBatchSelect(selectedTracks);
+      }
+      
+      console.log("✅ Finished adding all selected tracks");
+      setOpen(false);
+      setSelectedTracks([]);
+    } catch (error) {
+      console.error('Error adding selected tracks to queue:', error);
+      setError('Failed to add selected tracks to queue');
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedTracks.length === results.length) {
+      setSelectedTracks([]);
+    } else {
+      setSelectedTracks([...results]);
+    }
+  };
+
+  const isTrackSelected = (track: Track) => {
+    return selectedTracks.some(t => t.id === track.id);
   };
 
   return (
@@ -315,8 +475,7 @@ source: "youtube"
             <span className="text-xs">⌘</span>K
           </kbd>
         </Button>
-      </DialogTrigger>
-      <DialogContent hideCloseButton={true} className="w-[90vw] max-w-md p-0 gap-0 border-zinc-800 bg-zinc-900 shadow-2xl rounded-lg overflow-hidden h-[500px] flex flex-col">
+      </DialogTrigger>        <DialogContent hideCloseButton={true} className="w-[90vw] max-w-2xl p-0 gap-0 border-zinc-800 bg-zinc-900 shadow-2xl rounded-lg overflow-hidden h-[600px] flex flex-col">
         <DialogHeader className="p-0 m-0 h-0">
           <VisuallyHidden>
             <DialogTitle>Search Songs</DialogTitle>
@@ -332,7 +491,7 @@ source: "youtube"
                   <SearchIcon className="h-4 w-4 ml-3 text-zinc-400" />
                   <Input
                     ref={inputRef}
-                    placeholder="Search for a song... (⌘K)"
+                    placeholder="Search for songs... (⌘K)"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -342,6 +501,35 @@ source: "youtube"
                 </div>
               </div>
             </div>
+            
+            {/* Batch Selection Controls */}
+            {enableBatchSelection && isAdmin && results.length > 0 && (
+              <div className="mt-2 flex items-center justify-between bg-zinc-800 rounded-lg p-3">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    className="bg-zinc-700 border-zinc-600 text-zinc-200 hover:bg-zinc-600"
+                  >
+                    {selectedTracks.length === results.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  <span className="text-sm text-zinc-400">
+                    {selectedTracks.length} of {results.length} selected
+                  </span>
+                </div>
+                {selectedTracks.length > 0 && (
+                  <Button
+                    onClick={handleAddSelectedToQueue}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add {selectedTracks.length} to Queue
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
           
           {/* Results container - Fixed height with scrolling */}
@@ -361,9 +549,31 @@ source: "youtube"
                   {results.map((track, index) => (
                     <li
                       key={track.id || index}
+                      className={cn(
+                        "flex items-center gap-3 p-3 cursor-pointer border-b border-zinc-800/50 last:border-b-0 transition-colors",
+                        enableBatchSelection && isAdmin 
+                          ? "hover:bg-zinc-800/60" 
+                          : "hover:bg-zinc-800/80",
+                        isTrackSelected(track) && "bg-blue-900/30 border-blue-700/50"
+                      )}
                       onClick={() => handleTrackSelect(track)}
-                      className="flex items-center gap-3 p-3 hover:bg-zinc-800/80 cursor-pointer border-b border-zinc-800/50 last:border-b-0 transition-colors"
                     >
+                      {/* Selection checkbox for admins */}
+                      {enableBatchSelection && isAdmin && (
+                        <div className="flex-shrink-0">
+                          <div className={cn(
+                            "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                            isTrackSelected(track) 
+                              ? "bg-blue-600 border-blue-600" 
+                              : "border-zinc-600 hover:border-zinc-500"
+                          )}>
+                            {isTrackSelected(track) && (
+                              <Check className="w-3 h-3 text-white" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="w-12 h-12 overflow-hidden rounded-md flex-shrink-0 border border-zinc-800/50 shadow-md bg-zinc-800">
                         {track.album?.images && track.album.images[0]?.url ? (
                           <img
@@ -393,6 +603,11 @@ source: "youtube"
                           {track.preview_url && (
                             <span className="text-[10px] text-emerald-400 bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
                               ▶ PLAYABLE
+                            </span>
+                          )}
+                          {isTrackSelected(track) && (
+                            <span className="text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded-full">
+                              ✓ SELECTED
                             </span>
                           )}
                         </div>

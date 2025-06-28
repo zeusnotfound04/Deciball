@@ -9,6 +9,8 @@ export interface User {
     role : "admin" | "listener" | string;
     token : string;
     imageDelUrl? : string;
+    spotifyAccessToken?: string;
+    spotifyRefreshToken?: string;
 }
 
 

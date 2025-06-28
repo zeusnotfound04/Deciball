@@ -63,6 +63,8 @@ model CurrentStream {
   stream   Stream? @relation(fields: [streamId], references: [id])
   spaceId  String? @unique
   space    Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  
+
 }
 
 model Upvote {

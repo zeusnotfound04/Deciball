@@ -15,7 +15,8 @@ export const getSpotifyTrack = async (
         const ytSongs = await ytmusic.searchSongs(`${name} ${artist}`);
        
         
-        const tracks = ytSongs?.slice(0, 1).map((s: any) => ({
+        // Return multiple search results for fallback (top 3 results)
+        const tracks = ytSongs?.slice(0, 3).map((s: any) => ({
             id: s.videoId,
             name: s.name,
             artists: {

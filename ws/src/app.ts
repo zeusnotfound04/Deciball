@@ -32,6 +32,22 @@ type Data = {
     url : string;
     vote : "upvote" | "downvote";
     streamId : string;
+    // Spotify-specific fields
+    trackUri? : string;
+    position? : number;
+    timestamp? : number;
+    isPlaying? : boolean;
+    // General fields
+    title? : string;
+    artist? : string;
+    image? : string;
+    source? : string;
+    // New fields for enhanced queue functionality
+    trackData? : any;
+    autoPlay? : boolean;
+    // Playback control fields
+    seekTime? : number;
+    currentTime? : number;
 }
 
 
@@ -46,21 +62,51 @@ function createHttpServer() {
 
 async function handleJoinRoom(ws: WebSocket , data : Data){
     console.log("Joining the room")
+    console.log("Join room data:", data);
+    
+    if (!data.token) {
+        console.error("No token provided in join room request");
+        sendError(ws, "Authentication token is required");
+        return;
+    }
+    
     jwt.verify(
         data.token,
         process.env.JWT_SECRET as string,
-        (err : any , decoded : any) => {
+        async (err : any , decoded : any) => {
             if(err){
-                console.log(err)
+                console.log("JWT verification error:", err)
                 sendError(ws , "Token verification failed")
             } else {
-                RoomManager.getInstance().joinRoom(
-                    data.spaceId,
-                    decoded.creatorId,
-                    decoded.userId,
-                    ws,
-                    data.token
-                )
+                console.log("JWT decoded successfully:", { userId: decoded.userId, creatorId: decoded.creatorId });
+                
+                // Use userId as creatorId if creatorId is not present (for backward compatibility)
+                const creatorId = decoded.creatorId || decoded.userId;
+                const userId = decoded.userId;
+                
+                try {
+                    await RoomManager.getInstance().joinRoom(
+                        data.spaceId,
+                        creatorId,
+                        userId,
+                        ws,
+                        data.token
+                    );
+                    console.log(`User ${userId} successfully joined room ${data.spaceId}`);
+                    
+                    // Send success response to the user
+                    ws.send(JSON.stringify({
+                        type: "room-joined",
+                        data: {
+                            spaceId: data.spaceId,
+                            userId: userId,
+                            message: "Successfully joined room"
+                        }
+                    }));
+                } catch (error) {
+                    console.error("Error joining room:", error);
+                    sendError(ws, "Failed to join room");
+                }
             }
         }
     )
@@ -81,11 +127,14 @@ async function  processUserAction(type: string , data : Data ) {
             break;
         
         case "add-to-queue":
-            console.log("ADD TO QUEUE FUNCTION IS GOING TO TRIGGER")
+            console.log("🎵 ADD TO QUEUE FUNCTION IS GOING TO TRIGGER");
+            console.log("🎵 Received data:", JSON.stringify(data, null, 2));
             await RoomManager.getInstance().addToQueue(
                   data.spaceId,
                   data.userId,
-                  data.url
+                  data.url,
+                  data.trackData, // Pass additional track data
+                  data.autoPlay  // Pass auto-play flag
             );
             break;
 
@@ -120,6 +169,93 @@ async function  processUserAction(type: string , data : Data ) {
             data.userId,
             data.url
             );
+            break;
+
+        // Spotify synchronization cases
+        case "spotify-play":
+            await RoomManager.getInstance().handleSpotifyPlay(
+                data.spaceId,
+                data.userId,
+                data
+            );
+            break;
+
+        case "spotify-pause":
+            await RoomManager.getInstance().handleSpotifyPause(
+                data.spaceId,
+                data.userId,
+                data
+            );
+            break;
+
+        case "spotify-state-change":
+            await RoomManager.getInstance().handleSpotifyStateChange(
+                data.spaceId,
+                data.userId,
+                data
+            );
+            break;
+
+        // YouTube synchronization cases
+        case "youtube-state-change":
+            await RoomManager.getInstance().handleYouTubeStateChange(
+                data.spaceId,
+                data.userId,
+                data
+            );
+            break;
+
+        // Queue management cases
+        case "get-queue":
+            const queue = await RoomManager.getInstance().getQueueWithVotes(data.spaceId);
+            // Send back to requesting user
+            const requestingUser = RoomManager.getInstance().users.get(data.userId);
+            if (requestingUser) {
+                requestingUser.ws.forEach((ws: WebSocket) => {
+                    ws.send(JSON.stringify({
+                        type: "queue-update",
+                        data: { queue }
+                    }));
+                });
+            }
+            break;
+
+        // Playback control cases
+        case "pause-playback":
+            await RoomManager.getInstance().pausePlayback(
+                data.spaceId,
+                data.userId
+            );
+            break;
+
+        case "resume-playback":
+            await RoomManager.getInstance().resumePlayback(
+                data.spaceId,
+                data.userId
+            );
+            break;
+
+        case "seek-playback":
+            if (typeof data.seekTime === 'number') {
+                await RoomManager.getInstance().seekPlayback(
+                    data.spaceId,
+                    data.userId,
+                    data.seekTime
+                );
+            }
+            break;
+
+        case "get-playback-state":
+            const playbackState = RoomManager.getInstance().getPlaybackState(data.spaceId);
+            const stateRequestingUser = RoomManager.getInstance().users.get(data.userId);
+            if (stateRequestingUser && playbackState) {
+                stateRequestingUser.ws.forEach((ws: WebSocket) => {
+                    ws.send(JSON.stringify({
+                        type: "playback-state-update",
+                        data: playbackState
+                    }));
+                });
+            }
             break;
   
     

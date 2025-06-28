@@ -18,7 +18,12 @@ interface AudioState {
   currentDuration: number;
   currentVolume: number;
   background: boolean;
-  youtubePlayer: any; // Add YouTube player to the store state
+  youtubePlayer: any;
+  spotifyPlayer: any; // Add Spotify player to the store state
+  isSpotifyReady: boolean;
+  spotifyDeviceId: string | null;
+  isSynchronized: boolean; // Track if playback is synchronized
+  lastSyncTimestamp: number;
 
   // Actions
   setIsPlaying: (isPlaying: boolean) => void;
@@ -28,7 +33,19 @@ interface AudioState {
   setDuration: (duration: number) => void;
   setVolume: (volume: number, save?: boolean) => void;
   setBackground: (background: boolean) => void;
-  setYoutubePlayer: (player: any) => void; // Add action to set YouTube player
+  setYoutubePlayer: (player: any) => void;
+  setSpotifyPlayer: (player: any) => void;
+  setSpotifyReady: (ready: boolean) => void;
+  setSpotifyDeviceId: (deviceId: string | null) => void;
+  setSynchronized: (synchronized: boolean) => void;
+  setLastSyncTimestamp: (timestamp: number) => void;
+  
+  // Synchronization actions
+  syncPlaybackToTimestamp: (timestamp: number) => void;
+  handleRoomSync: (currentTime: number, isPlaying: boolean, currentSong: any) => void;
+  handlePlaybackPause: () => void;
+  handlePlaybackResume: () => void;
+  handlePlaybackSeek: (seekTime: number) => void;
 }
 
 export const useAudioStore = create<AudioState>()(
@@ -43,6 +60,11 @@ export const useAudioStore = create<AudioState>()(
         currentVolume: 1,
         background: true,
         youtubePlayer: null,
+        spotifyPlayer: null,
+        isSpotifyReady: false,
+        spotifyDeviceId: null,
+        isSynchronized: false,
+        lastSyncTimestamp: 0,
 
         // Actions
         setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -63,6 +85,109 @@ export const useAudioStore = create<AudioState>()(
         setYoutubePlayer: (youtubePlayer) => {
           console.log("[AudioStore] Setting YouTube player in store:", !!youtubePlayer);
           set({ youtubePlayer });
+        },
+        setSpotifyPlayer: (spotifyPlayer) => {
+          console.log("[AudioStore] Setting Spotify player in store:", !!spotifyPlayer);
+          set({ spotifyPlayer });
+        },
+        setSpotifyReady: (isSpotifyReady) => set({ isSpotifyReady }),
+        setSpotifyDeviceId: (spotifyDeviceId) => set({ spotifyDeviceId }),
+        setSynchronized: (isSynchronized) => set({ isSynchronized }),
+        setLastSyncTimestamp: (lastSyncTimestamp) => set({ lastSyncTimestamp }),
+        
+        // Synchronization actions
+        syncPlaybackToTimestamp: (timestamp) => {
+          const state = get();
+          console.log("[AudioStore] Syncing playback to timestamp:", timestamp);
+          
+          if (state.youtubePlayer && state.youtubePlayer.seekTo) {
+            try {
+              state.youtubePlayer.seekTo(timestamp, true);
+              set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
+              console.log("[AudioStore] YouTube player synced to:", timestamp);
+            } catch (error) {
+              console.error("[AudioStore] Error syncing YouTube player:", error);
+            }
+          }
+          
+          if (state.spotifyPlayer && state.isSpotifyReady) {
+            try {
+              state.spotifyPlayer.seek(timestamp * 1000); // Spotify uses milliseconds
+              set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
+              console.log("[AudioStore] Spotify player synced to:", timestamp);
+            } catch (error) {
+              console.error("[AudioStore] Error syncing Spotify player:", error);
+            }
+          }
+        },
+        
+        handleRoomSync: (currentTime, isPlaying, currentSong) => {
+          const state = get();
+          console.log("[AudioStore] Handling room sync:", { currentTime, isPlaying, currentSong });
+          
+          // Update current song if different
+          if (currentSong && (!state.currentSong || state.currentSong.id !== currentSong.id)) {
+            set({ currentSong });
+          }
+          
+          // Sync playback position
+          state.syncPlaybackToTimestamp(currentTime);
+          
+          // Set playing state
+          if (isPlaying !== state.isPlaying) {
+            set({ isPlaying });
+            
+            if (isPlaying) {
+              if (state.youtubePlayer && state.youtubePlayer.playVideo) {
+                state.youtubePlayer.playVideo();
+              }
+              if (state.spotifyPlayer && state.isSpotifyReady) {
+                state.spotifyPlayer.resume();
+              }
+            } else {
+              if (state.youtubePlayer && state.youtubePlayer.pauseVideo) {
+                state.youtubePlayer.pauseVideo();
+              }
+              if (state.spotifyPlayer && state.isSpotifyReady) {
+                state.spotifyPlayer.pause();
+              }
+            }
+          }
+        },
+        
+        handlePlaybackPause: () => {
+          const state = get();
+          console.log("[AudioStore] Handling playback pause");
+          
+          set({ isPlaying: false });
+          
+          if (state.youtubePlayer && state.youtubePlayer.pauseVideo) {
+            state.youtubePlayer.pauseVideo();
+          }
+          if (state.spotifyPlayer && state.isSpotifyReady) {
+            state.spotifyPlayer.pause();
+          }
+        },
+        
+        handlePlaybackResume: () => {
+          const state = get();
+          console.log("[AudioStore] Handling playback resume");
+          
+          set({ isPlaying: true });
+          
+          if (state.youtubePlayer && state.youtubePlayer.playVideo) {
+            state.youtubePlayer.playVideo();
+          }
+          if (state.spotifyPlayer && state.isSpotifyReady) {
+            state.spotifyPlayer.resume();
+          }
+        },
+        
+        handlePlaybackSeek: (seekTime) => {
+          const state = get();
+          console.log("[AudioStore] Handling playback seek to:", seekTime);
+          
+          state.syncPlaybackToTimestamp(seekTime);
         },
       }),
       {
@@ -99,13 +224,28 @@ export function useAudio() {
     currentProgress,
     currentDuration,
     currentVolume,
-    youtubePlayer, // Get YouTube player from store
+    youtubePlayer,
+    spotifyPlayer,
+    isSpotifyReady,
+    spotifyDeviceId,
+    isSynchronized,
+    lastSyncTimestamp,
     setIsPlaying,
     setCurrentSong,
     setProgress,
     setDuration,
     setVolume,
-    setYoutubePlayer: setYoutubePlayerInStore
+    setYoutubePlayer: setYoutubePlayerInStore,
+    setSpotifyPlayer: setSpotifyPlayerInStore,
+    setSpotifyReady,
+    setSpotifyDeviceId,
+    setSynchronized,
+    setLastSyncTimestamp,
+    syncPlaybackToTimestamp,
+    handleRoomSync,
+    handlePlaybackPause,
+    handlePlaybackResume,
+    handlePlaybackSeek
   } = useAudioStore();
 
   // Play function
@@ -124,11 +264,69 @@ export function useAudio() {
       audioRef.current.src = "";
     }
     
+    // Check if this is a Spotify track
+    const isSpotifyTrack = song.downloadUrl?.[0]?.url?.includes('spotify:track:') || 
+                          song.url?.includes('open.spotify.com/track/');
+    
+    if (isSpotifyTrack && spotifyPlayer && isSpotifyReady) {
+      try {
+        // Extract Spotify track URI
+        let spotifyUri = song.downloadUrl?.[0]?.url;
+        if (!spotifyUri?.startsWith('spotify:track:')) {
+          // Convert URL to URI if needed
+          const trackId = song.url?.split('/track/')[1]?.split('?')[0];
+          spotifyUri = `spotify:track:${trackId}`;
+        }
+        
+        console.log("[Audio] Playing Spotify track:", spotifyUri);
+        
+        await spotifyPlayer.player.activateElement();
+        
+        // Play the specific track
+        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            uris: [spotifyUri]
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user?.spotifyAccessToken}`
+          }
+        });
+        
+        // Reset tracking
+        lastEmittedTimeRef.current = 0;
+        skipCountRef.current = 0;
+        
+        // Notify server about Spotify playback
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ 
+            type: "spotify-play", 
+            data: { 
+              trackUri: spotifyUri, 
+              timestamp: Date.now() 
+            } 
+          }));
+        }
+        
+        console.log("[Audio] Spotify playback initiated");
+        return;
+      } catch (e: any) {
+        console.error("Error playing Spotify track:", e);
+        // Fall through to other playback methods
+      }
+    }
+    
     // If we have a YouTube player, use it for playback
-    if (youtubePlayer && song.downloadUrl?.[0]?.url) {
+    if (youtubePlayer && song.downloadUrl?.[0]?.url && !isSpotifyTrack) {
       try {
         const videoId = song.downloadUrl[0].url;
         console.log("[Audio] Loading YouTube video with ID:", videoId);
+        console.log("[Audio] YouTube player available:", !!youtubePlayer);
+        console.log("[Audio] Video ID length:", videoId.length);
+        
+        // Immediately set playing state
+        setIsPlaying(true);
         
         youtubePlayer.loadVideoById(videoId, 0);
         
@@ -140,16 +338,16 @@ export function useAudio() {
         videoRef.current?.play();
         backgroundVideoRef.current?.play();
         
-        console.log("[Audio] YouTube playback initiated");
-        // Don't set isPlaying here - let YouTube events handle it
+        console.log("[Audio] YouTube playback initiated, isPlaying set to true");
         return;
       } catch (e: any) {
         console.error("Error playing YouTube video:", e);
+        setIsPlaying(false);
       }
     }
     
-    // Fallback to HTML Audio element if YouTube player not available
-    if (audioRef.current) {
+    // Fallback to HTML Audio element if other players not available
+    if (audioRef.current && !isSpotifyTrack) {
       const currentVideoUrl = `https://www.youtube.com/watch?v=${song.downloadUrl[0].url}`
       audioRef.current.src = currentVideoUrl;
       console.log("SOURCE:::" , audioRef.current.src)
@@ -183,8 +381,30 @@ export function useAudio() {
   // Pause function
   const pause = () => {
     console.log("[Audio] pause() called");
+    console.log("[Audio] Spotify player available:", !!spotifyPlayer);
     console.log("[Audio] YouTube player available:", !!youtubePlayer);
-    console.log("[Audio] YouTube player object:", youtubePlayer);
+    
+    // Pause Spotify player if it exists and is ready
+    if (spotifyPlayer && isSpotifyReady) {
+      try {
+        console.log("[Audio] Calling Spotify pause()");
+        spotifyPlayer.pause();
+        console.log("[Audio] Spotify player paused successfully");
+        
+        // Notify server about pause
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ 
+            type: "spotify-pause", 
+            data: { timestamp: Date.now() } 
+          }));
+        }
+        
+        // Don't set isPlaying here - let Spotify events handle it
+        return;
+      } catch (error) {
+        console.error("Error pausing Spotify player:", error);
+      }
+    }
     
     // Also pause YouTube player if it exists
     if (youtubePlayer) {
@@ -224,11 +444,37 @@ export function useAudio() {
   const resume = () => {
     console.log("[Audio] resume() called");
     console.log("[Audio] Current song available:", !!currentSong);
+    console.log("[Audio] Spotify player available:", !!spotifyPlayer);
     console.log("[Audio] YouTube player available:", !!youtubePlayer);
     
     if (currentSong) {
-      // Try to resume YouTube player first
-      if (youtubePlayer) {
+      // Check if current song is Spotify
+      const isSpotifyTrack = currentSong.downloadUrl?.[0]?.url?.includes('spotify:track:') || 
+                            currentSong.url?.includes('open.spotify.com/track/');
+      
+      // Try to resume Spotify player first
+      if (isSpotifyTrack && spotifyPlayer && isSpotifyReady) {
+        try {
+          console.log("[Audio] Calling Spotify resume()");
+          spotifyPlayer.resume();
+          console.log("[Audio] Spotify player resumed successfully");
+          
+          // Notify server about resume
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ 
+              type: "spotify-resume", 
+              data: { timestamp: Date.now() } 
+            }));
+          }
+          // Don't set isPlaying here - let Spotify events handle it
+          return;
+        } catch (error) {
+          console.error("Error resuming Spotify player:", error);
+        }
+      }
+      
+      // Try to resume YouTube player
+      if (!isSpotifyTrack && youtubePlayer) {
         try {
           console.log("[Audio] Calling YouTube playVideo()");
           youtubePlayer.playVideo();
@@ -432,6 +678,168 @@ export function useAudio() {
     }
   };
 
+  // Function to set up Spotify player
+  const setupSpotifyPlayer = (player: any) => {
+    console.log("[Audio] setupSpotifyPlayer called with player:", !!player);
+    setSpotifyPlayerInStore(player);
+    
+    if (player) {
+      // Set up Spotify player event handlers
+      player.addListener('ready', ({ device_id }: { device_id: string }) => {
+        console.log('Spotify Ready with Device ID', device_id);
+        setSpotifyDeviceId(device_id);
+        setSpotifyReady(true);
+      });
+
+      player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
+        console.log('Spotify Device ID has gone offline', device_id);
+        setSpotifyReady(false);
+      });
+
+      player.addListener('player_state_changed', (state: any) => {
+        if (!state) return;
+        
+        console.log('Spotify player state changed:', state);
+        setIsPlaying(!state.paused);
+        setProgress((state.position / state.duration) * 100);
+        setDuration(state.duration / 1000);
+        
+        // Update synchronization timestamp
+        setLastSyncTimestamp(Date.now());
+        
+        // Notify server of state change for sync
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "spotify-state-change",
+            data: {
+              isPlaying: !state.paused,
+              position: state.position,
+              timestamp: Date.now(),
+              trackUri: state.track_window.current_track?.uri
+            }
+          }));
+        }
+      });
+
+      // Connect to the player
+      player.connect();
+    }
+  };
+
+  // Function to handle synchronization commands from server
+  const handleSyncCommand = (data: any) => {
+    console.log("[Audio] Received sync command:", data);
+    
+    switch (data.type) {
+      case "spotify-sync-play":
+        if (spotifyPlayer && isSpotifyReady) {
+          const timeDiff = Date.now() - data.timestamp;
+          const syncedPosition = data.position + timeDiff;
+          
+          // Seek to synchronized position and play
+          fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${syncedPosition}&device_id=${spotifyDeviceId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${user?.spotifyAccessToken}`
+            }
+          }).then(() => {
+            return fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${user?.spotifyAccessToken}`
+              }
+            });
+          });
+        }
+        break;
+        
+      case "spotify-sync-pause":
+        if (spotifyPlayer && isSpotifyReady) {
+          fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${spotifyDeviceId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${user?.spotifyAccessToken}`
+            }
+          });
+        }
+        break;
+        
+      case "spotify-sync-seek":
+        if (spotifyPlayer && isSpotifyReady) {
+          fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=${data.position}&device_id=${spotifyDeviceId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${user?.spotifyAccessToken}`
+            }
+          });
+        }
+        break;
+        
+      case "youtube-sync-play":
+        if (youtubePlayer) {
+          const timeDiff = (Date.now() - data.timestamp) / 1000;
+          const syncedPosition = data.position + timeDiff;
+          youtubePlayer.seekTo(syncedPosition, true);
+          youtubePlayer.playVideo();
+        }
+        break;
+        
+      case "youtube-sync-pause":
+        if (youtubePlayer) {
+          youtubePlayer.pauseVideo();
+        }
+        break;
+    }
+  };
+
+  // Queue management functions
+  const addToQueue = (song: searchResults) => {
+    console.log("🎵 Adding song to queue:", song);
+    
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      // Extract YouTube video ID if it's a YouTube URL
+      let extractedUrl = song.downloadUrl?.[0]?.url || song.url || '';
+      
+      // If it's a YouTube URL, extract the video ID
+      if (extractedUrl.includes('youtube.com') || extractedUrl.includes('youtu.be')) {
+        const videoIdMatch = extractedUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+        if (videoIdMatch) {
+          extractedUrl = videoIdMatch[1];
+        }
+      }
+      
+      const message = {
+        type: "add-to-queue",
+        data: {
+          url: extractedUrl,
+          title: song.name,
+          artist: song.artistes?.primary?.[0]?.name || 'Unknown Artist',
+          image: song.image?.[0]?.url || '',
+          source: song.source === 'youtube' || extractedUrl.length === 11 ? 'Youtube' : 'Spotify',
+          spotifyId: song.url?.includes('spotify.com') ? song.id : undefined,
+          youtubeId: extractedUrl.length === 11 ? extractedUrl : undefined
+        }
+      };
+      
+      console.log("📤 Sending add-to-queue message:", message);
+      ws.send(JSON.stringify(message));
+    } else {
+      console.error("❌ WebSocket not available for adding to queue");
+    }
+  };
+
+  const voteOnSong = (streamId: string, vote: "upvote" | "downvote") => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: "cast-vote",
+        data: {
+          streamId,
+          vote
+        }
+      }));
+    }
+  };
+  
   // Set media session metadata
   const setMediaSession = () => {
     const handleBlock = () => {
@@ -581,6 +989,96 @@ export function useAudio() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [togglePlayPause, playNext, playPrev]);
 
+  // Synchronization event listeners
+  useEffect(() => {
+    const handleRoomSyncEvent = (event: CustomEvent) => {
+      console.log("🎵 Room sync event received:", event.detail);
+      handleRoomSync(
+        event.detail.currentTime,
+        event.detail.isPlaying,
+        event.detail.currentSong
+      );
+    };
+
+    const handlePlaybackPausedEvent = (event: CustomEvent) => {
+      console.log("⏸️ Playback paused event received:", event.detail);
+      handlePlaybackPause();
+    };
+
+    const handlePlaybackResumedEvent = (event: CustomEvent) => {
+      console.log("▶️ Playback resumed event received:", event.detail);
+      handlePlaybackResume();
+    };
+
+    const handlePlaybackSeekedEvent = (event: CustomEvent) => {
+      console.log("⏩ Playback seeked event received:", event.detail);
+      handlePlaybackSeek(event.detail.seekTime);
+    };
+
+    const handlePlaybackStateUpdateEvent = (event: CustomEvent) => {
+      console.log("🔄 Playback state update event received:", event.detail);
+      // Handle general playback state updates if needed
+    };
+
+    const handleCurrentSongUpdateEvent = (event: CustomEvent) => {
+      console.log("🎶 Current song update event received:", event.detail);
+      const songData = event.detail.song;
+      if (songData) {
+        // Format the song for audio store
+        const formattedSong: searchResults = {
+          id: songData.id,
+          name: songData.title || songData.name,
+          artistes: {
+            primary: [{
+              id: 'unknown',
+              name: songData.artist || 'Unknown Artist',
+              role: 'primary_artist',
+              image: [] as [],
+              type: 'artist' as const,
+              url: ''
+            }]
+          },
+          image: [
+            { quality: 'high', url: songData.bigImg || songData.smallImg || '' },
+            { quality: 'medium', url: songData.smallImg || songData.bigImg || '' }
+          ],
+          downloadUrl: [{
+            quality: 'auto',
+            url: songData.extractedId || songData.youtubeId || songData.url || ''
+          }],
+          url: songData.url || '',
+          addedBy: songData.addedByUser?.username || 'Unknown',
+          voteCount: songData.voteCount || 0,
+          isVoted: false,
+          source: songData.type === 'Youtube' ? 'youtube' : undefined
+        };
+        
+        // Set as current song and start playing
+        setCurrentSong(formattedSong);
+        console.log("🎵 Starting playback of current song update:", formattedSong.name);
+        play(formattedSong);
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('room-sync-playback', handleRoomSyncEvent as EventListener);
+    window.addEventListener('playback-paused', handlePlaybackPausedEvent as EventListener);
+    window.addEventListener('playback-resumed', handlePlaybackResumedEvent as EventListener);
+    window.addEventListener('playback-seeked', handlePlaybackSeekedEvent as EventListener);
+    window.addEventListener('playback-state-update', handlePlaybackStateUpdateEvent as EventListener);
+    window.addEventListener('current-song-update', handleCurrentSongUpdateEvent as EventListener);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('room-sync-playback', handleRoomSyncEvent as EventListener);
+      window.removeEventListener('playback-paused', handlePlaybackPausedEvent as EventListener);
+      window.removeEventListener('playback-resumed', handlePlaybackResumedEvent as EventListener);
+      window.removeEventListener('playback-seeked', handlePlaybackSeekedEvent as EventListener);
+      window.removeEventListener('playback-state-update', handlePlaybackStateUpdateEvent as EventListener);
+      window.removeEventListener('current-song-update', handleCurrentSongUpdateEvent as EventListener);
+    };
+  }, [handleRoomSync, handlePlaybackPause, handlePlaybackResume, handlePlaybackSeek]);
+
   // Return the API
   return {
     play,
@@ -594,10 +1092,18 @@ export function useAudio() {
     seek,
     setVolume,
     setYouTubePlayer,
+    setupSpotifyPlayer,
+    handleSyncCommand,
+    addToQueue,
+    voteOnSong,
     audioRef,
     videoRef,
     backgroundVideoRef,
-    youtubePlayer, // Return the YouTube player from store
+    youtubePlayer,
+    spotifyPlayer,
+    isSpotifyReady,
+    spotifyDeviceId,
+    isSynchronized,
     isPlaying,
     isMuted: isMuted,
     currentSong,

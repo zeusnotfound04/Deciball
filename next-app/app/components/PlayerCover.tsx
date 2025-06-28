@@ -14,6 +14,29 @@ function PLayerCoverComp() {
   const { currentSong, isPlaying, setYouTubePlayer } = useAudio();
   const { setIsPlaying } = useAudioStore();
   
+  // Utility function to clean and validate URLs
+  const cleanImageUrl = (url: string): string => {
+    if (!url) return "https://us-east-1.tixte.net/uploads/tanmay111-files.tixte.co/d61488c1ddafe4606fe57013728a7e84.jpg";
+    
+    // Remove extra quotes from the beginning and end
+    let cleanedUrl = url.trim();
+    if (cleanedUrl.startsWith('"') && cleanedUrl.endsWith('"')) {
+      cleanedUrl = cleanedUrl.slice(1, -1);
+    }
+    if (cleanedUrl.startsWith("'") && cleanedUrl.endsWith("'")) {
+      cleanedUrl = cleanedUrl.slice(1, -1);
+    }
+    
+    // Validate URL format
+    try {
+      new URL(cleanedUrl);
+      return cleanedUrl;
+    } catch (error) {
+      console.error('Invalid image URL:', cleanedUrl, error);
+      return "https://us-east-1.tixte.net/uploads/tanmay111-files.tixte.co/d61488c1ddafe4606fe57013728a7e84.jpg";
+    }
+  };
+  
   // Remove this local playerRef since we're using the one from useAudio
   // const playerRef = useRef<any>(null);
 
@@ -40,9 +63,21 @@ function PLayerCoverComp() {
     if(currentSong){
       console.log("[YouTube] Current song is available, setting up playback");
       
-      const videoId = currentSong.downloadUrl[0].url;
-      console.log("Video ID" , videoId)
-      if (videoId) {
+      let videoId = currentSong.downloadUrl[0].url;
+      console.log("Raw video URL/ID from currentSong:", videoId);
+      
+      // Extract video ID if it's a full YouTube URL
+      if (videoId && videoId.includes('youtube.com/watch?v=')) {
+        const match = videoId.match(/v=([a-zA-Z0-9_-]{11})/);
+        videoId = match ? match[1] : videoId;
+      } else if (videoId && videoId.includes('youtu.be/')) {
+        const match = videoId.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+        videoId = match ? match[1] : videoId;
+      }
+      
+      console.log("Extracted video ID:", videoId);
+      
+      if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
         try {
           if (isPlaying) {
             console.log("[YouTube] Loading video with ID:", videoId);
@@ -62,7 +97,7 @@ function PLayerCoverComp() {
           console.error("YouTube player error:", error);
         }
       } else {
-        console.warn("[YouTube] No video ID available to load");
+        console.warn("[YouTube] Invalid video ID format:", videoId);
       }
     } else {
       console.log("[YouTube] No current song available, player ready but waiting for song");
@@ -149,8 +184,7 @@ function PLayerCoverComp() {
             width={300}
             className="cover aspect-square h-full object-cover  w-full"
             src={
-              currentSong?.image?.[currentSong.image.length - 1]?.url ||
-              "https://us-east-1.tixte.net/uploads/tanmay111-files.tixte.co/d61488c1ddafe4606fe57013728a7e84.jpg"
+              cleanImageUrl(currentSong?.image?.[currentSong.image.length - 1]?.url || '')
             }
           />
         ) : (
@@ -172,8 +206,7 @@ function PLayerCoverComp() {
               width={300}
               className="cover z-10  aspect-square h-full object-cover  w-full"
               src={
-                currentSong?.image?.[currentSong.image.length - 1]?.url ||
-                "https://us-east-1.tixte.net/uploads/tanmay111-files.tixte.co/d61488c1ddafe4606fe57013728a7e84.jpg"
+                cleanImageUrl(currentSong?.image?.[currentSong.image.length - 1]?.url || '')
               }
             />
           </div>
