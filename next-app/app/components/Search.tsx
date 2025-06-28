@@ -236,8 +236,8 @@ export default function SearchSongPopup({
   };
 
   // Helper function to try multiple YouTube search results until one works
-  const tryMultipleResults = async (searchResults: any[], track: any, spaceId: string): Promise<boolean> => {
-    console.log(`🔄 Trying ${searchResults.length} search results for track: ${track.name}`);
+  const tryMultipleResults = async (searchResults: any[], track: any, spaceId: string, autoPlay: boolean = false): Promise<boolean> => {
+    console.log(`🔄 Trying ${searchResults.length} search results for track: ${track.name}, autoPlay: ${autoPlay}`);
     
     for (let i = 0; i < searchResults.length; i++) {
       const result = searchResults[i];
@@ -258,6 +258,7 @@ export default function SearchSongPopup({
         const success = sendMessage("add-to-queue", {
           spaceId: spaceId,
           url: finalUrl,
+          autoPlay: autoPlay, // Add autoPlay flag
           trackData: {
             title: track.name,
             artist: track.artists?.[0]?.name || 'Unknown Artist',
@@ -346,8 +347,8 @@ export default function SearchSongPopup({
       
       console.log("🏠 Using spaceId:", spaceId);
       
-      // Try multiple results using fallback logic
-      const success = await tryMultipleResults(searchResults, track, spaceId);
+      // Try multiple results using fallback logic with autoPlay enabled for single selection
+      const success = await tryMultipleResults(searchResults, track, spaceId, true);
       
       if (success) {
         console.log("✅ Song added to queue successfully");
@@ -397,6 +398,7 @@ export default function SearchSongPopup({
 
       // Process each selected track with fallback logic
       const results = [];
+      let trackIndex = 0;
       for (const track of selectedTracks) {
         try {
           console.log("🎵 Processing track:", track.name);
@@ -412,15 +414,22 @@ export default function SearchSongPopup({
           
           console.log(`🔍 Found ${searchResults.length} search results for "${track.name}"`);
           
+          // Auto-play the first song in batch selection
+          const shouldAutoPlay = trackIndex === 0;
+          console.log(`🎵 Track ${trackIndex + 1}/${selectedTracks.length}: autoPlay = ${shouldAutoPlay}`);
+          
           // Try multiple results using fallback logic
-          const success = await tryMultipleResults(searchResults, track, spaceId);
+          const success = await tryMultipleResults(searchResults, track, spaceId, shouldAutoPlay);
           results.push({ track: track.name, success, error: success ? null : "All video sources failed" });
+          
+          trackIndex++;
           
           // Small delay between tracks
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
           console.error("❌ Error processing track:", track.name, error);
           results.push({ track: track.name, success: false, error: error instanceof Error ? error.message : "Unknown error" });
+          trackIndex++;
         }
       }
 

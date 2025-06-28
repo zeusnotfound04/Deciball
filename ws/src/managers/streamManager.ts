@@ -967,6 +967,97 @@ export class RoomManager {
 
         // Broadcast updated queue to all users
         await this.broadcastQueueUpdate(spaceId);
+
+        // Auto-play logic: If this is the first song in an empty queue, start playing it
+        const currentQueueLength = await this.prisma.stream.count({
+            where: {
+                spaceId: spaceId,
+                played: false,
+            },
+        });
+
+        // Check if there's currently a playing song
+        const currentPlaying = await this.prisma.currentStream.findFirst({
+            where: { spaceId: spaceId },
+            include: { stream: true }
+        });
+
+        console.log("🎵 Auto-play check:", { 
+            queueLength: currentQueueLength, 
+            hasCurrentlyPlaying: !!currentPlaying,
+            autoPlay: autoPlay 
+        });
+
+        // If this is the first song or auto-play is explicitly requested, and nothing is currently playing
+        if ((currentQueueLength === 1 || autoPlay) && !currentPlaying) {
+            console.log("🎵 Auto-starting playback for first song");
+            
+            // Get the stream we just created to play it
+            const streamToPlay = await this.prisma.stream.findFirst({
+                where: {
+                    spaceId: spaceId,
+                    played: false
+                },
+                orderBy: {
+                    id: 'asc' // Get the oldest unplayed song
+                }
+            });
+
+            if (streamToPlay) {
+                // Set this song as currently playing
+                await this.prisma.currentStream.upsert({
+                    where: { spaceId: spaceId },
+                    update: {
+                        streamId: streamToPlay.id,
+                        userId: streamToPlay.userId
+                    },
+                    create: {
+                        spaceId: spaceId,
+                        streamId: streamToPlay.id,
+                        userId: streamToPlay.userId
+                    }
+                });
+
+                // Get stream with upvotes for frontend
+                const streamWithVotes = await this.prisma.stream.findUnique({
+                    where: { id: streamToPlay.id },
+                    include: {
+                        upvotes: {
+                            select: {
+                                userId: true
+                            }
+                        }
+                    }
+                });
+
+                if (streamWithVotes) {
+                    const songData = {
+                        ...streamWithVotes,
+                        voteCount: streamWithVotes.upvotes?.length || 0,
+                        addedByUser: {
+                            id: streamWithVotes.userId,
+                            username: 'User' // You might want to get actual username
+                        }
+                    };
+
+                    // Broadcast current-song-update to start playback
+                    if (space) {
+                        space.users.forEach((user) => {
+                            user.ws.forEach((ws: WebSocket) => {
+                                if (ws.readyState === WebSocket.OPEN) {
+                                    ws.send(JSON.stringify({
+                                        type: "current-song-update",
+                                        data: { song: songData }
+                                    }));
+                                }
+                            });
+                        });
+                    }
+
+                    console.log("✅ Auto-started playback for song:", streamWithVotes.title);
+                }
+            }
+        }
     }
 
     async addToQueue(spaceId: string, currentUserId: string, url: string, trackData?: any, autoPlay?: boolean) {
@@ -1072,14 +1163,6 @@ export class RoomManager {
             trackData,  // Pass additional track data
             autoPlay   // Pass auto-play flag
         );
-
-        // If auto-play is requested and this was the first song, trigger play-next
-        if (autoPlay && isFirstSong) {
-            console.log("🎵 Auto-play requested for first song, triggering play-next in 1 second...");
-            setTimeout(async () => {
-                await this.adminPlayNext(spaceId, currentUserId);
-            }, 1000);
-        }
     }
 
     // ============= PLAYBACK SYNCHRONIZATION METHODS =============
