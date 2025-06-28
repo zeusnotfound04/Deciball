@@ -297,6 +297,9 @@ export class RoomManager {
           
           // Send current queue to the newly joined user
           await this.sendCurrentQueueToUser(spaceId, userId);
+          
+          // Send current playing song to the newly joined user
+          await this.sendCurrentPlayingSongToUser(spaceId, userId);
         } else {
           console.error(`[joinRoom] Failed to add user to space. Space: ${!!space}, User: ${!!user}`);
           throw new Error("Failed to add user to space");
@@ -1434,6 +1437,61 @@ export class RoomManager {
             console.log(`📋 Sent queue (${queue.length} songs) to user ${userId} in space ${spaceId}`);
         } catch (error) {
             console.error("Error sending queue to user:", error);
+        }
+    }
+
+    /**
+     * Send current playing song to a specific user
+     */
+    async sendCurrentPlayingSongToUser(spaceId: string, userId: string) {
+        const user = this.users.get(userId);
+        
+        if (!user) {
+            console.error("❌ User not found for sendCurrentPlayingSongToUser");
+            return;
+        }
+
+        try {
+            // Get the currently playing song
+            const currentPlaying = await this.prisma.currentStream.findFirst({
+                where: { spaceId: spaceId },
+                include: { 
+                    stream: {
+                        include: {
+                            upvotes: true,
+                            addedByUser: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (currentPlaying && currentPlaying.stream) {
+                const songData = {
+                    ...currentPlaying.stream,
+                    voteCount: currentPlaying.stream.upvotes?.length || 0,
+                    addedByUser: currentPlaying.stream.addedByUser
+                };
+
+                user.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "current-song-update",
+                            data: { song: songData }
+                        }));
+                    }
+                });
+
+                console.log(`🎵 Sent current playing song "${currentPlaying.stream.title}" to user ${userId} in space ${spaceId}`);
+            } else {
+                console.log(`🎵 No currently playing song to send to user ${userId} in space ${spaceId}`);
+            }
+        } catch (error) {
+            console.error("Error sending current playing song to user:", error);
         }
     }
 
