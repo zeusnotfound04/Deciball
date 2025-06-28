@@ -421,6 +421,14 @@ export function useAudio() {
         setIsPlaying(false);
       }
     }
+
+    // If YouTube player is not ready yet but we have a YouTube video, just set the song
+    // The PlayerCover component will handle playback when the player is ready
+    if (!youtubePlayer && song.downloadUrl?.[0]?.url && !isSpotifyTrack) {
+      console.log("[Audio] YouTube player not ready yet, song will play when player initializes");
+      setIsPlaying(true); // Set playing state so PlayerCover knows to auto-play
+      return;
+    }
     
     // Fallback to HTML Audio element if other players not available
     if (audioRef.current && !isSpotifyTrack) {
@@ -790,6 +798,29 @@ export function useAudio() {
       
       // Store interval reference to clear it later if needed
       (player as any)._progressInterval = progressInterval;
+      
+      // Check if there's a pending sync to apply now that the player is ready
+      const state = useAudioStore.getState();
+      if (state.pendingSync) {
+        console.log("[Audio] YouTube player now ready, applying pending sync:", state.pendingSync);
+        setTimeout(() => {
+          try {
+            if (player.seekTo) {
+              player.seekTo(state.pendingSync!.timestamp, true);
+              if (state.pendingSync!.isPlaying) {
+                player.playVideo();
+              } else {
+                player.pauseVideo();
+              }
+              // Clear the pending sync
+              const { handleRoomSync } = useAudioStore.getState();
+              handleRoomSync(state.pendingSync!.timestamp, state.pendingSync!.isPlaying, state.pendingSync!.song || state.currentSong);
+            }
+          } catch (error) {
+            console.error("[Audio] Error applying pending sync:", error);
+          }
+        }, 500); // Small delay to ensure player is fully ready
+      }
     }
   };
 

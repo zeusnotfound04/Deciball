@@ -59,9 +59,10 @@ function PLayerCoverComp() {
     console.log("[YouTube] Setting YouTube player reference in audio store");
     setYouTubePlayer(event.target);
     
-    // Then handle current song if available
+    // Check if there's a current song that needs to be loaded
     if(currentSong){
       console.log("[YouTube] Current song is available, setting up playback");
+      console.log("[YouTube] Current isPlaying state:", isPlaying);
       
       let videoId = currentSong.downloadUrl[0].url;
       console.log("Raw video URL/ID from currentSong:", videoId);
@@ -80,20 +81,45 @@ function PLayerCoverComp() {
       if (videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
         try {
           console.log("[YouTube] Loading video with ID:", videoId);
-          event.target.loadVideoById(videoId, 0);
-
-          // Set volume before playing
+          
+          // Set volume before loading
           const storedVolume = Number(localStorage.getItem("volume")) || 1;
           console.log("[YouTube] Setting volume to:", storedVolume * 100);
           event.target.setVolume(storedVolume * 100);
           
-          // Only auto-play if the store indicates we should be playing
+          // Load the video first
           if (isPlaying) {
-            console.log("[YouTube] Auto-playing since isPlaying is true");
-            event.target.playVideo();
+            console.log("[YouTube] Loading and playing video (isPlaying=true)");
+            event.target.loadVideoById(videoId, 0);
+            // The loadVideoById should auto-play, but let's ensure it
+            setTimeout(() => {
+              event.target.playVideo();
+            }, 500);
           } else {
-            console.log("[YouTube] Not auto-playing since isPlaying is false");
+            console.log("[YouTube] Cueing video without auto-play (isPlaying=false)");
+            event.target.cueVideoById(videoId, 0);
           }
+          
+          // Apply any pending sync after a short delay to ensure video is loaded
+          setTimeout(() => {
+            const { pendingSync } = useAudioStore.getState();
+            if (pendingSync) {
+              console.log("[YouTube] Applying pending sync after player ready:", pendingSync);
+              event.target.seekTo(pendingSync.timestamp, true);
+              if (pendingSync.isPlaying) {
+                console.log("[YouTube] Starting playback from pending sync");
+                event.target.playVideo();
+              } else {
+                console.log("[YouTube] Pausing from pending sync");
+                event.target.pauseVideo();
+              }
+              // Clear the pending sync
+              const { handleRoomSync } = useAudioStore.getState();
+              // This will clear the pendingSync by calling handleRoomSync with the same data
+              handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, currentSong);
+            }
+          }, 1000);
+          
         } catch (error) {
           console.error("YouTube player error:", error);
         }

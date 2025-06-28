@@ -149,6 +149,45 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             const isSameSong = audioCurrentSong?.id === data.song.id;
             if (isSameSong) {
               console.log('🎵 Same song already playing, skipping playback restart');
+              
+              // Even if same song, apply pending sync if available (for new users)
+              const { pendingSync } = useAudioStore.getState();
+              if (pendingSync) {
+                console.log('🔄 Applying pending sync for existing song');
+                const { handleRoomSync } = useAudioStore.getState();
+                const youtubeVideoId = extractYouTubeVideoId(data.song.youtubeUrl || data.song.url);
+                const existingAudioSong = {
+                  id: data.song.id,
+                  name: data.song.title,
+                  url: cleanUrl(data.song.youtubeUrl || data.song.url),
+                  artistes: {
+                    primary: [{
+                      id: 'unknown',
+                      name: data.song.artist || 'Unknown Artist',
+                      role: 'primary_artist',
+                      image: [] as any,
+                      type: 'artist' as const,
+                      url: ''
+                    }]
+                  },
+                  image: [
+                    { quality: 'high', url: cleanUrl(data.song.bigImg || data.song.smallImg || '') },
+                    { quality: 'medium', url: cleanUrl(data.song.smallImg || data.song.bigImg || '') }
+                  ],
+                  addedBy: data.song.addedByUser?.username || 'Unknown',
+                  downloadUrl: youtubeVideoId ? 
+                    [{ quality: 'auto', url: youtubeVideoId }] : 
+                    [{ quality: 'auto', url: cleanUrl(data.song.url) }],
+                  addedByUser: data.song.addedByUser,
+                  voteCount: data.song.voteCount || 0,
+                  isVoted: false,
+                  source: data.song.type === 'Youtube' ? 'youtube' as const : undefined,
+                  video: true
+                };
+                setTimeout(() => {
+                  handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, existingAudioSong);
+                }, 500);
+              }
               break;
             }
             
@@ -193,15 +232,32 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             play(audioSong);
             
             // For new users who requested current song, check if there's pending sync to apply
-            // We'll give the player a moment to initialize before applying any pending sync
+            // We'll give the player time to initialize before applying any pending sync
             setTimeout(() => {
-              const { pendingSync } = useAudioStore.getState();
+              const { pendingSync, youtubePlayer } = useAudioStore.getState();
               if (pendingSync) {
                 console.log('🔄 Applying pending sync after song load for new user');
-                const { handleRoomSync } = useAudioStore.getState();
-                handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong);
+                console.log('🔄 Pending sync data:', pendingSync);
+                console.log('🔄 YouTube player available:', !!youtubePlayer);
+                
+                // If YouTube player is ready, apply sync directly
+                if (youtubePlayer && youtubePlayer.seekTo) {
+                  console.log('🔄 YouTube player ready, applying sync directly');
+                  youtubePlayer.seekTo(pendingSync.timestamp, true);
+                  if (pendingSync.isPlaying) {
+                    youtubePlayer.playVideo();
+                  } else {
+                    youtubePlayer.pauseVideo();
+                  }
+                  // Clear pending sync
+                  const { handleRoomSync } = useAudioStore.getState();
+                  handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong);
+                } else {
+                  console.log('🔄 YouTube player not ready yet, pending sync will be applied when ready');
+                  // The PlayerCover component will handle this when onPlayerReady is called
+                }
               }
-            }, 1000); // 1 second delay to let the player initialize
+            }, 1500); // Give more time for the player to be ready
           } else {
             console.log('🛑 No current song to play');
           }
