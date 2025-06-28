@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
-import { useAudio } from '@/store/audioStore';
+import { useAudio, useAudioStore } from '@/store/audioStore';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
@@ -218,6 +218,84 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               : item
           ));
           break;
+        case 'timestamp-sync':
+          console.log('🕐 Timestamp sync received:', { 
+            currentTime: data.currentTime, 
+            isPlaying: data.isPlaying, 
+            timestamp: data.timestamp,
+            songId: data.songId,
+            isInitialSync: data.isInitialSync
+          });
+          
+          // If we have a songId but no currentPlaying, request the current song
+          if (data.songId && !currentPlaying) {
+            console.log('🎵 Timestamp sync has songId but no currentPlaying - requesting current song');
+            sendMessage('get-current-song', { spaceId });
+          }
+          
+          // Convert currentPlaying to audioStore format if it exists
+          let audioStoreSong = null;
+          if (currentPlaying) {
+            const youtubeVideoId = extractYouTubeVideoId(currentPlaying.youtubeUrl || currentPlaying.url);
+            audioStoreSong = {
+              id: currentPlaying.id,
+              name: currentPlaying.title,
+              url: cleanUrl(currentPlaying.youtubeUrl || currentPlaying.url),
+              artistes: {
+                primary: [{
+                  id: 'unknown',
+                  name: currentPlaying.artist || 'Unknown Artist',
+                  role: 'primary_artist',
+                  image: [] as any,
+                  type: 'artist' as const,
+                  url: ''
+                }]
+              },
+              image: [
+                { quality: 'high', url: cleanUrl(currentPlaying.bigImg || currentPlaying.smallImg || '') },
+                { quality: 'medium', url: cleanUrl(currentPlaying.smallImg || currentPlaying.bigImg || '') }
+              ],
+              downloadUrl: youtubeVideoId ? 
+                [{ quality: 'auto', url: youtubeVideoId }] : 
+                [{ quality: 'auto', url: cleanUrl(currentPlaying.url) }],
+              source: currentPlaying.type === 'Youtube' ? 'youtube' as const : undefined,
+              video: true
+            };
+          }
+          
+          // Use audioStore to handle synchronization
+          const { handleRoomSync } = useAudioStore.getState();
+          handleRoomSync(data.currentTime, data.isPlaying, audioStoreSong);
+          
+          // Show sync notification for initial sync (new user joining)
+          if (data.isInitialSync) {
+            console.log('🔄 Initial sync for new user');
+            if (typeof window !== 'undefined') {
+              const event = new CustomEvent('show-sync-toast', {
+                detail: { 
+                  message: `Synced to room playback at ${Math.floor(data.currentTime)}s`, 
+                  type: 'info' 
+                }
+              });
+              window.dispatchEvent(event);
+            }
+          }
+          break;
+        case 'play':
+          console.log('▶️ Playback play command received');
+          const { handlePlaybackResume } = useAudioStore.getState();
+          handlePlaybackResume();
+          break;
+        case 'pause':
+          console.log('⏸️ Playback pause command received');
+          const { handlePlaybackPause } = useAudioStore.getState();
+          handlePlaybackPause();
+          break;
+        case 'seek':
+          console.log('⏩ Playback seek command received:', data.currentTime);
+          const { handlePlaybackSeek } = useAudioStore.getState();
+          handlePlaybackSeek(data.currentTime);
+          break;
         case 'error':
           console.error('❌ Queue error received:', data);
           // You could add user-facing error notifications here
@@ -330,7 +408,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                     {currentPlaying.type === 'Spotify' ? 'Spotify → YouTube' : currentPlaying.type}
                   </Badge>
                   <span className="text-xs text-gray-500">
-                    Added by @{currentPlaying.addedByUser.username}
+                    Added by @{currentPlaying.addedByUser?.username || 'Unknown User'}
                   </span>
                 </div>
               </div>
@@ -376,7 +454,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                         {item.type === 'Spotify' ? 'Spotify → YouTube' : item.type}
                       </Badge>
                       <span className="text-xs text-gray-500">
-                        Added by @{item.addedByUser.username}
+                        Added by @{item.addedByUser?.username || 'Unknown User'}
                       </span>
                     </div>
                   </div>

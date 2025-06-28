@@ -6,6 +6,7 @@ import { Job, Queue, tryCatch, Worker } from "bullmq";
 import { PrismaClient } from "@prisma/client";
 import { getVideoId, isValidYoutubeURL } from "../utils/utils";
 import { MusicSourceManager } from "../handlers";
+import crypto from "crypto";
 
 const redisUrl = process.env.REDIS_URL
 
@@ -31,10 +32,18 @@ type PlaybackState = {
         duration?: number;
         extractedId: string;
     } | null;
-    startedAt: number; // Unix timestamp when current song started
+    startedAt: number; // Unix timestamp when song started
     pausedAt: number | null; // Unix timestamp when paused, null if playing
     isPlaying: boolean;
     lastUpdated: number; // Unix timestamp of last update
+};
+
+type TimestampBroadcast = {
+    currentTime: number; // Current position in seconds
+    isPlaying: boolean;
+    timestamp: number; // Server timestamp when this was sent
+    songId?: string;
+    totalDuration?: number;
 };
 
 type User = {
@@ -61,6 +70,8 @@ export class RoomManager {
     public queue : Queue ;
     public worker : Worker;
     public wsToSpace : Map<WebSocket, string>
+    private timestampIntervals: Map<string, NodeJS.Timeout> = new Map();
+    private readonly TIMESTAMP_BROADCAST_INTERVAL = 2000; // Broadcast every 2 seconds
 
     
     private constructor() {
@@ -297,6 +308,9 @@ export class RoomManager {
           
           // Send current queue to the newly joined user
           await this.sendCurrentQueueToUser(spaceId, userId);
+          
+          // Sync the newly joined user to current playback state
+          await this.syncNewUserToPlayback(spaceId, userId);
           
           // Send current playing song to the newly joined user
           await this.sendCurrentPlayingSongToUser(spaceId, userId);
@@ -646,7 +660,11 @@ export class RoomManager {
         if (space) {
             const songData = {
                 ...nextStream,
-                voteCount: nextStream.upvotes.length
+                voteCount: nextStream.upvotes.length,
+                addedByUser: nextStream.addedByUser || {
+                    id: nextStream.userId,
+                    username: 'Unknown User'
+                }
             };
 
             space.users.forEach((user) => {
@@ -659,6 +677,9 @@ export class RoomManager {
                     }
                 });
             });
+
+            // Start timestamp broadcasting for synchronized playback
+            this.startTimestampBroadcast(spaceId);
         }
 
         // Broadcast updated queue (without the now-playing song)
@@ -944,12 +965,18 @@ export class RoomManager {
         // Broadcast song-added event to all users in the space
         const space = this.spaces.get(spaceId);
         if (space) {
+            // Get user data from database to include proper username
+            const addedByUser = await this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { id: true, username: true }
+            });
+
             const songData = {
                 ...stream,
                 voteCount: 0,
-                addedByUser: {
+                addedByUser: addedByUser || {
                     id: userId,
-                    username: currentUser?.token ? 'User' : 'Unknown' // You might want to get actual username from token
+                    username: 'Unknown User'
                 }
             };
 
@@ -969,7 +996,7 @@ export class RoomManager {
         }
 
         // Broadcast updated queue to all users
-        await this.broadcastQueueUpdate(spaceId);
+        // await this.broadcastQueueUpdate(spaceId); // TODO: Implement this method if needed
 
         // Auto-play logic: If this is the first song in an empty queue, start playing it
         const currentQueueLength = await this.prisma.stream.count({
@@ -1033,14 +1060,37 @@ export class RoomManager {
                     }
                 });
 
-                if (streamWithVotes) {
+                if (streamWithVotes && space) {
+                    // Get user data from database
+                    const addedByUser = await this.prisma.user.findUnique({
+                        where: { id: streamWithVotes.userId },
+                        select: { id: true, username: true }
+                    });
+
                     const songData = {
                         ...streamWithVotes,
                         voteCount: streamWithVotes.upvotes?.length || 0,
-                        addedByUser: {
+                        addedByUser: addedByUser || {
                             id: streamWithVotes.userId,
-                            username: 'User' // You might want to get actual username
+                            username: 'Unknown User'
                         }
+                    };
+
+                    // Update playback state for the new song
+                    const now = Date.now();
+                    space.playbackState = {
+                        currentSong: {
+                            id: songData.id,
+                            title: songData.title,
+                            artist: songData.artist || undefined,
+                            url: songData.url,
+                            duration: songData.duration || undefined,
+                            extractedId: songData.extractedId
+                        },
+                        startedAt: now,
+                        pausedAt: null,
+                        isPlaying: true,
+                        lastUpdated: now
                     };
 
                     // Broadcast current-song-update to start playback
@@ -1055,6 +1105,9 @@ export class RoomManager {
                                 }
                             });
                         });
+
+                        // Start timestamp broadcasting for synchronized playback
+                        this.startTimestampBroadcast(spaceId);
                     }
 
                     console.log("✅ Auto-started playback for song:", streamWithVotes.title);
@@ -1063,22 +1116,493 @@ export class RoomManager {
         }
     }
 
-    async addToQueue(spaceId: string, currentUserId: string, url: string, trackData?: any, autoPlay?: boolean) {
-           console.log(process.pid + ": addToQueue");
-           console.log("🎵 Track data received:", trackData);
-           console.log("🎵 Auto-play flag:", autoPlay);
+    // Start timestamp broadcasting for a space
+    private startTimestampBroadcast(spaceId: string) {
+        // Clear existing interval if any
+        this.stopTimestampBroadcast(spaceId);
+        
+        const interval = setInterval(async () => {
+            await this.broadcastCurrentTimestamp(spaceId);
+        }, this.TIMESTAMP_BROADCAST_INTERVAL);
+        
+        this.timestampIntervals.set(spaceId, interval);
+        console.log(`🕐 Started timestamp broadcasting for space ${spaceId}`);
+    }
 
+    // Stop timestamp broadcasting for a space
+    private stopTimestampBroadcast(spaceId: string) {
+        const interval = this.timestampIntervals.get(spaceId);
+        if (interval) {
+            clearInterval(interval);
+            this.timestampIntervals.delete(spaceId);
+            console.log(`🕐 Stopped timestamp broadcasting for space ${spaceId}`);
+        }
+    }
+
+    // Broadcast current timestamp to all users in a space
+    private async broadcastCurrentTimestamp(spaceId: string) {
         const space = this.spaces.get(spaceId);
-        const currentUser = this.users.get(currentUserId);
-        const creatorId = this.spaces.get(spaceId)?.creatorId;
-        const isCreator = currentUserId === creatorId;
-
-        if (!space || !currentUser) {
-            console.log("Room or User not defined");
+        if (!space || !space.playbackState.isPlaying || !space.playbackState.currentSong) {
             return;
         }
 
-        // Updated validation using music source manager
+        const now = Date.now();
+        const { playbackState } = space;
+        
+        // Calculate current position based on when the song started
+        let currentTime = 0;
+        if (playbackState.isPlaying && playbackState.startedAt > 0) {
+            if (playbackState.pausedAt) {
+                // If paused, use the paused time
+                currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
+            } else {
+                // If playing, calculate current position
+                currentTime = (now - playbackState.startedAt) / 1000;
+            }
+        }
+
+        const timestampData: TimestampBroadcast = {
+            currentTime: Math.max(0, currentTime),
+            isPlaying: playbackState.isPlaying,
+            timestamp: now,
+            songId: playbackState.currentSong?.id,
+            totalDuration: playbackState.currentSong?.duration
+        };
+
+        // Broadcast to all users in the space
+        space.users.forEach((user) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "timestamp-sync",
+                        data: timestampData
+                    }));
+                }
+            });
+        });
+
+        // Also store in Redis for new users joining
+        await this.redisClient.set(
+            `timestamp-${spaceId}`,
+            JSON.stringify(timestampData),
+            { EX: 10 } // Expire after 10 seconds
+        );
+    }
+
+    // Send current timestamp to a specific user (for new joiners)
+    async sendCurrentTimestampToUser(spaceId: string, userId: string) {
+        const user = this.users.get(userId);
+        const space = this.spaces.get(spaceId);
+        
+        if (!user || !space) return;
+
+        // Try to get latest timestamp from Redis first
+        const storedTimestamp = await this.redisClient.get(`timestamp-${spaceId}`);
+        let timestampData: TimestampBroadcast;
+
+        if (storedTimestamp) {
+            timestampData = JSON.parse(storedTimestamp);
+        } else {
+            // Calculate fresh timestamp if not in Redis
+            const now = Date.now();
+            const { playbackState } = space;
+            
+            let currentTime = 0;
+            if (playbackState.isPlaying && playbackState.startedAt > 0 && playbackState.currentSong) {
+                if (playbackState.pausedAt) {
+                    currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
+                } else {
+                    currentTime = (now - playbackState.startedAt) / 1000;
+                }
+            }
+
+            timestampData = {
+                currentTime: Math.max(0, currentTime),
+                isPlaying: playbackState.isPlaying,
+                timestamp: now,
+                songId: playbackState.currentSong?.id,
+                totalDuration: playbackState.currentSong?.duration
+            };
+        }
+
+        user.ws.forEach((ws: WebSocket) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "timestamp-sync",
+                    data: {
+                        ...timestampData,
+                        isInitialSync: true // Flag for new joiners
+                    }
+                }));
+            }
+        });
+    }
+
+    // Handle playback control events and sync timestamps
+    async handlePlaybackPlay(spaceId: string, userId: string) {
+        const space = this.spaces.get(spaceId);
+        if (!space) return;
+
+        const now = Date.now();
+        
+        // Update playback state
+        space.playbackState.isPlaying = true;
+        space.playbackState.pausedAt = null;
+        
+        // If resuming from pause, adjust startedAt to account for pause duration
+        if (space.playbackState.pausedAt) {
+            const pauseDuration = now - space.playbackState.pausedAt;
+            space.playbackState.startedAt += pauseDuration;
+        } else if (!space.playbackState.startedAt) {
+            space.playbackState.startedAt = now;
+        }
+        
+        space.playbackState.lastUpdated = now;
+
+        // Start broadcasting timestamps
+        this.startTimestampBroadcast(spaceId);
+
+        // Immediately broadcast current state
+        await this.broadcastCurrentTimestamp(spaceId);
+        
+        console.log(`▶️ Playback started for space ${spaceId}`);
+    }
+
+    async handlePlaybackPause(spaceId: string, userId: string) {
+        const space = this.spaces.get(spaceId);
+        if (!space) return;
+
+        const now = Date.now();
+        
+        // Update playback state
+        space.playbackState.isPlaying = false;
+        space.playbackState.pausedAt = now;
+        space.playbackState.lastUpdated = now;
+
+        // Stop broadcasting timestamps
+        this.stopTimestampBroadcast(spaceId);
+
+        // Send final timestamp before pausing
+        await this.broadcastCurrentTimestamp(spaceId);
+        
+        console.log(`⏸️ Playback paused for space ${spaceId}`);
+    }
+
+    async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {
+        const space = this.spaces.get(spaceId);
+        if (!space) return;
+
+        const now = Date.now();
+        
+        // Update startedAt to reflect the new seek position
+        space.playbackState.startedAt = now - (seekTime * 1000);
+        space.playbackState.pausedAt = null;
+        space.playbackState.lastUpdated = now;
+
+        // Immediately broadcast the new timestamp
+        await this.broadcastCurrentTimestamp(spaceId);
+        
+        console.log(`⏩ Playback seeked to ${seekTime}s for space ${spaceId}`);
+    }
+
+    // Sync new user to current playback state including timestamp
+    async syncNewUserToPlayback(spaceId: string, userId: string) {
+        try {
+            // Small delay to ensure current song is sent first
+            setTimeout(async () => {
+                await this.sendCurrentTimestampToUser(spaceId, userId);
+            }, 100);
+            console.log(`🔄 Synced user ${userId} to playback state in space ${spaceId}`);
+        } catch (error) {
+            console.error(`Error syncing user ${userId} to playback:`, error);
+        }
+    }
+
+    // Clean up space and stop timestamp broadcasting
+    destroySpace(spaceId: string) {
+        try {
+            // Stop timestamp broadcasting
+            this.stopTimestampBroadcast(spaceId);
+            
+            // Remove space
+            this.spaces.delete(spaceId);
+            
+            console.log(`🗑️ Destroyed space ${spaceId} and stopped timestamp broadcasting`);
+            return true;
+        } catch (error) {
+            console.error(`Error destroying space ${spaceId}:`, error);
+            return false;
+        }
+    }
+
+    // Leave room and clean up if needed
+    async leaveRoom(spaceId: string, userId: string) {
+        try {
+            const space = this.spaces.get(spaceId);
+            const user = this.users.get(userId);
+
+            if (!space || !user) {
+                console.log(`Space or user not found for leave room: ${spaceId}, ${userId}`);
+                return false;
+            }
+
+            // Remove user from space
+            space.users.delete(userId);
+            
+            console.log(`User ${userId} left space ${spaceId}. Remaining users: ${space.users.size}`);
+
+            // If no users left, stop timestamp broadcasting and clean up
+            if (space.users.size === 0) {
+                this.stopTimestampBroadcast(spaceId);
+                this.destroySpace(spaceId);
+                console.log(`🛑 Last user left space ${spaceId}, stopped timestamp broadcasting`);
+            } else {
+                // Broadcast user update to remaining users
+                this.broadcastUserUpdate(spaceId);
+            }
+
+            return true;
+        } catch (error) {
+            console.error(`Error in leaveRoom:`, error);
+            return false;
+        }
+    }
+
+    // Method to handle user disconnection
+    disconnect(ws: WebSocket) {
+        console.log("Handling user disconnect");
+        
+        // Find the space this WebSocket belongs to
+        const spaceId = this.wsToSpace.get(ws);
+        
+        // Remove the WebSocket from wsToSpace mapping
+        this.wsToSpace.delete(ws);
+        
+        // Find and remove the WebSocket from users
+        let disconnectedUserId: string | null = null;
+        this.users.forEach((user, userId) => {
+            const wsIndex = user.ws.indexOf(ws);
+            if (wsIndex !== -1) {
+                disconnectedUserId = userId;
+                user.ws.splice(wsIndex, 1);
+                
+                // If user has no more WebSocket connections, remove them
+                if (user.ws.length === 0) {
+                    this.users.delete(userId);
+                }
+            }
+        });
+        
+        // Remove user from space if found
+        if (spaceId && disconnectedUserId) {
+            const space = this.spaces.get(spaceId);
+            if (space) {
+                space.users.delete(disconnectedUserId);
+                
+                // If space is empty, stop timestamp broadcasting and clean up
+                if (space.users.size === 0) {
+                    this.stopTimestampBroadcast(spaceId);
+                    console.log(`🛑 Last user left space ${spaceId}, stopped timestamp broadcasting`);
+                    // Optionally clean up the space
+                    // this.spaces.delete(spaceId);
+                } else {
+                    // Broadcast user update to remaining users
+                    this.broadcastUserUpdate(spaceId);
+                }
+            }
+        }
+        
+        console.log(`User ${disconnectedUserId} disconnected from space ${spaceId}`);
+    }
+
+    // Helper methods for user management and communication
+    async sendRoomInfoToUser(spaceId: string, userId: string) {
+        const user = this.users.get(userId);
+        const space = this.spaces.get(spaceId);
+        
+        if (!user || !space) return;
+        
+        const roomInfo = {
+            spaceId,
+            creatorId: space.creatorId,
+            userCount: space.users.size,
+            isCreator: userId === space.creatorId
+        };
+        
+        user.ws.forEach((ws: WebSocket) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "room-info",
+                    data: roomInfo
+                }));
+            }
+        });
+    }
+
+    broadcastUserUpdate(spaceId: string) {
+        const space = this.spaces.get(spaceId);
+        if (!space) return;
+        
+        const userList = Array.from(space.users.keys());
+        
+        space.users.forEach((user, userId) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "user-update",
+                        data: {
+                            users: userList,
+                            userCount: space.users.size
+                        }
+                    }));
+                }
+            });
+        });
+    }
+
+    async sendCurrentQueueToUser(spaceId: string, userId: string) {
+        const user = this.users.get(userId);
+        if (!user) return;
+        
+        try {
+            const queue = await this.getQueueWithVotes(spaceId);
+            
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "current-queue",
+                        data: { queue }
+                    }));
+                }
+            });
+        } catch (error) {
+            console.error("Error sending current queue to user:", error);
+        }
+    }
+
+    async sendCurrentPlayingSongToUser(spaceId: string, userId: string) {
+        const user = this.users.get(userId);
+        if (!user) return;
+        
+        try {
+            // Get current playing song from database
+            const currentStream = await this.prisma.currentStream.findUnique({
+                where: { spaceId },
+                include: {
+                    stream: {
+                        include: {
+                            upvotes: {
+                                select: { userId: true }
+                            },
+                            addedByUser: {
+                                select: {
+                                    id: true,
+                                    username: true
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            if (currentStream?.stream) {
+                const songData = {
+                    ...currentStream.stream,
+                    voteCount: currentStream.stream.upvotes.length,
+                    addedByUser: currentStream.stream.addedByUser || {
+                        id: currentStream.stream.userId,
+                        username: 'Unknown User'
+                    }
+                };
+                
+                user.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "current-song-update",
+                            data: { song: songData }
+                        }));
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Error sending current playing song to user:", error);
+        }
+    }
+
+    async broadcastQueueUpdate(spaceId: string) {
+        const space = this.spaces.get(spaceId);
+        if (!space) return;
+        
+        try {
+            const queue = await this.getQueueWithVotes(spaceId);
+            
+            space.users.forEach((user, userId) => {
+                user.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "queue-update",
+                            data: { queue }
+                        }));
+                    }
+                });
+            });
+        } catch (error) {
+            console.error("Error broadcasting queue update:", error);
+        }
+    }
+
+    // Method to get queue with vote information
+    async getQueueWithVotes(spaceId: string) {
+        try {
+            const streams = await this.prisma.stream.findMany({
+                where: {
+                    spaceId: spaceId,
+                    played: false
+                },
+                include: {
+                    upvotes: {
+                        select: {
+                            userId: true
+                        }
+                    },
+                    addedByUser: {
+                        select: {
+                            id: true,
+                            username: true
+                        }
+                    }
+                },
+                orderBy: {
+                    createAt: 'asc'
+                }
+            });
+            
+            return streams.map(stream => ({
+                ...stream,
+                upvoteCount: stream.upvotes.length,
+                upvotedBy: stream.upvotes.map(vote => vote.userId)
+            }));
+        } catch (error) {
+            console.error("Error getting queue with votes:", error);
+            return [];
+        }
+    }
+
+    // Add song to queue with auto-play support
+    async addToQueue(spaceId: string, userId: string, url: string, trackData?: any, autoPlay?: boolean) {
+        console.log("🎵 addToQueue called", { spaceId, userId, url, trackData, autoPlay });
+        
+        const space = this.spaces.get(spaceId);
+        const currentUser = this.users.get(userId);
+        const creatorId = space?.creatorId;
+        const isCreator = userId === creatorId;
+
+        if (!space || !currentUser) {
+            console.log("❌ Room or User not defined");
+            return;
+        }
+
+        // Validate URL using music source manager
         if (!this.musicSourceManager.validateUrl(url)) {
             currentUser?.ws.forEach((ws) => {
                 ws.send(
@@ -1087,11 +1611,11 @@ export class RoomManager {
                         data: { message: "Invalid music URL. Supported: YouTube, Spotify" },
                     })
                 );
+                return;
             });
-            return;
         }
 
-        // Rest of the method remains the same...
+        // Get current queue length
         let previousQueueLength = parseInt(
             (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
             10
@@ -1108,9 +1632,10 @@ export class RoomManager {
 
         const isFirstSong = previousQueueLength === 0;
 
+        // Rate limiting for non-creators
         if (!isCreator) {
             let lastAdded = await this.redisClient.get(
-                `lastAdded-${spaceId}-${currentUserId}`
+                `lastAdded-${spaceId}-${userId}`
             );
 
             if (lastAdded) {
@@ -1143,7 +1668,7 @@ export class RoomManager {
                 return;
             }
 
-            if (previousQueueLength >= MAX_QUEUE_LENGTH) {
+            if (previousQueueLength >= 50) { // MAX_QUEUE_LENGTH
                 currentUser.ws.forEach((ws) => {
                     ws.send(
                         JSON.stringify({
@@ -1158,533 +1683,290 @@ export class RoomManager {
             }
         }
 
+        // Add to queue using the admin handler
         await this.adminStreamHandler(
             spaceId,
-            currentUserId,
+            userId,
             url,
             previousQueueLength,
-            trackData,  // Pass additional track data
-            autoPlay   // Pass auto-play flag
+            trackData,
+            autoPlay
+        );
+
+        // If this is the first song and autoPlay is enabled, start playing
+        if (isFirstSong && autoPlay) {
+            console.log("🎵 First song with autoPlay - starting playback");
+            setTimeout(async () => {
+                await this.adminPlayNext(spaceId, userId);
+            }, 1000);
+        }
+    }
+
+    // Playback control methods
+    async pausePlayback(spaceId: string, userId: string) {
+        console.log("Pausing playback for space", spaceId);
+        
+        const space = this.spaces.get(spaceId);
+        const user = this.users.get(userId);
+        
+        if (!space || !user) return;
+        
+        // Get current playback state
+        const stateData = await this.redisClient.get(`playback-state-${spaceId}`);
+        const currentState = stateData ? JSON.parse(stateData) : null;
+        
+        if (currentState) {
+            currentState.isPlaying = false;
+            currentState.lastUpdated = Date.now();
+            currentState.controlledBy = userId;
+            
+            await this.redisClient.set(
+                `playback-state-${spaceId}`,
+                JSON.stringify(currentState),
+                { EX: 3600 }
+            );
+        }
+        
+        // Broadcast pause command to all users
+        this.broadcastToSpace(spaceId, {
+            type: "playback-pause",
+            data: {
+                timestamp: Date.now(),
+                controlledBy: userId
+            }
+        });
+    }
+
+    async resumePlayback(spaceId: string, userId: string) {
+        console.log("Resuming playback for space", spaceId);
+        
+        const space = this.spaces.get(spaceId);
+        const user = this.users.get(userId);
+        
+        if (!space || !user) return;
+        
+        // Get current playback state
+        const stateData = await this.redisClient.get(`playback-state-${spaceId}`);
+        const currentState = stateData ? JSON.parse(stateData) : null;
+        
+        if (currentState) {
+            currentState.isPlaying = true;
+            currentState.lastUpdated = Date.now();
+            currentState.controlledBy = userId;
+            
+            await this.redisClient.set(
+                `playback-state-${spaceId}`,
+                JSON.stringify(currentState),
+                { EX: 3600 }
+            );
+        }
+        
+        // Broadcast resume command to all users
+        this.broadcastToSpace(spaceId, {
+            type: "playback-resume",
+            data: {
+                timestamp: Date.now(),
+                controlledBy: userId
+            }
+        });
+    }
+
+    async seekPlayback(spaceId: string, userId: string, seekTime: number) {
+        console.log("Seeking playback for space", spaceId, "to time", seekTime);
+        
+        const space = this.spaces.get(spaceId);
+        const user = this.users.get(userId);
+        
+        if (!space || !user) return;
+        
+        // Get current playback state
+        const stateData = await this.redisClient.get(`playback-state-${spaceId}`);
+        const currentState = stateData ? JSON.parse(stateData) : {};
+        
+        currentState.currentTime = seekTime;
+        currentState.lastUpdated = Date.now();
+        currentState.controlledBy = userId;
+        
+        await this.redisClient.set(
+            `playback-state-${spaceId}`,
+            JSON.stringify(currentState),
+            { EX: 3600 }
+        );
+        
+        // Broadcast seek command to all users
+        this.broadcastToSpace(spaceId, {
+            type: "playback-seek",
+            data: {
+                seekTime,
+                timestamp: Date.now(),
+                controlledBy: userId
+            }
+        });
+    }
+
+    async getPlaybackState(spaceId: string) {
+        return this.redisClient.get(`playback-state-${spaceId}`).then(data => 
+            data ? JSON.parse(data) : null
         );
     }
 
-    // ============= PLAYBACK SYNCHRONIZATION METHODS =============
-
-    /**
-     * Update playback state when song is paused
-     */
-    async pausePlayback(spaceId: string, userId: string) {
-        const space = this.spaces.get(spaceId);
-        if (!space || !space.playbackState.isPlaying) {
-            return;
-        }
-
-        const now = Date.now();
-        space.playbackState.pausedAt = now;
-        space.playbackState.isPlaying = false;
-        space.playbackState.lastUpdated = now;
-
-        console.log("⏸️ Paused playback for space", spaceId);
-
-        // Broadcast pause event to all users
-        space.users.forEach((user) => {
-            user.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "playback-paused",
-                        data: { 
-                            pausedAt: now,
-                            currentTime: this.getCurrentPlaybackTime(spaceId)
-                        }
-                    }));
-                }
-            });
-        });
-    }
-
-    /**
-     * Update playback state when song is resumed
-     */
-    async resumePlayback(spaceId: string, userId: string) {
-        const space = this.spaces.get(spaceId);
-        if (!space || space.playbackState.isPlaying) {
-            return;
-        }
-
-        const now = Date.now();
-        const pauseDuration = space.playbackState.pausedAt ? now - space.playbackState.pausedAt : 0;
-        
-        // Adjust start time to account for pause duration
-        space.playbackState.startedAt = space.playbackState.startedAt + pauseDuration;
-        space.playbackState.pausedAt = null;
-        space.playbackState.isPlaying = true;
-        space.playbackState.lastUpdated = now;
-
-        console.log("▶️ Resumed playback for space", spaceId);
-
-        // Broadcast resume event to all users
-        space.users.forEach((user) => {
-            user.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "playback-resumed",
-                        data: { 
-                            resumedAt: now,
-                            currentTime: this.getCurrentPlaybackTime(spaceId)
-                        }
-                    }));
-                }
-            });
-        });
-    }
-
-    /**
-     * Update playback state when user seeks to a specific time
-     */
-    async seekPlayback(spaceId: string, userId: string, seekTime: number) {
-        const space = this.spaces.get(spaceId);
-        if (!space || !space.playbackState.currentSong) {
-            return;
-        }
-
-        const now = Date.now();
-        // Update the start time to reflect the new position
-        space.playbackState.startedAt = now - (seekTime * 1000);
-        space.playbackState.lastUpdated = now;
-
-        console.log("⏩ Seeked playback for space", spaceId, "to", seekTime, "seconds");
-
-        // Broadcast seek event to all users
-        space.users.forEach((user) => {
-            user.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "playback-seeked",
-                        data: { 
-                            seekTime,
-                            currentTime: seekTime
-                        }
-                    }));
-                }
-            });
-        });
-    }
-
-    /**
-     * Get current playback time in seconds
-     */
-    getCurrentPlaybackTime(spaceId: string): number {
-        const space = this.spaces.get(spaceId);
-        if (!space || !space.playbackState.currentSong || !space.playbackState.isPlaying) {
-            return 0;
-        }
-
-        const now = Date.now();
-        const elapsed = now - space.playbackState.startedAt;
-        return Math.floor(elapsed / 1000); // Convert to seconds
-    }
-
-    /**
-     * Get complete playback state for new users joining
-     */
-    getPlaybackState(spaceId: string) {
-        const space = this.spaces.get(spaceId);
-        if (!space) {
-            return null;
-        }
-
-        const currentTime = space.playbackState.isPlaying ? this.getCurrentPlaybackTime(spaceId) : 0;
-        
-        return {
-            currentSong: space.playbackState.currentSong,
-            isPlaying: space.playbackState.isPlaying,
-            currentTime,
-            startedAt: space.playbackState.startedAt,
-            pausedAt: space.playbackState.pausedAt
-        };
-    }
-
-    /**
-     * Send complete room information to a user when they join
-     */
-    async sendRoomInfoToUser(spaceId: string, userId: string) {
-        const space = this.spaces.get(spaceId);
-        const user = this.users.get(userId);
-        
-        if (!space || !user) {
-            console.error("❌ Space or user not found for sendRoomInfoToUser");
-            return;
-        }
-
-        // Get current playback state
-        const playbackState = this.getPlaybackState(spaceId);
-        
-        // Get current song from database if exists
-        let currentSong = null;
-        try {
-            const currentStream = await this.prisma.currentStream.findUnique({
-                where: { spaceId },
-                include: {
-                    stream: {
-                        include: {
-                            upvotes: true,
-                            addedByUser: {
-                                select: {
-                                    id: true,
-                                    username: true
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            if (currentStream?.stream) {
-                currentSong = {
-                    ...currentStream.stream,
-                    voteCount: currentStream.stream.upvotes.length
-                };
-            }
-        } catch (error) {
-            console.error("Error fetching current song:", error);
-        }
-
-        // Send room info with playback state
-        user.ws.forEach((ws: WebSocket) => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: "room-joined",
-                    data: {
-                        spaceId,
-                        isCreator: userId === space.creatorId,
-                        userCount: space.users.size,
-                        currentSong,
-                        playbackState: playbackState ? {
-                            currentTime: playbackState.currentTime,
-                            isPlaying: playbackState.isPlaying,
-                            shouldStartAt: playbackState.isPlaying ? playbackState.currentTime : 0,
-                            currentSong: currentSong // Include the current song in playback state
-                        } : currentSong ? {
-                            // If no playback state but there's a current song, include it
-                            currentTime: 0,
-                            isPlaying: false,
-                            shouldStartAt: 0,
-                            currentSong: currentSong
-                        } : null
-                    }
-                }));
-            }
-        });
-
-        console.log(`📡 Sent room info to user ${userId} in space ${spaceId}`, {
-            currentSong: currentSong?.title || 'None',
-            playbackState: playbackState?.isPlaying ? `Playing at ${playbackState.currentTime}s` : 'Not playing'
-        });
-    }
-
-    /**
-     * Send current queue to a specific user
-     */
-    async sendCurrentQueueToUser(spaceId: string, userId: string) {
-        const user = this.users.get(userId);
-        
-        if (!user) {
-            console.error("❌ User not found for sendCurrentQueueToUser");
-            return;
-        }
-
-        try {
-            const queue = await this.prisma.stream.findMany({
-                where: {
-                    spaceId: spaceId,
-                    played: false
-                },
-                include: {
-                    upvotes: true,
-                    addedByUser: {
-                        select: {
-                            id: true,
-                            username: true
-                        }
-                    }
-                },
-                orderBy: [
-                    {
-                        upvotes: {
-                            _count: "desc"
-                        }
-                    },
-                    {
-                        createAt: "asc"
-                    }
-                ]
-            });
-
-            const queueWithVotes = queue.map(stream => ({
-                ...stream,
-                voteCount: stream.upvotes.length
-            }));
-
-            user.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "queue-update",
-                        data: { queue: queueWithVotes }
-                    }));
-                }
-            });
-
-            console.log(`📋 Sent queue (${queue.length} songs) to user ${userId} in space ${spaceId}`);
-        } catch (error) {
-            console.error("Error sending queue to user:", error);
-        }
-    }
-
-    /**
-     * Send current playing song to a specific user
-     */
-    async sendCurrentPlayingSongToUser(spaceId: string, userId: string) {
-        const user = this.users.get(userId);
-        
-        if (!user) {
-            console.error("❌ User not found for sendCurrentPlayingSongToUser");
-            return;
-        }
-
-        try {
-            // Get the currently playing song
-            const currentPlaying = await this.prisma.currentStream.findFirst({
-                where: { spaceId: spaceId },
-                include: { 
-                    stream: {
-                        include: {
-                            upvotes: true,
-                            addedByUser: {
-                                select: {
-                                    id: true,
-                                    username: true
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            if (currentPlaying && currentPlaying.stream) {
-                const songData = {
-                    ...currentPlaying.stream,
-                    voteCount: currentPlaying.stream.upvotes?.length || 0,
-                    addedByUser: currentPlaying.stream.addedByUser
-                };
-
-                user.ws.forEach((ws: WebSocket) => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            type: "current-song-update",
-                            data: { song: songData }
-                        }));
-                    }
-                });
-
-                console.log(`🎵 Sent current playing song "${currentPlaying.stream.title}" to user ${userId} in space ${spaceId}`);
-            } else {
-                console.log(`🎵 No currently playing song to send to user ${userId} in space ${spaceId}`);
-            }
-        } catch (error) {
-            console.error("Error sending current playing song to user:", error);
-        }
-    }
-
-    // ============= MISSING METHODS =============
-
-    /**
-     * Get queue with vote counts
-     */
-    async getQueueWithVotes(spaceId: string) {
-        try {
-            const queue = await this.prisma.stream.findMany({
-                where: {
-                    spaceId: spaceId,
-                    played: false
-                },
-                include: {
-                    upvotes: true,
-                    addedByUser: {
-                        select: {
-                            id: true,
-                            username: true
-                        }
-                    }
-                },
-                orderBy: [
-                    {
-                        upvotes: {
-                            _count: "desc"
-                        }
-                    },
-                    {
-                        createAt: "asc"
-                    }
-                ]
-            });
-
-            return queue.map(stream => ({
-                ...stream,
-                voteCount: stream.upvotes.length
-            }));
-        } catch (error) {
-            console.error("Error getting queue with votes:", error);
-            return [];
-        }
-    }
-
-    /**
-     * Handle WebSocket disconnection
-     */
-    disconnect(ws: WebSocket) {
-        console.log("🔌 Handling WebSocket disconnection");
-        
-        // Find and remove the user associated with this WebSocket
-        for (const [userId, user] of this.users.entries()) {
-            const wsIndex = user.ws.indexOf(ws);
-            if (wsIndex !== -1) {
-                user.ws.splice(wsIndex, 1);
-                console.log(`📡 Removed WebSocket for user ${userId}`);
-                
-                // If user has no more WebSocket connections, remove them from all spaces
-                if (user.ws.length === 0) {
-                    console.log(`👋 User ${userId} has no more connections, removing from spaces`);
-                    
-                    // Remove user from all spaces
-                    for (const [spaceId, space] of this.spaces.entries()) {
-                        if (space.users.has(userId)) {
-                            space.users.delete(userId);
-                            console.log(`📤 Removed user ${userId} from space ${spaceId}`);
-                            
-                            // Broadcast user update to remaining users in the space
-                            this.broadcastUserUpdate(spaceId);
-                        }
-                    }
-                    
-                    // Remove user from users map
-                    this.users.delete(userId);
-                }
-                break;
-            }
-        }
-
-        // Remove WebSocket from space mapping
-        this.wsToSpace.delete(ws);
-    }
-
-    /**
-     * Handle Spotify play events (placeholder)
-     */
+    // Spotify/YouTube synchronization handlers
     async handleSpotifyPlay(spaceId: string, userId: string, data: any) {
-        console.log("🎵 Handling Spotify play event:", { spaceId, userId, data });
-        // Implementation for Spotify-specific play handling
-        // For now, we'll just use the general playback resume
-        await this.resumePlayback(spaceId, userId);
+        console.log("Handling Spotify play event", { spaceId, userId, data });
+        
+        const space = this.spaces.get(spaceId);
+        const user = this.users.get(userId);
+        
+        if (!space || !user) return;
+        
+        // Store current playback state
+        await this.redisClient.set(
+            `playback-state-${spaceId}`,
+            JSON.stringify({
+                isPlaying: true,
+                platform: "spotify",
+                trackUri: data.trackUri,
+                timestamp: data.timestamp || Date.now(),
+                currentTime: data.currentTime || 0,
+                lastUpdated: Date.now(),
+                controlledBy: userId
+            }),
+            { EX: 3600 } // Expire after 1 hour
+        );
+        
+        // Broadcast to all users in the space
+        this.broadcastToSpace(spaceId, {
+            type: "playback-sync",
+            data: {
+                isPlaying: true,
+                platform: "spotify",
+                trackUri: data.trackUri,
+                currentTime: data.currentTime || 0,
+                timestamp: Date.now(),
+                controlledBy: userId
+            }
+        });
     }
 
-    /**
-     * Handle Spotify pause events (placeholder)
-     */
     async handleSpotifyPause(spaceId: string, userId: string, data: any) {
-        console.log("⏸️ Handling Spotify pause event:", { spaceId, userId, data });
-        // Implementation for Spotify-specific pause handling
-        // For now, we'll just use the general playback pause
-        await this.pausePlayback(spaceId, userId);
+        console.log("Handling Spotify pause event", { spaceId, userId, data });
+        
+        const space = this.spaces.get(spaceId);
+        const user = this.users.get(userId);
+        
+        if (!space || !user) return;
+        
+        // Update playback state
+        await this.redisClient.set(
+            `playback-state-${spaceId}`,
+            JSON.stringify({
+                isPlaying: false,
+                platform: "spotify",
+                trackUri: data.trackUri,
+                currentTime: data.currentTime || 0,
+                lastUpdated: Date.now(),
+                controlledBy: userId
+            }),
+            { EX: 3600 }
+        );
+        
+        // Broadcast to all users in the space
+        this.broadcastToSpace(spaceId, {
+            type: "playback-sync",
+            data: {
+                isPlaying: false,
+                platform: "spotify",
+                currentTime: data.currentTime || 0,
+                timestamp: Date.now(),
+                controlledBy: userId
+            }
+        });
     }
 
-    /**
-     * Handle Spotify state change events (placeholder)
-     */
     async handleSpotifyStateChange(spaceId: string, userId: string, data: any) {
-        console.log("🔄 Handling Spotify state change event:", { spaceId, userId, data });
-        // Implementation for Spotify-specific state changes
-        if (data.isPlaying !== undefined) {
-            if (data.isPlaying) {
-                await this.resumePlayback(spaceId, userId);
-            } else {
-                await this.pausePlayback(spaceId, userId);
-            }
-        }
+        console.log("Handling Spotify state change", { spaceId, userId, data });
         
-        if (data.position !== undefined) {
-            await this.seekPlayback(spaceId, userId, data.position / 1000); // Convert ms to seconds
-        }
+        const space = this.spaces.get(spaceId);
+        const user = this.users.get(userId);
+        
+        if (!space || !user) return;
+        
+        // Update playback state
+        await this.redisClient.set(
+            `playback-state-${spaceId}`,
+            JSON.stringify({
+                isPlaying: data.isPlaying,
+                platform: "spotify",
+                trackUri: data.trackUri,
+                currentTime: data.currentTime || 0,
+                lastUpdated: Date.now(),
+                controlledBy: userId
+            }),
+            { EX: 3600 }
+        );
+        
+        // Broadcast to all users in the space
+        this.broadcastToSpace(spaceId, {
+            type: "playback-sync",
+            data: {
+                isPlaying: data.isPlaying,
+                platform: "spotify",
+                trackUri: data.trackUri,
+                currentTime: data.currentTime || 0,
+                timestamp: Date.now(),
+                controlledBy: userId
+            }
+        });
     }
 
-    /**
-     * Handle YouTube state change events (placeholder)
-     */
     async handleYouTubeStateChange(spaceId: string, userId: string, data: any) {
-        console.log("📺 Handling YouTube state change event:", { spaceId, userId, data });
-        // Implementation for YouTube-specific state changes
-        if (data.isPlaying !== undefined) {
-            if (data.isPlaying) {
-                await this.resumePlayback(spaceId, userId);
-            } else {
-                await this.pausePlayback(spaceId, userId);
-            }
-        }
+        console.log("Handling YouTube state change", { spaceId, userId, data });
         
-        if (data.currentTime !== undefined) {
-            await this.seekPlayback(spaceId, userId, data.currentTime);
-        }
+        const space = this.spaces.get(spaceId);
+        const user = this.users.get(userId);
+        
+        if (!space || !user) return;
+        
+        // Update playback state
+        await this.redisClient.set(
+            `playback-state-${spaceId}`,
+            JSON.stringify({
+                isPlaying: data.isPlaying,
+                platform: "youtube",
+                videoId: data.videoId,
+                currentTime: data.currentTime || 0,
+                lastUpdated: Date.now(),
+                controlledBy: userId
+            }),
+            { EX: 3600 }
+        );
+        
+        // Broadcast to all users in the space
+        this.broadcastToSpace(spaceId, {
+            type: "playback-sync",
+            data: {
+                isPlaying: data.isPlaying,
+                platform: "youtube",
+                videoId: data.videoId,
+                currentTime: data.currentTime || 0,
+                timestamp: Date.now(),
+                controlledBy: userId
+            }
+        });
     }
 
-    /**
-     * Broadcast user list update to all users in a space
-     */
-    broadcastUserUpdate(spaceId: string) {
+    // Utility method to broadcast messages to all users in a space
+    private broadcastToSpace(spaceId: string, message: any) {
         const space = this.spaces.get(spaceId);
         if (!space) return;
-
-        const userList = Array.from(space.users.values()).map(user => ({
-            id: user.userId,
-            // Add other user info if needed
-        }));
-
-        space.users.forEach((user) => {
-            user.ws.forEach((ws: WebSocket) => {
+        
+        space.users.forEach((user, userId) => {
+            user?.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "user-update",
-                        data: { users: userList }
-                    }));
+                    ws.send(JSON.stringify(message));
                 }
             });
         });
-
-        console.log(`📡 Broadcasted user update to space ${spaceId}, ${userList.length} users`);
-    }
-
-    /**
-     * Broadcast queue update to all users in a space
-     */
-    async broadcastQueueUpdate(spaceId: string) {
-        try {
-            const queue = await this.getQueueWithVotes(spaceId);
-            const space = this.spaces.get(spaceId);
-            
-            if (!space) return;
-
-            space.users.forEach((user) => {
-                user.ws.forEach((ws: WebSocket) => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            type: "queue-update",
-                            data: { queue }
-                        }));
-                    }
-                });
-            });
-
-            console.log(`📋 Broadcasted queue update to space ${spaceId}, ${queue.length} songs`);
-        } catch (error) {
-            console.error("Error broadcasting queue update:", error);
-        }
     }
 }
+

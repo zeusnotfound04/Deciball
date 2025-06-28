@@ -47,11 +47,15 @@ export default function StreamView({
 
   
 
-    const enqueueToast = (type : "error" | "success" , message : string) => {
-        const toastFn = type === "error" ? toast.error: toast.success;
-        toastFn(message, {
-            duration : 5000,
-        })
+    const enqueueToast = (type : "error" | "success" | "info" , message : string) => {
+        if (type === "info") {
+            toast(message, { duration: 3000 });
+        } else {
+            const toastFn = type === "error" ? toast.error: toast.success;
+            toastFn(message, {
+                duration : 5000,
+            });
+        }
     }
     useEffect(() => {
         if (socket) {
@@ -93,6 +97,16 @@ export default function StreamView({
           };
         }
       }, [socket]);
+      
+      // Listen for sync toast events
+      useEffect(() => {
+        const handleSyncToast = (event: CustomEvent) => {
+          enqueueToast(event.detail.type || 'info', event.detail.message);
+        };
+        
+        window.addEventListener('show-sync-toast', handleSyncToast as EventListener);
+        return () => window.removeEventListener('show-sync-toast', handleSyncToast as EventListener);
+      }, []);
     
       useEffect(() => {
         refreshStreams();

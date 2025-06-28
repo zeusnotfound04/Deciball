@@ -188,6 +188,14 @@ async function  processUserAction(type: string , data : Data ) {
             );
             break;
 
+        case "spotify-resume":
+            await RoomManager.getInstance().handleSpotifyPlay(
+                data.spaceId,
+                data.userId,
+                { ...data, isPlaying: true }
+            );
+            break;
+
         case "spotify-state-change":
             await RoomManager.getInstance().handleSpotifyStateChange(
                 data.spaceId,
@@ -255,6 +263,50 @@ async function  processUserAction(type: string , data : Data ) {
                         data: playbackState
                     }));
                 });
+            }
+            break;
+
+        // Playback control cases - handle play/pause/seek from frontend
+        case "play":
+            await RoomManager.getInstance().handlePlaybackPlay(
+                data.spaceId,
+                data.userId
+            );
+            break;
+
+        case "pause":
+            await RoomManager.getInstance().handlePlaybackPause(
+                data.spaceId,
+                data.userId
+            );
+            break;
+
+        case "seek":
+            if (typeof data.currentTime === 'number') {
+                await RoomManager.getInstance().handlePlaybackSeek(
+                    data.spaceId,
+                    data.userId,
+                    data.currentTime
+                );
+            }
+            break;
+
+        // Get current timestamp for sync
+        case "get-timestamp":
+            const user = RoomManager.getInstance().users.get(data.userId);
+            if (user) {
+                const space = RoomManager.getInstance().spaces.get(data.spaceId);
+                if (space?.playbackState.currentSong) {
+                    await RoomManager.getInstance().sendCurrentTimestampToUser(data.spaceId, data.userId);
+                }
+            }
+            break;
+
+        // Get current playing song
+        case "get-current-song":
+            const currentSongUser = RoomManager.getInstance().users.get(data.userId);
+            if (currentSongUser) {
+                await RoomManager.getInstance().sendCurrentPlayingSongToUser(data.spaceId, data.userId);
             }
             break;
   

@@ -24,6 +24,7 @@ interface AudioState {
   spotifyDeviceId: string | null;
   isSynchronized: boolean; // Track if playback is synchronized
   lastSyncTimestamp: number;
+  pendingSync: { timestamp: number; isPlaying: boolean; song?: searchResults } | null;
 
   // Actions
   setIsPlaying: (isPlaying: boolean) => void;
@@ -65,6 +66,7 @@ export const useAudioStore = create<AudioState>()(
         spotifyDeviceId: null,
         isSynchronized: false,
         lastSyncTimestamp: 0,
+        pendingSync: null,
 
         // Actions
         setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -85,6 +87,30 @@ export const useAudioStore = create<AudioState>()(
         setYoutubePlayer: (youtubePlayer) => {
           console.log("[AudioStore] Setting YouTube player in store:", !!youtubePlayer);
           set({ youtubePlayer });
+          
+          // Process any pending sync when player becomes available
+          const state = get();
+          if (youtubePlayer && state.pendingSync) {
+            console.log("[AudioStore] Processing pending sync after player ready:", state.pendingSync);
+            const { timestamp, isPlaying, song } = state.pendingSync;
+            
+            // Update current song if provided in pending sync
+            if (song && (!state.currentSong || state.currentSong.id !== song.id)) {
+              set({ currentSong: song });
+            }
+            
+            // Sync playback position
+            state.syncPlaybackToTimestamp(timestamp);
+            
+            // Set playing state
+            set({ isPlaying, pendingSync: null });
+            
+            if (isPlaying && youtubePlayer.playVideo) {
+              youtubePlayer.playVideo();
+            } else if (!isPlaying && youtubePlayer.pauseVideo) {
+              youtubePlayer.pauseVideo();
+            }
+          }
         },
         setSpotifyPlayer: (spotifyPlayer) => {
           console.log("[AudioStore] Setting Spotify player in store:", !!spotifyPlayer);
@@ -100,6 +126,14 @@ export const useAudioStore = create<AudioState>()(
           const state = get();
           console.log("[AudioStore] Syncing playback to timestamp:", timestamp);
           
+          // Show sync notification
+          if (typeof window !== 'undefined') {
+            const event = new CustomEvent('show-sync-toast', {
+              detail: { message: `Synced to ${Math.floor(timestamp)}s`, type: 'info' }
+            });
+            window.dispatchEvent(event);
+          }
+          
           if (state.youtubePlayer && state.youtubePlayer.seekTo) {
             try {
               state.youtubePlayer.seekTo(timestamp, true);
@@ -108,6 +142,9 @@ export const useAudioStore = create<AudioState>()(
             } catch (error) {
               console.error("[AudioStore] Error syncing YouTube player:", error);
             }
+          } else if (state.youtubePlayer === null) {
+            // Player not yet initialized, this is expected for new users
+            console.log("[AudioStore] YouTube player not ready, this will be handled when player initializes");
           }
           
           if (state.spotifyPlayer && state.isSpotifyReady) {
@@ -129,6 +166,22 @@ export const useAudioStore = create<AudioState>()(
           if (currentSong && (!state.currentSong || state.currentSong.id !== currentSong.id)) {
             set({ currentSong });
           }
+          
+          // If YouTube player is not ready yet, store the sync data as pending
+          if (!state.youtubePlayer) {
+            console.log("[AudioStore] YouTube player not ready, storing sync as pending");
+            set({ 
+              pendingSync: { 
+                timestamp: currentTime, 
+                isPlaying, 
+                song: currentSong || state.currentSong || undefined 
+              } 
+            });
+            return;
+          }
+          
+          // Clear any pending sync since we're processing this one
+          set({ pendingSync: null });
           
           // Sync playback position
           state.syncPlaybackToTimestamp(currentTime);
@@ -338,6 +391,19 @@ export function useAudio() {
         videoRef.current?.play();
         backgroundVideoRef.current?.play();
         
+        // Notify server about YouTube playback
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ 
+            type: "youtube-state-change", 
+            data: { 
+              videoId: videoId,
+              isPlaying: true,
+              currentTime: 0,
+              timestamp: Date.now() 
+            } 
+          }));
+        }
+        
         console.log("[Audio] YouTube playback initiated, isPlaying set to true");
         return;
       } catch (e: any) {
@@ -413,9 +479,17 @@ export function useAudio() {
         youtubePlayer.pauseVideo();
         console.log("[Audio] YouTube player paused successfully");
         
-        // Use the ws from useUserStore to send status
+        // Notify server about YouTube pause
         if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "status", data: false }));
+          const currentTime = youtubePlayer.getCurrentTime ? youtubePlayer.getCurrentTime() : 0;
+          ws.send(JSON.stringify({ 
+            type: "youtube-state-change", 
+            data: { 
+              isPlaying: false,
+              currentTime: currentTime,
+              timestamp: Date.now() 
+            } 
+          }));
         }
         
         // Don't set isPlaying here - let YouTube events handle it
@@ -480,9 +554,17 @@ export function useAudio() {
           youtubePlayer.playVideo();
           console.log("[Audio] YouTube player resumed successfully");
           
-          // Use the ws from useUserStore to send status
+          // Notify server about YouTube resume
           if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "status", data: true }));
+            const currentTime = youtubePlayer.getCurrentTime ? youtubePlayer.getCurrentTime() : 0;
+            ws.send(JSON.stringify({ 
+              type: "youtube-state-change", 
+              data: { 
+                isPlaying: true,
+                currentTime: currentTime,
+                timestamp: Date.now() 
+              } 
+            }));
           }
           // Don't set isPlaying here - let YouTube events handle it
           return;
@@ -581,6 +663,18 @@ export function useAudio() {
         const duration = youtubePlayer.getDuration();
         const seekTime = (value / 100) * duration;
         youtubePlayer.seekTo(seekTime, true);
+        
+        // Notify server about YouTube seek
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ 
+            type: "seek-playback", 
+            data: { 
+              seekTime: seekTime,
+              timestamp: Date.now() 
+            } 
+          }));
+        }
+        
         console.log("[Audio] YouTube player seeked to:", seekTime);
         return;
       } catch (error) {
@@ -608,6 +702,17 @@ export function useAudio() {
       }
 
       audioRef.current.currentTime = value;
+      
+      // Notify server about HTML audio seek
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ 
+          type: "seek-playback", 
+          data: { 
+            seekTime: value,
+            timestamp: Date.now() 
+          } 
+        }));
+      }
     }
   };
 
@@ -1078,6 +1183,74 @@ export function useAudio() {
       window.removeEventListener('current-song-update', handleCurrentSongUpdateEvent as EventListener);
     };
   }, [handleRoomSync, handlePlaybackPause, handlePlaybackResume, handlePlaybackSeek]);
+
+  // WebSocket sync message handling
+  useEffect(() => {
+    if (!ws) return;
+
+    const handleWebSocketMessage = (event: MessageEvent) => {
+      try {
+        const { type, data } = JSON.parse(event.data);
+        
+        switch (type) {
+          case 'playback-sync':
+            console.log("🎵 Received playback sync message:", data);
+            
+            // Calculate the expected current time based on timestamp
+            const timeDiff = (Date.now() - data.timestamp) / 1000;
+            const expectedCurrentTime = data.currentTime + (data.isPlaying ? timeDiff : 0);
+            
+            // Dispatch custom event for room sync
+            window.dispatchEvent(new CustomEvent('room-sync-playback', {
+              detail: {
+                currentTime: expectedCurrentTime,
+                isPlaying: data.isPlaying,
+                platform: data.platform,
+                videoId: data.videoId,
+                trackUri: data.trackUri,
+                isSync: data.isSync || false
+              }
+            }));
+            break;
+            
+          case 'playback-pause':
+            console.log("⏸️ Received playback pause message:", data);
+            window.dispatchEvent(new CustomEvent('playback-paused', {
+              detail: { timestamp: data.timestamp, controlledBy: data.controlledBy }
+            }));
+            break;
+            
+          case 'playback-resume':
+            console.log("▶️ Received playback resume message:", data);
+            window.dispatchEvent(new CustomEvent('playback-resumed', {
+              detail: { timestamp: data.timestamp, controlledBy: data.controlledBy }
+            }));
+            break;
+            
+          case 'playback-seek':
+            console.log("⏩ Received playback seek message:", data);
+            window.dispatchEvent(new CustomEvent('playback-seeked', {
+              detail: { seekTime: data.seekTime, timestamp: data.timestamp, controlledBy: data.controlledBy }
+            }));
+            break;
+            
+          default:
+            // Let other message types be handled elsewhere
+            break;
+        }
+      } catch (error) {
+        console.error("Error parsing WebSocket sync message:", error);
+      }
+    };
+
+    // Add message listener
+    ws.addEventListener('message', handleWebSocketMessage);
+
+    // Cleanup
+    return () => {
+      ws.removeEventListener('message', handleWebSocketMessage);
+    };
+  }, [ws]);
 
   // Return the API
   return {
