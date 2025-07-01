@@ -49,7 +49,7 @@ export default function Page() {
       const response = await axios.post("/api/spaces" , values)
       const spaceId = response.data.space.id;
 
-      router.push(`/dashboard/${spaceId}`)
+      router.push(`/space/${spaceId}`)
       
       
     } catch (error) {

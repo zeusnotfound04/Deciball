@@ -388,10 +388,25 @@ export function useAudio() {
         console.log("[Audio] YouTube player available:", !!youtubePlayer);
         console.log("[Audio] Video ID length:", videoId.length);
         
-        // Immediately set playing state
-        setIsPlaying(true);
+        // Stop any current video first
+        try {
+          youtubePlayer.stopVideo();
+        } catch (e) {
+          console.log("[Audio] Could not stop current video (normal if none playing)");
+        }
         
+        // Load and play the new video
         youtubePlayer.loadVideoById(videoId, 0);
+        
+        // Set playing state after a small delay to ensure video loads
+        setTimeout(() => {
+          setIsPlaying(true);
+          try {
+            youtubePlayer.playVideo();
+          } catch (e) {
+            console.error("[Audio] Error starting video playback:", e);
+          }
+        }, 100);
         
         // Reset tracking on successful play
         lastEmittedTimeRef.current = 0;
@@ -414,7 +429,7 @@ export function useAudio() {
           }));
         }
         
-        console.log("[Audio] YouTube playback initiated, isPlaying set to true");
+        console.log("[Audio] YouTube playback initiated");
         return;
       } catch (e: any) {
         console.error("Error playing YouTube video:", e);
@@ -1086,7 +1101,17 @@ export function useAudio() {
       };
       
       const handleEnd = () => {
-        emitMessage("songEnded", "songEnded");
+        // Only use HTML audio ended event if we're not using YouTube player
+        if (!youtubePlayer) {
+          // Use custom songEnded callback if available, otherwise fallback to emitMessage
+          const customSongEndedCallback = (window as any).__songEndedCallback;
+          if (customSongEndedCallback) {
+            customSongEndedCallback();
+          } else {
+            emitMessage("songEnded", "songEnded");
+          }
+        }
+        // If YouTube player is active, let it handle the songEnded event
       };
 
 

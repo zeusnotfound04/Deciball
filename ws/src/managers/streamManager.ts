@@ -570,6 +570,20 @@ export class RoomManager {
             return;
         }
 
+        // First, mark the currently playing song as played (if any)
+        const currentStream = await this.prisma.currentStream.findUnique({
+            where: { spaceId },
+            include: { stream: true }
+        });
+        
+        if (currentStream && currentStream.stream && !currentStream.stream.played) {
+            console.log("🎵 Marking current song as played:", currentStream.stream.title);
+            await this.prisma.stream.update({
+                where: { id: currentStream.stream.id },
+                data: { played: true, playedTs: new Date() }
+            });
+        }
+
         // Get the next song from the queue (highest voted, then oldest)
         const nextStream = await this.prisma.stream.findFirst({
             where: {
@@ -623,18 +637,12 @@ export class RoomManager {
 
         console.log("🎵 Playing next song:", nextStream.title);
 
-        // Mark the stream as played and set current stream
-        await Promise.all([
-            this.prisma.currentStream.upsert({
-                where: { spaceId },
-                update: { spaceId, userId: creatorId, streamId: nextStream.id },
-                create: { id: crypto.randomUUID(), spaceId, userId: creatorId, streamId: nextStream.id },
-            }),
-            this.prisma.stream.update({
-                where: { id: nextStream.id },
-                data: { played: true, playedTs: new Date() },
-            }),
-        ]);
+        // Set the next song as current stream (but DON'T mark it as played yet)
+        await this.prisma.currentStream.upsert({
+            where: { spaceId },
+            update: { spaceId, userId: creatorId, streamId: nextStream.id },
+            create: { id: crypto.randomUUID(), spaceId, userId: creatorId, streamId: nextStream.id },
+        });
 
         // Update in-memory playback state
         if (space) {
@@ -1142,22 +1150,35 @@ export class RoomManager {
     // Broadcast current timestamp to all users in a space
     private async broadcastCurrentTimestamp(spaceId: string) {
         const space = this.spaces.get(spaceId);
-        if (!space || !space.playbackState.isPlaying || !space.playbackState.currentSong) {
+        if (!space || !space.playbackState.currentSong) {
             return;
         }
 
         const now = Date.now();
         const { playbackState } = space;
         
-        // Calculate current position based on when the song started
+        // Calculate current position based on playback state
         let currentTime = 0;
-        if (playbackState.isPlaying && playbackState.startedAt > 0) {
-            if (playbackState.pausedAt) {
-                // If paused, use the paused time
-                currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
+        
+        if (playbackState.startedAt > 0) {
+            if (playbackState.isPlaying) {
+                // If playing, calculate current position from start time
+                if (playbackState.pausedAt) {
+                    // If we previously paused, calculate from resume point
+                    const pausedDuration = (playbackState.pausedAt - playbackState.startedAt) / 1000;
+                    currentTime = pausedDuration + ((now - playbackState.lastUpdated) / 1000);
+                } else {
+                    // Calculate from original start time
+                    currentTime = (now - playbackState.startedAt) / 1000;
+                }
             } else {
-                // If playing, calculate current position
-                currentTime = (now - playbackState.startedAt) / 1000;
+                // If paused, use the time when we paused
+                if (playbackState.pausedAt) {
+                    currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
+                } else {
+                    // Fallback to 0 if no pause time is set
+                    currentTime = 0;
+                }
             }
         }
 
@@ -1168,6 +1189,12 @@ export class RoomManager {
             songId: playbackState.currentSong?.id,
             totalDuration: playbackState.currentSong?.duration
         };
+
+        console.log(`📡 Broadcasting timestamp for space ${spaceId}:`, {
+            currentTime: timestampData.currentTime,
+            isPlaying: timestampData.isPlaying,
+            songId: timestampData.songId
+        });
 
         // Broadcast to all users in the space
         space.users.forEach((user) => {
@@ -1259,6 +1286,18 @@ export class RoomManager {
         
         space.playbackState.lastUpdated = now;
 
+        // Send immediate play command to all users
+        space.users.forEach((user) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "play",
+                        data: { spaceId, userId }
+                    }));
+                }
+            });
+        });
+
         // Start broadcasting timestamps
         this.startTimestampBroadcast(spaceId);
 
@@ -1278,6 +1317,18 @@ export class RoomManager {
         space.playbackState.isPlaying = false;
         space.playbackState.pausedAt = now;
         space.playbackState.lastUpdated = now;
+
+        // Send immediate pause command to all users
+        space.users.forEach((user) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "pause",
+                        data: { spaceId, userId }
+                    }));
+                }
+            });
+        });
 
         // Stop broadcasting timestamps
         this.stopTimestampBroadcast(spaceId);

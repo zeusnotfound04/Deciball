@@ -6,9 +6,16 @@ import Image from "next/image";
 import YouTube from "react-youtube";
 import { useUserStore } from "@/store/userStore";
 import { useAudio, useAudioStore } from "@/store/audioStore";
+import { useSocket } from "@/context/socket-context";
 
-function PLayerCoverComp() {
+interface PlayerCoverProps {
+  spaceId?: string;
+  userId?: string;
+}
+
+function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
   const { user, setShowAddDragOptions, emitMessage } = useUserStore();
+  const { sendMessage } = useSocket();
   
   // Use the new Zustand-based hook
   const { currentSong, isPlaying, setYouTubePlayer } = useAudio();
@@ -87,24 +94,17 @@ function PLayerCoverComp() {
           console.log("[YouTube] Setting volume to:", storedVolume * 100);
           event.target.setVolume(storedVolume * 100);
           
-          // Load the video first
-          if (isPlaying) {
-            console.log("[YouTube] Loading and playing video (isPlaying=true)");
-            event.target.loadVideoById(videoId, 0);
-            // The loadVideoById should auto-play, but let's ensure it
-            setTimeout(() => {
-              event.target.playVideo();
-            }, 500);
-          } else {
-            console.log("[YouTube] Cueing video without auto-play (isPlaying=false)");
-            event.target.cueVideoById(videoId, 0);
-          }
+          // Check if there's pending sync (new user joining)
+          const { pendingSync } = useAudioStore.getState();
           
-          // Apply any pending sync after a short delay to ensure video is loaded
-          setTimeout(() => {
-            const { pendingSync } = useAudioStore.getState();
-            if (pendingSync) {
-              console.log("[YouTube] Applying pending sync after player ready:", pendingSync);
+          if (pendingSync) {
+            console.log("[YouTube] New user with pending sync - loading video and will apply sync");
+            // For new users, always load and then apply the sync position and state
+            event.target.loadVideoById(videoId, 0);
+            
+            // Apply pending sync after video loads
+            setTimeout(() => {
+              console.log("[YouTube] Applying pending sync:", pendingSync);
               event.target.seekTo(pendingSync.timestamp, true);
               if (pendingSync.isPlaying) {
                 console.log("[YouTube] Starting playback from pending sync");
@@ -115,10 +115,18 @@ function PLayerCoverComp() {
               }
               // Clear the pending sync
               const { handleRoomSync } = useAudioStore.getState();
-              // This will clear the pendingSync by calling handleRoomSync with the same data
               handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, currentSong);
+            }, 1000);
+          } else {
+            // Normal case - existing user
+            if (isPlaying) {
+              console.log("[YouTube] Loading and playing video (existing user, isPlaying=true)");
+              event.target.loadVideoById(videoId, 0);
+            } else {
+              console.log("[YouTube] Cueing video without auto-play (existing user, isPlaying=false)");
+              event.target.cueVideoById(videoId, 0);
             }
-          }, 1000);
+          }
           
         } catch (error) {
           console.error("YouTube player error:", error);
@@ -137,9 +145,16 @@ function PLayerCoverComp() {
         <YouTube
           onEnd={() => {
             console.log(
-              "[YouTube] Video playback ended, emitting songEnded event"
+              "[YouTube] Video playback ended, sending songEnded message to backend"
             );
-            emitMessage("songEnded", "songEnded");
+            // Send proper WebSocket message for song ended
+            if (sendMessage && spaceId && userId) {
+              sendMessage("songEnded", { spaceId, userId });
+            } else {
+              console.warn("[YouTube] Cannot send songEnded - missing spaceId or userId");
+              // Fallback to old method
+              emitMessage("songEnded", "songEnded");
+            }
           }}
           onStateChange={(event) => {
             console.log("[YouTube] State changed:", event.data);
@@ -154,9 +169,9 @@ function PLayerCoverComp() {
                 setIsPlaying(false);
                 break;
               case 0: // ended
-                console.log("[YouTube] State: Ended");
+                console.log("[YouTube] State: Ended - handled by onEnd callback");
                 setIsPlaying(false);
-                emitMessage("songEnded", "songEnded");
+                // Don't send songEnded here - it's already handled by onEnd callback
                 break;
               default:
                 console.log("[YouTube] State: Other -", event.data);

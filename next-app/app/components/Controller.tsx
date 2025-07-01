@@ -14,8 +14,17 @@ import {
 } from 'lucide-react';
 import { useAudio } from '@/store/audioStore';
 
+interface AudioControllerProps {
+  customTogglePlayPause?: () => void;
+  spaceId?: string;
+  userId?: string;
+}
 
-const AudioController = () => {
+const AudioController: React.FC<AudioControllerProps> = ({ 
+  customTogglePlayPause,
+  spaceId,
+  userId 
+}) => {
   const {
     isPlaying,
     isMuted,
@@ -33,6 +42,18 @@ const AudioController = () => {
   } = useAudio();
   const playerRef = useRef<any>(null);
   console.log("IS Playing :::>>", isPlaying)
+
+  // Use custom togglePlayPause if provided, otherwise use the default one
+  const handleTogglePlayPause = () => {
+    console.log('[AudioController] handleTogglePlayPause called');
+    console.log('[AudioController] customTogglePlayPause provided:', !!customTogglePlayPause);
+    
+    if (customTogglePlayPause) {
+      customTogglePlayPause();
+    } else {
+      togglePlayPause();
+    }
+  };
 
   const [isDragging, setIsDragging] = useState(false);
   const [tempProgress, setTempProgress] = useState(0);
@@ -105,7 +126,7 @@ const AudioController = () => {
       switch (e.key) {
         case ' ':
           e.preventDefault();
-          togglePlayPause();
+          handleTogglePlayPause();
           break;
         case 'ArrowLeft':
           if (e.ctrlKey) {
@@ -141,7 +162,7 @@ const AudioController = () => {
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [togglePlayPause, playNext, playPrev, seek, progress, duration, volume, toggleMute, setVolume]);
+  }, [handleTogglePlayPause, playNext, playPrev, seek, progress, duration, volume, toggleMute, setVolume]);
 
   // Mouse event listeners for progress bar
   useEffect(() => {
@@ -240,7 +261,7 @@ const AudioController = () => {
             </button>
 
             <button
-              onClick={togglePlayPause}
+              onClick={handleTogglePlayPause}
               className="bg-white text-black p-3 rounded-full hover:scale-105 transition-transform shadow-lg"
               title={isPlaying ? "Pause (Space)" : "Play (Space)"}
             >

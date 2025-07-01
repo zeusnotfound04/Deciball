@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAudio } from '@/store/audioStore';
+import { useUserStore } from '@/store/userStore';
 import { useSocket } from '@/context/socket-context';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
@@ -45,17 +46,60 @@ export const Player: React.FC<PlayerProps> = ({
     isPlaying, 
     isMuted, 
     volume,
-    togglePlayPause,
+    togglePlayPause: audioTogglePlayPause,
     mute,
     unmute,
     playNext,
     playPrev
   } = useAudio();
   
-  const { socket } = useSocket();
+  const { socket, sendMessage } = useSocket();
+  const { user } = useUserStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showListeners, setShowListeners] = useState(false);
   const [activeTab, setActiveTab] = useState<'cover' | 'listeners' | 'settings'>('cover');
+
+  // Set up song ended callback for HTML audio fallback
+  useEffect(() => {
+    const songEndedCallback = () => {
+      console.log("[Player] Song ended, sending songEnded message to backend");
+      if (sendMessage && spaceId && user?.id) {
+        sendMessage("songEnded", { spaceId, userId: user.id });
+      } else {
+        console.warn("[Player] Cannot send songEnded - missing spaceId or userId");
+      }
+    };
+
+    // Set global callback for audioStore to use
+    (window as any).__songEndedCallback = songEndedCallback;
+
+    // Cleanup
+    return () => {
+      delete (window as any).__songEndedCallback;
+    };
+  }, [sendMessage, spaceId, user?.id]);
+
+  // Custom togglePlayPause that also sends room-wide messages
+  const togglePlayPause = () => {
+    console.log('[Player] togglePlayPause called, current isPlaying:', isPlaying);
+    
+    // Determine what action we're about to take
+    const willBePlaying = !isPlaying;
+    const message = willBePlaying ? 'play' : 'pause';
+    
+    console.log('[Player] Will be playing:', willBePlaying, 'Sending message:', message);
+    
+    // Call the audio store function first
+    audioTogglePlayPause();
+    
+    // Send room-wide synchronization message after a brief delay to ensure state is updated
+    if (sendMessage && spaceId && user?.id) {
+      setTimeout(() => {
+        console.log('[Player] Sending room-wide message:', message);
+        sendMessage(message, { spaceId, userId: user.id });
+      }, 100); // Small delay to ensure the audio store state is updated
+    }
+  };
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -212,7 +256,7 @@ export const Player: React.FC<PlayerProps> = ({
                   {activeTab === 'cover' && (
                     <div className="flex justify-center">
                       <div className="w-full max-w-sm">
-                        <PLayerCover />
+                        <PLayerCover spaceId={spaceId} userId={user?.id} />
                       </div>
                     </div>
                   )}
@@ -328,7 +372,11 @@ export const Player: React.FC<PlayerProps> = ({
       </Card>
 
       {/* Audio Controller - Always at bottom */}
-      <AudioController />
+      <AudioController 
+        customTogglePlayPause={togglePlayPause}
+        spaceId={spaceId}
+        userId={user?.id}
+      />
     </div>
   );
 };

@@ -257,6 +257,7 @@ export default function SearchSongPopup({
         // Send message and check success response
         const success = sendMessage("add-to-queue", {
           spaceId: spaceId,
+          userId: socketUser?.id || '',
           url: finalUrl,
           autoPlay: autoPlay, // Add autoPlay flag
           trackData: {

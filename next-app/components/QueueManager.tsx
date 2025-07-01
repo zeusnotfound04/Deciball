@@ -60,7 +60,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     return cleanedUrl;
   };
 
-  // Utility function to extract YouTube video ID from URL
   const extractYouTubeVideoId = (url: string): string => {
     if (!url) return '';
     
@@ -147,7 +146,10 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             
             // Check if this song is already playing to avoid restarting
             const isSameSong = audioCurrentSong?.id === data.song.id;
-            if (isSameSong) {
+            const { isPlaying } = useAudioStore.getState();
+            
+            // Only skip if it's the same song AND it's currently playing
+            if (isSameSong && isPlaying) {
               console.log('🎵 Same song already playing, skipping playback restart');
               
               // Even if same song, apply pending sync if available (for new users)

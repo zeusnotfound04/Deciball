@@ -171,6 +171,12 @@ async function  processUserAction(type: string , data : Data ) {
             );
             break;
 
+        // Song ended - automatically play next song
+        case "songEnded":
+            console.log("🎵 Song ended, playing next song automatically");
+            await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId);
+            break;
+
         // Spotify synchronization cases
         case "spotify-play":
             await RoomManager.getInstance().handleSpotifyPlay(

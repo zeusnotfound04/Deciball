@@ -68,7 +68,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       tracksCount: tracks.length, 
       trackNames: tracks.map(t => t.name)
     });
-    // Search component handles the actual queue addition, this is just for logging
   };
 
   useEffect(() => {
