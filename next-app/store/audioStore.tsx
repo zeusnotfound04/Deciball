@@ -313,8 +313,20 @@ export function useAudio() {
 
   // Play function
   const play = async (song: searchResults) => {
+    console.log("🎵 [Play] ====================== PLAY FUNCTION CALLED ======================");
+    console.log("🎵 [Play] Song object:", song);
+    console.log("🎵 [Play] Song name:", song.name);
+    console.log("🎵 [Play] Song ID:", song.id);
+    console.log("🎵 [Play] Song downloadUrl:", song.downloadUrl);
+    console.log("🎵 [Play] Song downloadUrl[0]:", song.downloadUrl?.[0]);
+    console.log("🎵 [Play] Song downloadUrl[0].url:", song.downloadUrl?.[0]?.url);
+    console.log("🎵 [Play] Song source:", song.source);
+    console.log("🎵 [Play] YouTube player available:", !!youtubePlayer);
+    console.log("🎵 [Play] Spotify player available:", !!spotifyPlayer);
+    console.log("🎵 [Play] Spotify ready:", isSpotifyReady);
+    
     setCurrentSong(song);
-    console.log("Playing Song:: " , song)
+    console.log("🎵 [Play] Current song set in store");
     
     // Clear existing sources
     if (backgroundVideoRef.current) {
@@ -326,10 +338,18 @@ export function useAudio() {
     if (audioRef.current) {
       audioRef.current.src = "";
     }
+    console.log("🎵 [Play] Cleared existing audio/video sources");
     
     // Check if this is a Spotify track
     const isSpotifyTrack = song.downloadUrl?.[0]?.url?.includes('spotify:track:') || 
                           song.url?.includes('open.spotify.com/track/');
+    
+    console.log("🎵 [Play] Is Spotify track:", isSpotifyTrack);
+    
+    if (isSpotifyTrack && spotifyPlayer && isSpotifyReady) {
+      console.log("🎵 [Play] Attempting Spotify playback...");
+      // ...existing Spotify code...
+    }
     
     if (isSpotifyTrack && spotifyPlayer && isSpotifyReady) {
       try {
@@ -384,29 +404,63 @@ export function useAudio() {
     if (youtubePlayer && song.downloadUrl?.[0]?.url && !isSpotifyTrack) {
       try {
         const videoId = song.downloadUrl[0].url;
-        console.log("[Audio] Loading YouTube video with ID:", videoId);
-        console.log("[Audio] YouTube player available:", !!youtubePlayer);
-        console.log("[Audio] Video ID length:", videoId.length);
+        console.log("🎵 [Play] YouTube playback section - Loading video with ID:", videoId);
+        console.log("🎵 [Play] YouTube player available:", !!youtubePlayer);
+        console.log("🎵 [Play] Video ID length:", videoId.length);
+        console.log("🎵 [Play] Video ID format valid:", /^[a-zA-Z0-9_-]{11}$/.test(videoId));
         
-        // Stop any current video first
+        // Get current playing video to check if it's different
+        let currentVideoId = 'none';
         try {
-          youtubePlayer.stopVideo();
+          const videoData = youtubePlayer.getVideoData();
+          currentVideoId = videoData?.video_id || 'none';
+          console.log("🎵 [Play] Currently playing video ID:", currentVideoId);
         } catch (e) {
-          console.log("[Audio] Could not stop current video (normal if none playing)");
+          console.log("🎵 [Play] Could not get current video data");
         }
         
-        // Load and play the new video
-        youtubePlayer.loadVideoById(videoId, 0);
+        console.log("🎵 [Play] Current player state before loading:", youtubePlayer.getPlayerState ? youtubePlayer.getPlayerState() : 'unknown');
+        
+        // Only load new video if it's different from current
+        if (currentVideoId !== videoId) {
+          console.log("🎵 [Play] ✅ Loading NEW video (different from current)");
+          
+          // Stop any current video first
+          try {
+            console.log("🎵 [Play] Stopping current video");
+            youtubePlayer.stopVideo();
+            console.log("🎵 [Play] Successfully stopped current video");
+          } catch (e) {
+            console.log("🎵 [Play] Could not stop current video (normal if none playing)");
+          }
+          
+          // Load and play the new video
+          console.log("🎵 [Play] Loading new video with loadVideoById:", videoId);
+          youtubePlayer.loadVideoById(videoId, 0);
+          console.log("🎵 [Play] Successfully called loadVideoById");
+          
+        } else {
+          console.log("🎵 [Play] ⚠️ SAME video ID as currently playing - this might be the issue!");
+          console.log("🎵 [Play] Forcing reload of the same video...");
+          
+          // Force reload even if it's the same video
+          youtubePlayer.stopVideo();
+          setTimeout(() => {
+            youtubePlayer.loadVideoById(videoId, 0);
+          }, 100);
+        }
         
         // Set playing state after a small delay to ensure video loads
         setTimeout(() => {
+          console.log("🎵 [Play] Setting isPlaying to true and starting playback");
           setIsPlaying(true);
           try {
             youtubePlayer.playVideo();
+            console.log("🎵 [Play] Successfully called playVideo()");
           } catch (e) {
-            console.error("[Audio] Error starting video playback:", e);
+            console.error("🎵 [Play] Error starting video playback:", e);
           }
-        }, 100);
+        }, 200); // Increased delay to ensure video loads
         
         // Reset tracking on successful play
         lastEmittedTimeRef.current = 0;
@@ -475,6 +529,8 @@ export function useAudio() {
         console.error("Error playing audio", e.message);
       }
     }
+    
+    console.log("🎵 [Play] ====================== PLAY FUNCTION COMPLETED ======================");
   };
 
   // Pause function
@@ -751,16 +807,70 @@ export function useAudio() {
 
 
   const playNext = () => {
-    audioRef.current?.pause();
-    // Also pause YouTube player
+    console.log("🎵 [PlayNext] ====================== playNext() CALLED ======================");
+    console.log("🎵 [PlayNext] Current song:", currentSong?.name || 'None');
+    console.log("🎵 [PlayNext] Current song ID:", currentSong?.id || 'None');
+    console.log("🎵 [PlayNext] Current song source:", currentSong?.source || 'None');
+    console.log("🎵 [PlayNext] Current song URL:", currentSong?.url || 'None');
+    console.log("🎵 [PlayNext] Current isPlaying state:", isPlaying);
+    console.log("🎵 [PlayNext] User role:", user?.role || 'unknown');
+    console.log("🎵 [PlayNext] YouTube player available:", !!youtubePlayer);
+    console.log("🎵 [PlayNext] HTML audio ref available:", !!audioRef.current);
+    console.log("🎵 [PlayNext] WebSocket available:", !!ws);
+    console.log("🎵 [PlayNext] WebSocket ready state:", ws?.readyState);
+    console.log("🎵 [PlayNext] WebSocket OPEN:", WebSocket.OPEN);
+    console.log("🎵 [PlayNext] Is WebSocket ready:", !!ws && ws.readyState === WebSocket.OPEN);
+    
+    // Log audio element state
+    if (audioRef.current) {
+      console.log("🎵 [PlayNext] HTML audio current time:", audioRef.current.currentTime);
+      console.log("🎵 [PlayNext] HTML audio duration:", audioRef.current.duration);
+      console.log("🎵 [PlayNext] HTML audio paused:", audioRef.current.paused);
+      console.log("🎵 [PlayNext] HTML audio src:", audioRef.current.src);
+      console.log("🎵 [PlayNext] Pausing HTML audio element");
+      audioRef.current.pause();
+    } else {
+      console.log("🎵 [PlayNext] No HTML audio element available");
+    }
+    
+    // Log YouTube player state
     if (youtubePlayer) {
       try {
+        console.log("🎵 [PlayNext] YouTube player state before pause:", youtubePlayer.getPlayerState ? youtubePlayer.getPlayerState() : 'getPlayerState not available');
+        console.log("🎵 [PlayNext] YouTube video ID:", youtubePlayer.getVideoData ? youtubePlayer.getVideoData()?.video_id : 'getVideoData not available');
+        console.log("🎵 [PlayNext] Pausing YouTube player");
         youtubePlayer.pauseVideo();
+        console.log("🎵 [PlayNext] YouTube player paused successfully");
       } catch (error) {
-        console.error("Error pausing YouTube player for next:", error);
+        console.error("🎵 [PlayNext] Error pausing YouTube player for next:", error);
       }
+    } else {
+      console.log("🎵 [PlayNext] No YouTube player available");
     }
-    emitMessage("playNext", "playNext");
+    
+    // Check WebSocket readiness before sending
+    if (!ws) {
+      console.error("🎵 [PlayNext] ❌ CRITICAL: WebSocket is null/undefined!");
+      return;
+    }
+    
+    if (ws.readyState !== WebSocket.OPEN) {
+      console.error("🎵 [PlayNext] ❌ CRITICAL: WebSocket is not open! State:", ws.readyState);
+      console.error("🎵 [PlayNext] WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3");
+      return;
+    }
+    
+    console.log("🎵 [PlayNext] ✅ WebSocket is ready, sending playNext message");
+    console.log("🎵 [PlayNext] Message type: 'playNext', data: 'playNext'");
+    
+    try {
+      emitMessage("playNext", "playNext");
+      console.log("🎵 [PlayNext] ✅ playNext message sent successfully via emitMessage");
+    } catch (error) {
+      console.error("🎵 [PlayNext] ❌ Error sending playNext message:", error);
+    }
+    
+    console.log("🎵 [PlayNext] ====================== playNext() COMPLETED ======================");
   };
 
   
@@ -1192,9 +1302,21 @@ export function useAudio() {
     };
 
     const handleCurrentSongUpdateEvent = (event: CustomEvent) => {
-      console.log("🎶 Current song update event received:", event.detail);
+      console.log("🎶 [AudioStore] ====================== CURRENT SONG UPDATE EVENT ======================");
+      console.log("🎶 [AudioStore] Current song update event received:", event.detail);
       const songData = event.detail.song;
+      console.log("🎶 [AudioStore] Raw song data:", songData);
+      
       if (songData) {
+        console.log("🎶 [AudioStore] Processing song data...");
+        console.log("🎶 [AudioStore] Song ID:", songData.id);
+        console.log("🎶 [AudioStore] Song title:", songData.title || songData.name);
+        console.log("🎶 [AudioStore] Song artist:", songData.artist);
+        console.log("🎶 [AudioStore] Song extractedId:", songData.extractedId);
+        console.log("🎶 [AudioStore] Song source:", songData.source);
+        console.log("🎶 [AudioStore] Song bigImg:", songData.bigImg);
+        console.log("🎶 [AudioStore] Song smallImg:", songData.smallImg);
+        
         // Format the song for audio store
         const formattedSong: searchResults = {
           id: songData.id,
@@ -1221,14 +1343,30 @@ export function useAudio() {
           addedBy: songData.addedByUser?.username || 'Unknown',
           voteCount: songData.voteCount || 0,
           isVoted: false,
-          source: songData.type === 'Youtube' ? 'youtube' : undefined
+          source: songData.source === 'Youtube' ? 'youtube' : undefined
         };
         
+        console.log("🎶 [AudioStore] Formatted song for audio store:", formattedSong);
+        console.log("🎶 [AudioStore] Formatted song name:", formattedSong.name);
+        console.log("🎶 [AudioStore] Formatted song downloadUrl:", formattedSong.downloadUrl);
+        console.log("🎶 [AudioStore] Current song before update:", currentSong?.name);
+        
         // Set as current song and start playing
+        console.log("🎶 [AudioStore] Setting current song in store...");
         setCurrentSong(formattedSong);
-        console.log("🎵 Starting playback of current song update:", formattedSong.name);
-        play(formattedSong);
+        console.log("� [AudioStore] Starting playback of current song update:", formattedSong.name);
+        
+        try {
+          play(formattedSong);
+          console.log("🎶 [AudioStore] ✅ Successfully called play() function");
+        } catch (error) {
+          console.error("🎶 [AudioStore] ❌ Error calling play() function:", error);
+        }
+      } else {
+        console.error("🎶 [AudioStore] ❌ No song data in current song update event");
       }
+      
+      console.log("🎶 [AudioStore] ====================== CURRENT SONG UPDATE EVENT COMPLETED ======================");
     };
 
     // Add event listeners
@@ -1259,6 +1397,16 @@ export function useAudio() {
         const { type, data } = JSON.parse(event.data);
         
         switch (type) {
+          case 'current-song-update':
+            console.log("🎶 [WebSocket] Received current-song-update message:", data);
+            console.log("🎶 [WebSocket] Song data:", data.song);
+            
+            // Dispatch custom event for current song update
+            window.dispatchEvent(new CustomEvent('current-song-update', {
+              detail: data
+            }));
+            break;
+            
           case 'playback-sync':
             console.log("🎵 Received playback sync message:", data);
             

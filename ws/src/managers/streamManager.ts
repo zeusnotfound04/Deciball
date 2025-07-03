@@ -46,6 +46,25 @@ type TimestampBroadcast = {
     totalDuration?: number;
 };
 
+// Redis Queue Types
+type QueueSong = {
+    id: string;
+    title: string;
+    artist?: string;
+    album?: string;
+    url: string;
+    extractedId: string;
+    source: 'Youtube' | 'Spotify';
+    smallImg: string;
+    bigImg: string;
+    userId: string; // Who added the song
+    addedAt: number; // Timestamp when added
+    duration?: number;
+    voteCount: number;
+    spotifyId?: string;
+    youtubeId?: string;
+};
+
 type User = {
     userId: string;
     ws: WebSocket[];
@@ -1516,18 +1535,27 @@ export class RoomManager {
         if (!user) return;
         
         try {
-            const queue = await this.getQueueWithVotes(spaceId);
+            // Get queue from Redis
+            const queue = await this.getRedisQueue(spaceId);
+            
+            // Add vote counts to each song
+            const queueWithVotes = await Promise.all(
+                queue.map(async (song) => ({
+                    ...song,
+                    voteCount: await this.getSongVoteCount(spaceId, song.id)
+                }))
+            );
             
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
                         type: "current-queue",
-                        data: { queue }
+                        data: { queue: queueWithVotes }
                     }));
                 }
             });
         } catch (error) {
-            console.error("Error sending current queue to user:", error);
+            console.error("Error sending current Redis queue to user:", error);
         }
     }
 
@@ -1536,33 +1564,16 @@ export class RoomManager {
         if (!user) return;
         
         try {
-            // Get current playing song from database
-            const currentStream = await this.prisma.currentStream.findUnique({
-                where: { spaceId },
-                include: {
-                    stream: {
-                        include: {
-                            upvotes: {
-                                select: { userId: true }
-                            },
-                            addedByUser: {
-                                select: {
-                                    id: true,
-                                    username: true
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+            // Get current playing song from Redis
+            const currentSong = await this.getCurrentPlayingSong(spaceId);
             
-            if (currentStream?.stream) {
+            if (currentSong) {
                 const songData = {
-                    ...currentStream.stream,
-                    voteCount: currentStream.stream.upvotes.length,
-                    addedByUser: currentStream.stream.addedByUser || {
-                        id: currentStream.stream.userId,
-                        username: 'Unknown User'
+                    ...currentSong,
+                    voteCount: await this.getSongVoteCount(spaceId, currentSong.id),
+                    addedByUser: {
+                        id: currentSong.userId,
+                        username: 'User' // We might need to get this from database or Redis
                     }
                 };
                 
@@ -1639,15 +1650,247 @@ export class RoomManager {
         }
     }
 
-    // Add song to queue with auto-play support
-    async addToQueue(spaceId: string, userId: string, url: string, trackData?: any, autoPlay?: boolean) {
-        console.log("🎵 addToQueue called", { spaceId, userId, url, trackData, autoPlay });
+    // ========================================
+    // REDIS QUEUE MANAGEMENT SYSTEM
+    // ========================================
+
+    // Add song to Redis queue
+    async addSongToRedisQueue(spaceId: string, song: QueueSong): Promise<void> {
+        try {
+            // Add song to the end of the queue list
+            const queueKey = `queue:${spaceId}`;
+            const songData = JSON.stringify(song);
+            
+            // Add to queue list
+            await this.redisClient.rPush(queueKey, songData);
+            
+            // Also store song details in a hash for easy access
+            const songKey = `song:${song.id}`;
+            await this.redisClient.hSet(songKey, {
+                id: song.id,
+                title: song.title,
+                artist: song.artist || '',
+                url: song.url,
+                extractedId: song.extractedId,
+                source: song.source,
+                smallImg: song.smallImg,
+                bigImg: song.bigImg,
+                userId: song.userId,
+                addedAt: song.addedAt.toString(),
+                voteCount: song.voteCount.toString(),
+                duration: song.duration?.toString() || '0'
+            });
+
+            // Set expiration for song data (24 hours)
+            await this.redisClient.expire(songKey, 86400);
+            
+            console.log(`🎵 Added song to Redis queue: ${song.title} in space ${spaceId}`);
+        } catch (error) {
+            console.error('Error adding song to Redis queue:', error);
+            throw error;
+        }
+    }
+
+    // Get all songs in queue
+    async getRedisQueue(spaceId: string): Promise<QueueSong[]> {
+        try {
+            const queueKey = `queue:${spaceId}`;
+            const songDataList = await this.redisClient.lRange(queueKey, 0, -1);
+            
+            const songs: QueueSong[] = [];
+            for (const songData of songDataList) {
+                try {
+                    const song = JSON.parse(songData) as QueueSong;
+                    songs.push(song);
+                } catch (parseError) {
+                    console.error('Error parsing song data from Redis:', parseError);
+                }
+            }
+            
+            return songs;
+        } catch (error) {
+            console.error('Error getting Redis queue:', error);
+            return [];
+        }
+    }
+
+    // Get next song from queue (FIFO)
+    async getNextSongFromRedisQueue(spaceId: string): Promise<QueueSong | null> {
+        try {
+            const queueKey = `queue:${spaceId}`;
+            const songDataList = await this.redisClient.lRange(queueKey, 0, -1);
+            
+            const songs: QueueSong[] = [];
+            for (const songData of songDataList) {
+                try {
+                    const song = JSON.parse(songData) as QueueSong;
+                    songs.push(song);
+                } catch (parseError) {
+                    console.error('Error parsing song data from Redis:', parseError);
+                }
+            }
+
+
+            console.log("Current Redis queue songs:", songs);
+            const songData = await this.redisClient.lPop(queueKey);
+            
+            if (!songData) {
+                return null;
+            }
+            
+            const song = JSON.parse(songData) as QueueSong;
+            console.log(`🎵 Got next song from Redis queue: ${song.title}`);
+            return song;
+        } catch (error) {
+            console.error('Error getting next song from Redis queue:', error);
+            return null;
+        }
+    }
+
+    // Remove specific song from queue
+    async removeSongFromRedisQueue(spaceId: string, songId: string): Promise<boolean> {
+        try {
+            const queueKey = `queue:${spaceId}`;
+            const songDataList = await this.redisClient.lRange(queueKey, 0, -1);
+            
+            for (let i = 0; i < songDataList.length; i++) {
+                try {
+                    const song = JSON.parse(songDataList[i]) as QueueSong;
+                    if (song.id === songId) {
+                        // Remove this specific element
+                        const tempKey = `temp:${Date.now()}`;
+                        await this.redisClient.lSet(queueKey, i, tempKey);
+                        await this.redisClient.lRem(queueKey, 1, tempKey);
+                        
+                        // Also remove song details
+                        await this.redisClient.del(`song:${songId}`);
+                        
+                        console.log(`🗑️ Removed song from Redis queue: ${song.title}`);
+                        return true;
+                    }
+                } catch (parseError) {
+                    console.error('Error parsing song for removal:', parseError);
+                }
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('Error removing song from Redis queue:', error);
+            return false;
+        }
+    }
+
+    // Clear entire queue
+    async clearRedisQueue(spaceId: string): Promise<void> {
+        try {
+            const queueKey = `queue:${spaceId}`;
+            
+            // Get all songs to clean up their individual keys
+            const songs = await this.getRedisQueue(spaceId);
+            for (const song of songs) {
+                await this.redisClient.del(`song:${song.id}`);
+            }
+            
+            // Clear the queue
+            await this.redisClient.del(queueKey);
+            
+            console.log(`🗑️ Cleared Redis queue for space: ${spaceId}`);
+        } catch (error) {
+            console.error('Error clearing Redis queue:', error);
+        }
+    }
+
+    // Get queue length
+    async getRedisQueueLength(spaceId: string): Promise<number> {
+        try {
+            const queueKey = `queue:${spaceId}`;
+            return await this.redisClient.lLen(queueKey);
+        } catch (error) {
+            console.error('Error getting Redis queue length:', error);
+            return 0;
+        }
+    }
+
+    // Set/Get current playing song
+    async setCurrentPlayingSong(spaceId: string, song: QueueSong): Promise<void> {
+        try {
+            const currentKey = `current:${spaceId}`;
+            await this.redisClient.set(currentKey, JSON.stringify(song), { EX: 86400 }); // 24 hour expiry
+            console.log(`🎵 Set current playing song: ${song.title} in space ${spaceId}`);
+        } catch (error) {
+            console.error('Error setting current playing song:', error);
+        }
+    }
+
+    async getCurrentPlayingSong(spaceId: string): Promise<QueueSong | null> {
+        try {
+            const currentKey = `current:${spaceId}`;
+            const songData = await this.redisClient.get(currentKey);
+            
+            if (!songData) {
+                return null;
+            }
+            
+            return JSON.parse(songData) as QueueSong;
+        } catch (error) {
+            console.error('Error getting current playing song:', error);
+            return null;
+        }
+    }
+
+    // Vote management for songs (using Redis sorted sets)
+    async voteOnSongRedis(spaceId: string, songId: string, userId: string, voteType: 'upvote' | 'downvote'): Promise<number> {
+        try {
+            const votesKey = `votes:${spaceId}:${songId}`;
+            const userVoteKey = `uservote:${spaceId}:${userId}`;
+            
+            // Check if user already voted
+            const existingVote = await this.redisClient.get(userVoteKey);
+            
+            if (existingVote === songId) {
+                // User already voted on this song, remove vote
+                await this.redisClient.zRem(votesKey, userId);
+                await this.redisClient.del(userVoteKey);
+                console.log(`🗳️ Removed vote from user ${userId} for song ${songId}`);
+            } else {
+                // Add new vote
+                const score = voteType === 'upvote' ? 1 : -1;
+                await this.redisClient.zAdd(votesKey, { score, value: userId });
+                await this.redisClient.set(userVoteKey, songId, { EX: 86400 });
+                console.log(`🗳️ Added ${voteType} from user ${userId} for song ${songId}`);
+            }
+            
+            // Get current vote count
+            const voteCount = await this.redisClient.zCard(votesKey);
+            return voteCount;
+        } catch (error) {
+            console.error('Error voting on song:', error);
+            return 0;
+        }
+    }
+
+    // Get vote count for a song
+    async getSongVoteCount(spaceId: string, songId: string): Promise<number> {
+        try {
+            const votesKey = `votes:${spaceId}:${songId}`;
+            return await this.redisClient.zCard(votesKey);
+        } catch (error) {
+            console.error('Error getting song vote count:', error);
+            return 0;
+        }
+    }
+
+    // ========================================
+    // UPDATED QUEUE METHODS USING REDIS
+    // ========================================
+
+    // Updated addToQueue method using Redis
+    async addToQueueRedis(spaceId: string, userId: string, url: string, trackData?: any, autoPlay?: boolean): Promise<void> {
+        console.log("🎵 addToQueueRedis called", { spaceId, userId, url, trackData, autoPlay });
         
         const space = this.spaces.get(spaceId);
         const currentUser = this.users.get(userId);
-        const creatorId = space?.creatorId;
-        const isCreator = userId === creatorId;
-
+        
         if (!space || !currentUser) {
             console.log("❌ Room or User not defined");
             return;
@@ -1656,368 +1899,296 @@ export class RoomManager {
         // Validate URL using music source manager
         if (!this.musicSourceManager.validateUrl(url)) {
             currentUser?.ws.forEach((ws) => {
-                ws.send(
-                    JSON.stringify({
-                        type: "error",
-                        data: { message: "Invalid music URL. Supported: YouTube, Spotify" },
-                    })
-                );
-                return;
+                ws.send(JSON.stringify({
+                    type: "error",
+                    data: { message: "Invalid music URL. Supported: YouTube, Spotify" }
+                }));
+            });
+            return;
+        }
+
+        // Check queue length
+        const queueLength = await this.getRedisQueueLength(spaceId);
+        if (queueLength >= MAX_QUEUE_LENGTH) {
+            currentUser?.ws.forEach((ws) => {
+                ws.send(JSON.stringify({
+                    type: "error",
+                    data: { message: `Queue is full. Maximum ${MAX_QUEUE_LENGTH} songs allowed.` }
+                }));
+            });
+            return;
+        }
+
+        // Get track details using the unified interface
+        const trackDetails = await this.musicSourceManager.getTrackDetails(url);
+        if (!trackDetails) {
+            currentUser?.ws.forEach((ws) => {
+                ws.send(JSON.stringify({
+                    type: "error",
+                    data: { message: "Could not fetch track details" }
+                }));
+            });
+            return;
+        }
+
+        // Create queue song object
+        const queueSong: QueueSong = {
+            id: crypto.randomUUID(),
+            title: trackDetails.title,
+            artist: trackDetails.artist,
+            album: trackDetails.album,
+            url: trackDetails.url,
+            extractedId: trackDetails.extractedId,
+            source: trackDetails.source as 'Youtube' | 'Spotify',
+            smallImg: trackDetails.smallImg,
+            bigImg: trackDetails.bigImg,
+            userId: userId,
+            addedAt: Date.now(),
+            duration: trackDetails.duration,
+            voteCount: 0,
+            spotifyId: trackDetails.source === 'Spotify' ? trackDetails.extractedId : undefined,
+            youtubeId: trackDetails.source === 'Youtube' ? trackDetails.extractedId : undefined
+        };
+
+        // Add to Redis queue
+        await this.addSongToRedisQueue(spaceId, queueSong);
+
+        // Broadcast song-added event to all users in the space
+        if (space) {
+            const songData = {
+                ...queueSong,
+                voteCount: 0,
+                addedByUser: {
+                    id: userId,
+                    username: currentUser.userId // We might need to get this from database
+                }
+            };
+
+            space.users.forEach((user) => {
+                user.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "song-added",
+                            data: { 
+                                song: songData,
+                                autoPlay: autoPlay || false
+                            }
+                        }));
+                    }
+                });
             });
         }
 
-        // Get current queue length
-        let previousQueueLength = parseInt(
-            (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
-            10
-        );
+        // Auto-play logic: If this is the first song in an empty queue and no song is currently playing
+        const currentPlaying = await this.getCurrentPlayingSong(spaceId);
+        
+        if ((queueLength === 0 || autoPlay) && !currentPlaying) {
+            console.log("🎵 Auto-starting playback for first song");
+            await this.playNextFromRedisQueue(spaceId, userId);
+        }
+    }
 
-        if (!previousQueueLength) {
-            previousQueueLength = await this.prisma.stream.count({
-                where: {
-                    spaceId: spaceId,
-                    played: false,
-                },
+    // Updated adminPlayNext method using Redis
+    async playNextFromRedisQueue(spaceId: string, userId: string): Promise<void> {
+        console.log("🎵 [StreamManager] playNextFromRedisQueue called");
+        console.log("🎵 [StreamManager] Input params:", { spaceId, userId });
+        
+        const space = this.spaces.get(spaceId);
+        console.log("🎵 [StreamManager] Space found:", !!space);
+        
+        if (!space) {
+            console.log("❌ [StreamManager] Space not found, exiting");
+            return;
+        }
+
+        console.log("🎵 [StreamManager] Space users count:", space.users.size);
+        console.log("🎵 [StreamManager] Getting next song from Redis queue...");
+
+        // Get the next song from Redis queue
+        const nextSong = await this.getNextSongFromRedisQueue(spaceId);
+        console.log("🎵 [StreamManager] Next song from Redis:", nextSong ? nextSong.title : 'null');
+        
+        if (!nextSong) {
+            console.log("❌ [StreamManager] No songs in Redis queue to play");
+            
+            // Clear current playing song
+            console.log("🎵 [StreamManager] Clearing current playing song from Redis");
+            await this.redisClient.del(`current:${spaceId}`);
+            
+            // Update in-memory playback state
+            console.log("🎵 [StreamManager] Updating in-memory playback state to empty");
+            space.playbackState = {
+                currentSong: null,
+                startedAt: 0,
+                pausedAt: null,
+                isPlaying: false,
+                lastUpdated: Date.now()
+            };
+            
+            // Notify users that queue is empty
+            console.log("🎵 [StreamManager] Notifying users that queue is empty");
+            space.users.forEach((user) => {
+                user.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "queue-empty",
+                            data: { message: "No more songs in queue" }
+                        }));
+                    }
+                });
             });
+            return;
         }
 
-        const isFirstSong = previousQueueLength === 0;
-
-        // Rate limiting for non-creators
-        if (!isCreator) {
-            let lastAdded = await this.redisClient.get(
-                `lastAdded-${spaceId}-${userId}`
-            );
-
-            if (lastAdded) {
-                currentUser.ws.forEach((ws) => {
-                    ws.send(
-                        JSON.stringify({
-                            type: "error",
-                            data: {
-                                message: "You can add again after 20 min.",
-                            },
-                        })
-                    );
-                });
-                return;
-            }
-
-            let alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`);
-
-            if (alreadyAdded) {
-                currentUser.ws.forEach((ws) => {
-                    ws.send(
-                        JSON.stringify({
-                            type: "error",
-                            data: {
-                                message: "This song is blocked for 1 hour",
-                            },
-                        })
-                    );
-                });
-                return;
-            }
-
-            if (previousQueueLength >= 50) { // MAX_QUEUE_LENGTH
-                currentUser.ws.forEach((ws) => {
-                    ws.send(
-                        JSON.stringify({
-                            type: "error",
-                            data: {
-                                message: "Queue limit reached",
-                            },
-                        })
-                    );
-                });
-                return;
-            }
-        }
-
-        // Add to queue using the admin handler
-        await this.adminStreamHandler(
-            spaceId,
-            userId,
-            url,
-            previousQueueLength,
-            trackData,
-            autoPlay
-        );
-
-        // If this is the first song and autoPlay is enabled, start playing
-        if (isFirstSong && autoPlay) {
-            console.log("🎵 First song with autoPlay - starting playback");
-            setTimeout(async () => {
-                await this.adminPlayNext(spaceId, userId);
-            }, 1000);
-        }
-    }
-
-    // Playback control methods
-    async pausePlayback(spaceId: string, userId: string) {
-        console.log("Pausing playback for space", spaceId);
-        
-        const space = this.spaces.get(spaceId);
-        const user = this.users.get(userId);
-        
-        if (!space || !user) return;
-        
-        // Get current playback state
-        const stateData = await this.redisClient.get(`playback-state-${spaceId}`);
-        const currentState = stateData ? JSON.parse(stateData) : null;
-        
-        if (currentState) {
-            currentState.isPlaying = false;
-            currentState.lastUpdated = Date.now();
-            currentState.controlledBy = userId;
-            
-            await this.redisClient.set(
-                `playback-state-${spaceId}`,
-                JSON.stringify(currentState),
-                { EX: 3600 }
-            );
-        }
-        
-        // Broadcast pause command to all users
-        this.broadcastToSpace(spaceId, {
-            type: "playback-pause",
-            data: {
-                timestamp: Date.now(),
-                controlledBy: userId
-            }
+        console.log("🎵 [StreamManager] Playing next song from Redis queue:", nextSong.title);
+        console.log("🎵 [StreamManager] Song details:", {
+            id: nextSong.id,
+            title: nextSong.title,
+            artist: nextSong.artist,
+            extractedId: nextSong.extractedId,
+            source: nextSong.source
         });
-    }
 
-    async resumePlayback(spaceId: string, userId: string) {
-        console.log("Resuming playback for space", spaceId);
-        
-        const space = this.spaces.get(spaceId);
-        const user = this.users.get(userId);
-        
-        if (!space || !user) return;
-        
-        // Get current playback state
-        const stateData = await this.redisClient.get(`playback-state-${spaceId}`);
-        const currentState = stateData ? JSON.parse(stateData) : null;
-        
-        if (currentState) {
-            currentState.isPlaying = true;
-            currentState.lastUpdated = Date.now();
-            currentState.controlledBy = userId;
-            
-            await this.redisClient.set(
-                `playback-state-${spaceId}`,
-                JSON.stringify(currentState),
-                { EX: 3600 }
-            );
-        }
-        
-        // Broadcast resume command to all users
-        this.broadcastToSpace(spaceId, {
-            type: "playback-resume",
-            data: {
-                timestamp: Date.now(),
-                controlledBy: userId
+        // Set this song as currently playing in Redis
+        console.log("🎵 [StreamManager] Setting song as currently playing in Redis");
+        await this.setCurrentPlayingSong(spaceId, nextSong);
+
+        // Update in-memory playback state
+        console.log("🎵 [StreamManager] Updating in-memory playback state");
+        const now = Date.now();
+        space.playbackState = {
+            currentSong: {
+                id: nextSong.id,
+                title: nextSong.title,
+                artist: nextSong.artist,
+                url: nextSong.url,
+                duration: nextSong.duration,
+                extractedId: nextSong.extractedId
+            },
+            startedAt: now,
+            pausedAt: null,
+            isPlaying: true,
+            lastUpdated: now
+        };
+
+        console.log("🎵 [StreamManager] Getting vote count for song...");
+        const voteCount = await this.getSongVoteCount(spaceId, nextSong.id);
+        console.log("🎵 [StreamManager] Vote count:", voteCount);
+
+        // Broadcast the new current song to all users
+        const songData = {
+            ...nextSong,
+            voteCount: voteCount,
+            addedByUser: {
+                id: nextSong.userId,
+                username: 'User' // We might need to get this from database or Redis
             }
+        };
+
+        console.log("🎵 [StreamManager] Broadcasting current-song-update to", space.users.size, "users");
+        console.log("🎵 [StreamManager] Song data being broadcast:", {
+            id: songData.id,
+            title: songData.title,
+            extractedId: songData.extractedId,
+            voteCount: songData.voteCount
         });
-    }
 
-    async seekPlayback(spaceId: string, userId: string, seekTime: number) {
-        console.log("Seeking playback for space", spaceId, "to time", seekTime);
-        
-        const space = this.spaces.get(spaceId);
-        const user = this.users.get(userId);
-        
-        if (!space || !user) return;
-        
-        // Get current playback state
-        const stateData = await this.redisClient.get(`playback-state-${spaceId}`);
-        const currentState = stateData ? JSON.parse(stateData) : {};
-        
-        currentState.currentTime = seekTime;
-        currentState.lastUpdated = Date.now();
-        currentState.controlledBy = userId;
-        
-        await this.redisClient.set(
-            `playback-state-${spaceId}`,
-            JSON.stringify(currentState),
-            { EX: 3600 }
-        );
-        
-        // Broadcast seek command to all users
-        this.broadcastToSpace(spaceId, {
-            type: "playback-seek",
-            data: {
-                seekTime,
-                timestamp: Date.now(),
-                controlledBy: userId
-            }
-        });
-    }
-
-    async getPlaybackState(spaceId: string) {
-        return this.redisClient.get(`playback-state-${spaceId}`).then(data => 
-            data ? JSON.parse(data) : null
-        );
-    }
-
-    // Spotify/YouTube synchronization handlers
-    async handleSpotifyPlay(spaceId: string, userId: string, data: any) {
-        console.log("Handling Spotify play event", { spaceId, userId, data });
-        
-        const space = this.spaces.get(spaceId);
-        const user = this.users.get(userId);
-        
-        if (!space || !user) return;
-        
-        // Store current playback state
-        await this.redisClient.set(
-            `playback-state-${spaceId}`,
-            JSON.stringify({
-                isPlaying: true,
-                platform: "spotify",
-                trackUri: data.trackUri,
-                timestamp: data.timestamp || Date.now(),
-                currentTime: data.currentTime || 0,
-                lastUpdated: Date.now(),
-                controlledBy: userId
-            }),
-            { EX: 3600 } // Expire after 1 hour
-        );
-        
-        // Broadcast to all users in the space
-        this.broadcastToSpace(spaceId, {
-            type: "playback-sync",
-            data: {
-                isPlaying: true,
-                platform: "spotify",
-                trackUri: data.trackUri,
-                currentTime: data.currentTime || 0,
-                timestamp: Date.now(),
-                controlledBy: userId
-            }
-        });
-    }
-
-    async handleSpotifyPause(spaceId: string, userId: string, data: any) {
-        console.log("Handling Spotify pause event", { spaceId, userId, data });
-        
-        const space = this.spaces.get(spaceId);
-        const user = this.users.get(userId);
-        
-        if (!space || !user) return;
-        
-        // Update playback state
-        await this.redisClient.set(
-            `playback-state-${spaceId}`,
-            JSON.stringify({
-                isPlaying: false,
-                platform: "spotify",
-                trackUri: data.trackUri,
-                currentTime: data.currentTime || 0,
-                lastUpdated: Date.now(),
-                controlledBy: userId
-            }),
-            { EX: 3600 }
-        );
-        
-        // Broadcast to all users in the space
-        this.broadcastToSpace(spaceId, {
-            type: "playback-sync",
-            data: {
-                isPlaying: false,
-                platform: "spotify",
-                currentTime: data.currentTime || 0,
-                timestamp: Date.now(),
-                controlledBy: userId
-            }
-        });
-    }
-
-    async handleSpotifyStateChange(spaceId: string, userId: string, data: any) {
-        console.log("Handling Spotify state change", { spaceId, userId, data });
-        
-        const space = this.spaces.get(spaceId);
-        const user = this.users.get(userId);
-        
-        if (!space || !user) return;
-        
-        // Update playback state
-        await this.redisClient.set(
-            `playback-state-${spaceId}`,
-            JSON.stringify({
-                isPlaying: data.isPlaying,
-                platform: "spotify",
-                trackUri: data.trackUri,
-                currentTime: data.currentTime || 0,
-                lastUpdated: Date.now(),
-                controlledBy: userId
-            }),
-            { EX: 3600 }
-        );
-        
-        // Broadcast to all users in the space
-        this.broadcastToSpace(spaceId, {
-            type: "playback-sync",
-            data: {
-                isPlaying: data.isPlaying,
-                platform: "spotify",
-                trackUri: data.trackUri,
-                currentTime: data.currentTime || 0,
-                timestamp: Date.now(),
-                controlledBy: userId
-            }
-        });
-    }
-
-    async handleYouTubeStateChange(spaceId: string, userId: string, data: any) {
-        console.log("Handling YouTube state change", { spaceId, userId, data });
-        
-        const space = this.spaces.get(spaceId);
-        const user = this.users.get(userId);
-        
-        if (!space || !user) return;
-        
-        // Update playback state
-        await this.redisClient.set(
-            `playback-state-${spaceId}`,
-            JSON.stringify({
-                isPlaying: data.isPlaying,
-                platform: "youtube",
-                videoId: data.videoId,
-                currentTime: data.currentTime || 0,
-                lastUpdated: Date.now(),
-                controlledBy: userId
-            }),
-            { EX: 3600 }
-        );
-        
-        // Broadcast to all users in the space
-        this.broadcastToSpace(spaceId, {
-            type: "playback-sync",
-            data: {
-                isPlaying: data.isPlaying,
-                platform: "youtube",
-                videoId: data.videoId,
-                currentTime: data.currentTime || 0,
-                timestamp: Date.now(),
-                controlledBy: userId
-            }
-        });
-    }
-
-    // Utility method to broadcast messages to all users in a space
-    private broadcastToSpace(spaceId: string, message: any) {
-        const space = this.spaces.get(spaceId);
-        if (!space) return;
-        
-        space.users.forEach((user, userId) => {
-            user?.ws.forEach((ws: WebSocket) => {
+        let messagesSent = 0;
+        space.users.forEach((user) => {
+            user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify(message));
+                    ws.send(JSON.stringify({
+                        type: "current-song-update",
+                        data: { song: songData }
+                    }));
+                    messagesSent++;
                 }
             });
         });
+
+        console.log("🎵 [StreamManager] Sent current-song-update to", messagesSent, "WebSocket connections");
+
+        // Start timestamp broadcasting for synchronized playback
+        console.log("🎵 [StreamManager] Starting timestamp broadcasting");
+        this.startTimestampBroadcast(spaceId);
+
+        console.log("✅ [StreamManager] Successfully completed playNextFromRedisQueue");
+    }
+
+    // Updated broadcast queue method for Redis
+    async broadcastRedisQueueUpdate(spaceId: string): Promise<void> {
+        const space = this.spaces.get(spaceId);
+        if (!space) return;
+        
+        try {
+            const queue = await this.getRedisQueue(spaceId);
+            
+            // Add vote counts to each song
+            const queueWithVotes = await Promise.all(
+                queue.map(async (song) => ({
+                    ...song,
+                    voteCount: await this.getSongVoteCount(spaceId, song.id)
+                }))
+            );
+            
+            space.users.forEach((user, userId) => {
+                user.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "queue-update",
+                            data: { queue: queueWithVotes }
+                        }));
+                    }
+                });
+            });
+        } catch (error) {
+            console.error("Error broadcasting Redis queue update:", error);
+        }
+    }
+
+    // Method to migrate existing database queue to Redis (optional, for transition)
+    async migrateDbQueueToRedis(spaceId: string): Promise<void> {
+        try {
+            console.log(`🔄 Migrating database queue to Redis for space ${spaceId}`);
+            
+            // Get existing queue from database
+            const dbQueue = await this.prisma.stream.findMany({
+                where: {
+                    spaceId: spaceId,
+                    played: false
+                },
+                orderBy: {
+                    createAt: 'asc'
+                }
+            });
+
+            // Clear existing Redis queue
+            await this.clearRedisQueue(spaceId);
+
+            // Add each song to Redis queue
+            for (const dbSong of dbQueue) {
+                const queueSong: QueueSong = {
+                    id: dbSong.id,
+                    title: dbSong.title,
+                    artist: dbSong.artist || undefined,
+                    url: dbSong.url,
+                    extractedId: dbSong.extractedId,
+                    source: dbSong.type as 'Youtube' | 'Spotify',
+                    smallImg: dbSong.smallImg,
+                    bigImg: dbSong.bigImg,
+                    userId: dbSong.userId,
+                    addedAt: dbSong.createAt.getTime(),
+                    duration: dbSong.duration || undefined,
+                    voteCount: 0 // Will be updated with actual votes
+                };
+
+                await this.addSongToRedisQueue(spaceId, queueSong);
+            }
+
+            console.log(`✅ Successfully migrated ${dbQueue.length} songs to Redis queue`);
+        } catch (error) {
+            console.error('Error migrating database queue to Redis:', error);
+        }
     }
 }
 

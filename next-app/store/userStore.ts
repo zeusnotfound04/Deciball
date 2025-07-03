@@ -104,12 +104,38 @@ export const useUserStore = create<UserStoreState>()(
       },
       
       emitMessage: (event, message) => {
+        console.log("📡 [EmitMessage] ====================== emitMessage() CALLED ======================");
+        console.log("📡 [EmitMessage] Event:", event);
+        console.log("📡 [EmitMessage] Message:", message);
+        
         const ws = get().ws;
+        console.log("📡 [EmitMessage] WebSocket available:", !!ws);
+        console.log("📡 [EmitMessage] WebSocket ready state:", ws?.readyState);
+        console.log("📡 [EmitMessage] WebSocket OPEN constant:", WebSocket.OPEN);
+        console.log("📡 [EmitMessage] Is WebSocket ready:", ws && ws.readyState === WebSocket.OPEN);
+        
         if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ event, message }));
+          const payload = JSON.stringify({ event, message });
+          console.log("📡 [EmitMessage] ✅ WebSocket is ready, sending message");
+          console.log("📡 [EmitMessage] Payload:", payload);
+          
+          try {
+            ws.send(payload);
+            console.log("📡 [EmitMessage] ✅ Message sent successfully via WebSocket");
+          } catch (error) {
+            console.error("📡 [EmitMessage] ❌ Error sending message via WebSocket:", error);
+          }
         } else {
-          console.error("WebSocket is not connected.");
+          console.error("📡 [EmitMessage] ❌ CRITICAL: WebSocket is not connected.");
+          if (!ws) {
+            console.error("📡 [EmitMessage] WebSocket is null/undefined");
+          } else {
+            console.error("📡 [EmitMessage] WebSocket state:", ws.readyState);
+            console.error("📡 [EmitMessage] WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3");
+          }
         }
+        
+        console.log("📡 [EmitMessage] ====================== emitMessage() COMPLETED ======================");
       },
       
       emitProgress: (currentTime) => {

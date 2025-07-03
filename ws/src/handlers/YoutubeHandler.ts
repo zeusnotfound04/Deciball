@@ -39,7 +39,7 @@ export class YoutubeHandler implements MusicHandler {
     }
 
     const res = await youtubesearchapi.GetVideoDetails(id);
-    console.log(`[YoutubeHandler] API Response:`, JSON.stringify(res, null, 2));
+    // console.log(`[YoutubeHandler] API Response:`, JSON.stringify(res, null, 2));
 
     // Check if response exists and has the expected structure
     if (!res || typeof res !== "object") {

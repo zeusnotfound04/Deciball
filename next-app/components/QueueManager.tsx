@@ -138,6 +138,8 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           break;
         case 'current-song-update':
           console.log('🎶 Current song update:', data.song);
+          console.log('🎶 Current audioCurrentSong:', audioCurrentSong);
+          console.log('🎶 Current isPlaying state:', useAudioStore.getState().isPlaying);
           setCurrentPlaying(data.song || null);
           
           // Actually start playing the new current song
@@ -147,6 +149,9 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             // Check if this song is already playing to avoid restarting
             const isSameSong = audioCurrentSong?.id === data.song.id;
             const { isPlaying } = useAudioStore.getState();
+            
+            console.log('🎵 Is same song?', isSameSong, 'audioCurrentSong.id:', audioCurrentSong?.id, 'data.song.id:', data.song.id);
+            console.log('🎵 Is currently playing?', isPlaying);
             
             // Only skip if it's the same song AND it's currently playing
             if (isSameSong && isPlaying) {

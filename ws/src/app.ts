@@ -117,19 +117,21 @@ async function  processUserAction(type: string , data : Data ) {
     console.log("Data in the user action" , data)
     switch (type) {
         case "cast-vote":
-            console.log("🐉 Going to caste the vote (btw em minor)")
-            await RoomManager.getInstance().casteVote(
-                data.userId,
+            console.log("�️ Going to cast vote using Redis")
+            const voteCount = await RoomManager.getInstance().voteOnSongRedis(
+                data.spaceId,
                 data.streamId,
-                data.vote,
-                data.spaceId
-            )
+                data.userId,
+                data.vote
+            );
+            // Broadcast updated queue with new vote counts
+            await RoomManager.getInstance().broadcastRedisQueueUpdate(data.spaceId);
             break;
         
         case "add-to-queue":
-            console.log("🎵 ADD TO QUEUE FUNCTION IS GOING TO TRIGGER");
+            console.log("🎵 ADD TO QUEUE FUNCTION (REDIS) IS GOING TO TRIGGER");
             console.log("🎵 Received data:", JSON.stringify(data, null, 2));
-            await RoomManager.getInstance().addToQueue(
+            await RoomManager.getInstance().addToQueueRedis(
                   data.spaceId,
                   data.userId,
                   data.url,
@@ -139,28 +141,36 @@ async function  processUserAction(type: string , data : Data ) {
             break;
 
         case "play-next":
-            console.log("PLAY NEXT FUNCTION IS GOING TO TRIGGER")
-            await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId , data.url);
-            // await RoomManager.getInstance().queue.add("play-next",{
-            //         spaceId: data.spaceId,
-            //         userId : data.userId
-            //     } )
+            console.log("🎵 ====================== PLAY-NEXT MESSAGE RECEIVED ======================");
+            console.log("🎵 Received play-next data:", JSON.stringify(data, null, 2));
+            console.log("🎵 SpaceId:", data.spaceId);
+            console.log("🎵 UserId:", data.userId);
+            console.log("🎵 About to call playNextFromRedisQueue...");
+            
+            try {
+                const result = await RoomManager.getInstance().playNextFromRedisQueue(data.spaceId, data.userId);
+                console.log("🎵 ✅ Successfully completed playNextFromRedisQueue, result:", result);
+            } catch (error) {
+                console.error("🎵 ❌ Error in playNextFromRedisQueue:", error);
+                console.error("🎵 Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+            }
+            
+            console.log("🎵 ====================== PLAY-NEXT HANDLER COMPLETED ======================");
             break;
 
         case "remove-song":
-            await RoomManager.getInstance().queue.add("remove-song" , {
-                    ...data,
-                    spaceId : data.spaceId,
-                    userId : data.userId
-            })
+            console.log("🗑️ REMOVE SONG FROM REDIS QUEUE");
+            const removed = await RoomManager.getInstance().removeSongFromRedisQueue(data.spaceId, data.streamId);
+            if (removed) {
+                // Broadcast updated queue
+                await RoomManager.getInstance().broadcastRedisQueueUpdate(data.spaceId);
+            }
             break;
         
         case "empty-queue":
-            await RoomManager.getInstance().queue.add("empty-queue", {
-            ...data,
-            spaceId: data.spaceId,
-            userId: data.userId,
-            });
+            console.log("🗑️ EMPTY REDIS QUEUE");
+            await RoomManager.getInstance().clearRedisQueue(data.spaceId);
+            await RoomManager.getInstance().broadcastRedisQueueUpdate(data.spaceId);
             break;
     
         case "next-play":
@@ -171,57 +181,42 @@ async function  processUserAction(type: string , data : Data ) {
             );
             break;
 
-        // Song ended - automatically play next song
+        // Song ended - automatically play next song from Redis queue
         case "songEnded":
-            console.log("🎵 Song ended, playing next song automatically");
-            await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId);
+            console.log("🎵 Song ended, playing next song automatically from Redis queue");
+            await RoomManager.getInstance().playNextFromRedisQueue(data.spaceId, data.userId);
             break;
 
-        // Spotify synchronization cases
+        // Spotify synchronization cases (TODO: Implement Redis-based handlers)
         case "spotify-play":
-            await RoomManager.getInstance().handleSpotifyPlay(
-                data.spaceId,
-                data.userId,
-                data
-            );
+            console.log("🎵 Spotify play - TODO: Implement Redis-based handler");
+            // await RoomManager.getInstance().handleSpotifyPlay(data.spaceId, data.userId, data);
             break;
 
         case "spotify-pause":
-            await RoomManager.getInstance().handleSpotifyPause(
-                data.spaceId,
-                data.userId,
-                data
-            );
+            console.log("🎵 Spotify pause - TODO: Implement Redis-based handler");
+            // await RoomManager.getInstance().handleSpotifyPause(data.spaceId, data.userId, data);
             break;
 
         case "spotify-resume":
-            await RoomManager.getInstance().handleSpotifyPlay(
-                data.spaceId,
-                data.userId,
-                { ...data, isPlaying: true }
-            );
+            console.log("🎵 Spotify resume - TODO: Implement Redis-based handler");
+            // await RoomManager.getInstance().handleSpotifyPlay(data.spaceId, data.userId, { ...data, isPlaying: true });
             break;
 
         case "spotify-state-change":
-            await RoomManager.getInstance().handleSpotifyStateChange(
-                data.spaceId,
-                data.userId,
-                data
-            );
+            console.log("🎵 Spotify state change - TODO: Implement Redis-based handler");
+            // await RoomManager.getInstance().handleSpotifyStateChange(data.spaceId, data.userId, data);
             break;
 
-        // YouTube synchronization cases
+        // YouTube synchronization cases (TODO: Implement Redis-based handlers)
         case "youtube-state-change":
-            await RoomManager.getInstance().handleYouTubeStateChange(
-                data.spaceId,
-                data.userId,
-                data
-            );
+            console.log("🎵 YouTube state change - TODO: Implement Redis-based handler");
+            // await RoomManager.getInstance().handleYouTubeStateChange(data.spaceId, data.userId, data);
             break;
 
-        // Queue management cases
+        // Queue management cases - Redis based
         case "get-queue":
-            const queue = await RoomManager.getInstance().getQueueWithVotes(data.spaceId);
+            const queue = await RoomManager.getInstance().getRedisQueue(data.spaceId);
             // Send back to requesting user
             const requestingUser = RoomManager.getInstance().users.get(data.userId);
             if (requestingUser) {
@@ -234,42 +229,36 @@ async function  processUserAction(type: string , data : Data ) {
             }
             break;
 
-        // Playback control cases
+        // Playback control cases (TODO: Implement Redis-based handlers)
         case "pause-playback":
-            await RoomManager.getInstance().pausePlayback(
-                data.spaceId,
-                data.userId
-            );
+            console.log("⏸️ Pause playback - TODO: Implement Redis-based handler");
+            // await RoomManager.getInstance().pausePlayback(data.spaceId, data.userId);
             break;
 
         case "resume-playback":
-            await RoomManager.getInstance().resumePlayback(
-                data.spaceId,
-                data.userId
-            );
+            console.log("▶️ Resume playback - TODO: Implement Redis-based handler");
+            // await RoomManager.getInstance().resumePlayback(data.spaceId, data.userId);
             break;
 
         case "seek-playback":
-            if (typeof data.seekTime === 'number') {
-                await RoomManager.getInstance().seekPlayback(
-                    data.spaceId,
-                    data.userId,
-                    data.seekTime
-                );
-            }
+            console.log("⏩ Seek playback - TODO: Implement Redis-based handler");
+            // if (typeof data.seekTime === 'number') {
+            //     await RoomManager.getInstance().seekPlayback(data.spaceId, data.userId, data.seekTime);
+            // }
             break;
 
         case "get-playback-state":
-            const playbackState = RoomManager.getInstance().getPlaybackState(data.spaceId);
-            const stateRequestingUser = RoomManager.getInstance().users.get(data.userId);
-            if (stateRequestingUser && playbackState) {
-                stateRequestingUser.ws.forEach((ws: WebSocket) => {
-                    ws.send(JSON.stringify({
-                        type: "playback-state-update",
-                        data: playbackState
-                    }));
-                });
-            }
+            console.log("🎵 Get playback state - TODO: Implement Redis-based handler");
+            // const playbackState = RoomManager.getInstance().getPlaybackState(data.spaceId);
+            // const stateRequestingUser = RoomManager.getInstance().users.get(data.userId);
+            // if (stateRequestingUser && playbackState) {
+            //     stateRequestingUser.ws.forEach((ws: WebSocket) => {
+            //         ws.send(JSON.stringify({
+            //             type: "playback-state-update",
+            //             data: playbackState
+            //         }));
+            //     });
+            // }
             break;
 
         // Playback control cases - handle play/pause/seek from frontend
