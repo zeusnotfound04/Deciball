@@ -33,7 +33,8 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     mute, 
     unmute, 
     setVolume,
-    setupSpotifyPlayer 
+    setupSpotifyPlayer,
+    setCurrentSpaceId  // Add spaceId setter to the audio store
   } = useAudio();
   const { sendMessage, socket, loading, connectionError } = useSocket();
   
@@ -62,6 +63,14 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       });
     }
   }, [session, user, setUser]);
+
+  // Set spaceId in audio store when component mounts
+  useEffect(() => {
+    if (spaceId) {
+      console.log("[MusicRoom] Setting spaceId in audio store:", spaceId);
+      setCurrentSpaceId(spaceId);
+    }
+  }, [spaceId, setCurrentSpaceId]);
 
   const handleBatchAddToQueue = async (tracks: any[]) => {
     console.log('🎵 Batch add completed by Search component:', { 

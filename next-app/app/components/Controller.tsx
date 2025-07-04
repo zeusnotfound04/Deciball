@@ -18,12 +18,14 @@ interface AudioControllerProps {
   customTogglePlayPause?: () => void;
   spaceId?: string;
   userId?: string;
+  isAdmin?: boolean; // Add admin permission check
 }
 
 const AudioController: React.FC<AudioControllerProps> = ({ 
   customTogglePlayPause,
   spaceId,
-  userId 
+  userId,
+  isAdmin = false // Default to false if not provided
 }) => {
   const {
     isPlaying,
@@ -61,6 +63,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const [isLiked, setIsLiked] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState(0); // 0: off, 1: all, 2: one
+  const [isSeeking, setIsLocalSeeking] = useState(false); // Local seeking state for UI feedback
 
   // Format time display
   const formatTime = (seconds: any) => {
@@ -70,26 +73,83 @@ const AudioController: React.FC<AudioControllerProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Store the progress bar element reference for calculating position
+  const progressBarRef = useRef<HTMLDivElement>(null);
+
   // Handle progress bar drag
   const handleProgressMouseDown = (e: any) => {
+    // Only allow admin to start dragging for seek
+    // if (!isAdmin) {
+    //   console.log('[AudioController] 🚫 Non-admin user tried to drag timeline - permission denied');
+    //   return;
+    // }
+    
+    console.log('[AudioController] 🎯 Admin started dragging timeline');
+    e.preventDefault();
     setIsDragging(true);
-    const rect = e.currentTarget.getBoundingClientRect();
-    const percent = ((e.clientX - rect.left) / rect.width) * 100;
-    setTempProgress(Math.max(0, Math.min(100, percent)));
+    
+    // Calculate initial position
+    if (progressBarRef.current) {
+      const rect = progressBarRef.current.getBoundingClientRect();
+      const percent = ((e.clientX - rect.left) / rect.width) * 100;
+      setTempProgress(Math.max(0, Math.min(100, percent)));
+    }
   };
 
   const handleProgressMouseMove = (e : any) => {
-    if (!isDragging) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    if (!isDragging || !progressBarRef.current) return;
+    
+    const rect = progressBarRef.current.getBoundingClientRect();
     const percent = ((e.clientX - rect.left) / rect.width) * 100;
     setTempProgress(Math.max(0, Math.min(100, percent)));
   };
 
   const handleProgressMouseUp = () => {
     if (isDragging) {
+      // Only allow admin to seek
+      if (!isAdmin) {
+        console.log('[AudioController] 🚫 Non-admin user tried to seek - permission denied');
+        setIsDragging(false);
+        setTempProgress(0); // Reset temp progress
+        return;
+      }
+      
       const newTime = (tempProgress / 100) * duration;
+      console.log('[AudioController] 🎯 Admin seeking to:', newTime, 'seconds');
+      console.log('[AudioController] 🎯 Sending seek command to server...');
+      
+      // Set local seeking state for UI feedback
+      setIsLocalSeeking(true);
+      setTimeout(() => setIsLocalSeeking(false), 3000); // Clear after 3 seconds
+      
+      // Apply seek immediately for responsive UI
       seek(newTime);
       setIsDragging(false);
+      
+      // Show temporary seeking indicator
+      console.log('[AudioController] ✅ Seek command sent successfully');
+    }
+  };
+
+  // Handle progress bar click (for direct jumping)
+  const handleProgressClick = (e: any) => {
+    
+    // if (!isAdmin) {
+    //   console.log('[AudioController] 🚫 Non-admin user tried to click timeline - permission denied');
+    //   return;
+    // }
+    
+    if (progressBarRef.current) {
+      const rect = progressBarRef.current.getBoundingClientRect();
+      const percent = ((e.clientX - rect.left) / rect.width) * 100;
+      const newTime = (percent / 100) * duration;
+      console.log('[AudioController] 🎯 Admin clicked timeline to seek to:', newTime, 'seconds');
+      
+      // Set local seeking state for UI feedback
+      setIsLocalSeeking(true);
+      setTimeout(() => setIsLocalSeeking(false), 3000); // Clear after 3 seconds
+      
+      seek(newTime);
     }
   };
 
@@ -167,14 +227,18 @@ const AudioController: React.FC<AudioControllerProps> = ({
   // Mouse event listeners for progress bar
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleProgressMouseMove);
-      document.addEventListener('mouseup', handleProgressMouseUp);
+      const handleMouseMove = (e: MouseEvent) => handleProgressMouseMove(e);
+      const handleMouseUp = () => handleProgressMouseUp();
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
       return () => {
-        document.removeEventListener('mousemove', handleProgressMouseMove);
-        document.removeEventListener('mouseup', handleProgressMouseUp);
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, tempProgress]);
+  }, [isDragging, tempProgress, duration, isAdmin, seek]);
 
   if (!currentSong) {
     return (
@@ -194,14 +258,32 @@ const AudioController: React.FC<AudioControllerProps> = ({
           <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
             <span>{formatTime(progress)}</span>
             <div 
-              className="flex-1 bg-gray-600 rounded-full h-1 cursor-pointer relative group"
+              ref={progressBarRef}
+              className={`flex-1 bg-gray-600 rounded-full h-1 relative group transition-all duration-200 ${
+                isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
+              } ${
+                isSeeking ? 'ring-2 ring-blue-400 ring-opacity-50' : ''
+              }`}
               onMouseDown={handleProgressMouseDown}
+              onClick={handleProgressClick}
+              title={
+                isSeeking ? 'Seeking...' : 
+                isAdmin ? 'Drag to seek (Admin only)' : 'Only admin can seek'
+              }
             >
               <div 
-                className="bg-gradient-to-r from-blue-500 to-purple-500 h-1 rounded-full transition-all duration-200 relative"
+                className={`bg-gradient-to-r from-blue-500 to-purple-500 h-1 rounded-full transition-all duration-200 relative ${
+                  isDragging ? 'transition-none' : ''
+                } ${
+                  isSeeking ? 'animate-pulse' : ''
+                }`}
                 style={{ width: `${progressPercent}%` }}
               >
-                <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity -mr-1.5" />
+                <div className={`absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-all duration-200 -mr-1.5 ${
+                  isDragging || isSeeking || (isAdmin && progressPercent > 0) ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-100'
+                } ${
+                  isSeeking ? 'ring-2 ring-blue-400 ring-opacity-50' : ''
+                }`} />
               </div>
             </div>
             <span>{formatTime(duration)}</span>

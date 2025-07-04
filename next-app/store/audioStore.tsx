@@ -1,12 +1,13 @@
 "use client";
 
+import React, { useState, useEffect, useRef, useContext } from "react";
 import { searchResults } from "@/types";
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
-import { useRef, useEffect } from "react";
 import getURL from "@/lib/utils";
 import { toast } from "sonner";
 import { useUserStore } from "./userStore";
+import { useSocket } from "@/context/socket-context";
 
 // Define the store state interface
 interface AudioState {
@@ -25,6 +26,8 @@ interface AudioState {
   isSynchronized: boolean; // Track if playback is synchronized
   lastSyncTimestamp: number;
   pendingSync: { timestamp: number; isPlaying: boolean; song?: searchResults } | null;
+  currentSpaceId: string | null; // Add spaceId to store state
+  isSeeking: boolean; // Add seeking state to prevent timestamp conflicts
 
   // Actions
   setIsPlaying: (isPlaying: boolean) => void;
@@ -40,6 +43,7 @@ interface AudioState {
   setSpotifyDeviceId: (deviceId: string | null) => void;
   setSynchronized: (synchronized: boolean) => void;
   setLastSyncTimestamp: (timestamp: number) => void;
+  setCurrentSpaceId: (spaceId: string | null) => void; // Add spaceId setter
   
   // Synchronization actions
   syncPlaybackToTimestamp: (timestamp: number) => void;
@@ -67,6 +71,8 @@ export const useAudioStore = create<AudioState>()(
         isSynchronized: false,
         lastSyncTimestamp: 0,
         pendingSync: null,
+        currentSpaceId: null, // Add spaceId to initial state
+        isSeeking: false, // Add seeking state to initial state
 
         // Actions
         setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -120,16 +126,31 @@ export const useAudioStore = create<AudioState>()(
         setSpotifyDeviceId: (spotifyDeviceId) => set({ spotifyDeviceId }),
         setSynchronized: (isSynchronized) => set({ isSynchronized }),
         setLastSyncTimestamp: (lastSyncTimestamp) => set({ lastSyncTimestamp }),
+        setCurrentSpaceId: (currentSpaceId) => set({ currentSpaceId }), // Add spaceId setter
         
         // Synchronization actions
         syncPlaybackToTimestamp: (timestamp) => {
           const state = get();
-          console.log("[AudioStore] Syncing playback to timestamp:", timestamp);
+          console.log("[AudioStore] 🎯 Syncing playback to timestamp:", timestamp);
+          console.log("[AudioStore] 🎯 Current seeking state:", state.isSeeking);
+          
+          // Skip sync if we're currently seeking to avoid conflicts
+          if (state.isSeeking) {
+            console.log("[AudioStore] ⏭️ Skipping sync - currently seeking, will apply after seek completes");
+            return;
+          }
           
           if (state.youtubePlayer && state.youtubePlayer.seekTo && state.youtubePlayer.getCurrentTime) {
             try {
               const currentTime = state.youtubePlayer.getCurrentTime();
               const timeDiff = Math.abs(currentTime - timestamp);
+              
+              console.log("[AudioStore] 🎯 YouTube sync check:", {
+                currentTime,
+                targetTimestamp: timestamp,
+                timeDiff,
+                seeking: state.isSeeking
+              });
               
               // Only sync if the difference is significant (more than 3 seconds)
               // This prevents choppy playback from frequent small corrections
@@ -146,7 +167,7 @@ export const useAudioStore = create<AudioState>()(
                   window.dispatchEvent(event);
                 }
               } else {
-                console.log("[AudioStore] Time difference within acceptable range:", timeDiff, "seconds. Skipping sync.");
+                console.log("[AudioStore] Time difference within acceptable range:", timeDiff, "seconds. Updating progress only.");
                 set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
               }
             } catch (error) {
@@ -171,10 +192,17 @@ export const useAudioStore = create<AudioState>()(
         handleRoomSync: (currentTime, isPlaying, currentSong) => {
           const state = get();
           console.log("[AudioStore] Handling room sync:", { currentTime, isPlaying, currentSong });
+          console.log("[AudioStore] Current seeking state:", state.isSeeking);
           
           // Update current song if different
           if (currentSong && (!state.currentSong || state.currentSong.id !== currentSong.id)) {
             set({ currentSong });
+          }
+          
+          // If we're currently seeking, skip this sync to avoid conflicts
+          if (state.isSeeking) {
+            console.log("[AudioStore] ⏭️ Skipping room sync - currently seeking");
+            return;
           }
           
           // If YouTube player is not ready yet, store the sync data as pending
@@ -248,9 +276,37 @@ export const useAudioStore = create<AudioState>()(
         
         handlePlaybackSeek: (seekTime) => {
           const state = get();
-          console.log("[AudioStore] Handling playback seek to:", seekTime);
+          console.log("[AudioStore] 🎯 Handling playback seek to:", seekTime);
           
-          state.syncPlaybackToTimestamp(seekTime);
+          // Set a flag to prevent timestamp sync conflicts during seek
+          set({ isSeeking: true });
+          
+          // Apply the seek immediately for smooth user experience
+          if (state.youtubePlayer && state.youtubePlayer.seekTo) {
+            try {
+              console.log("[AudioStore] 🎯 Applying seek to YouTube player");
+              state.youtubePlayer.seekTo(seekTime, true);
+              set({ currentProgress: seekTime });
+            } catch (error) {
+              console.error("[AudioStore] Error seeking YouTube player:", error);
+            }
+          }
+          
+          if (state.spotifyPlayer && state.isSpotifyReady) {
+            try {
+              console.log("[AudioStore] 🎯 Applying seek to Spotify player");
+              state.spotifyPlayer.seek(seekTime * 1000); // Spotify uses milliseconds
+              set({ currentProgress: seekTime });
+            } catch (error) {
+              console.error("[AudioStore] Error seeking Spotify player:", error);
+            }
+          }
+          
+          // Clear the seeking flag after a longer delay to prevent race conditions
+          setTimeout(() => {
+            console.log("[AudioStore] 🎯 Seek operation completed, resuming normal sync");
+            set({ isSeeking: false });
+          }, 2500); // Wait 2.5 seconds - longer than backend pause duration
         },
       }),
       {
@@ -277,7 +333,14 @@ export function useAudio() {
   const lastEmittedTimeRef = useRef(0);
   
   // Get user context
-  const { user, isAdminOnline, ws, emitMessage } = useUserStore();
+  const { user, isAdminOnline } = useUserStore();
+  
+  // Import SocketContext hook for WebSocket access
+  const { socket: wsFromContext, sendMessage: sendMessageFromContext } = useSocket();
+  
+  // Use WebSocket from context if available, fallback to userStore
+  const ws = wsFromContext || useUserStore.getState().ws;
+  const emitMessage = sendMessageFromContext || useUserStore.getState().emitMessage;
   
   // Get state and actions from the store
   const {
@@ -293,6 +356,7 @@ export function useAudio() {
     spotifyDeviceId,
     isSynchronized,
     lastSyncTimestamp,
+    currentSpaceId,
     setIsPlaying,
     setCurrentSong,
     setProgress,
@@ -304,6 +368,7 @@ export function useAudio() {
     setSpotifyDeviceId,
     setSynchronized,
     setLastSyncTimestamp,
+    setCurrentSpaceId,
     syncPlaybackToTimestamp,
     handleRoomSync,
     handlePlaybackPause,
@@ -746,22 +811,53 @@ export function useAudio() {
   };
 
   const seek = (value: number) => {
+    console.log("[Audio] ====================== SEEK FUNCTION CALLED ======================");
+    console.log("[Audio] Seek value (in seconds):", value);
+    console.log("[Audio] Current song:", currentSong?.name);
+    console.log("[Audio] YouTube player available:", !!youtubePlayer);
+    console.log("[Audio] Current spaceId:", currentSpaceId);
+    console.log("[Audio] WebSocket ready:", ws?.readyState === WebSocket.OPEN);
+    console.log("[Audio] emitMessage function available:", !!emitMessage);
+    
     // If we have a YouTube player, use it for seeking
     if (youtubePlayer) {
       try {
         const duration = youtubePlayer.getDuration();
-        const seekTime = (value / 100) * duration;
+        const seekTime = value; // Value is already in seconds
+        console.log("[Audio] YouTube seek - Duration:", duration, "SeekTime:", seekTime);
+        
         youtubePlayer.seekTo(seekTime, true);
         
-        // Notify server about YouTube seek
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ 
-            type: "seek-playback", 
-            data: { 
-              seekTime: seekTime,
-              timestamp: Date.now() 
-            } 
-          }));
+        // Get current space ID from the state for WebSocket message
+        const currentState = useAudioStore.getState();
+        const currentSpaceId = currentState.currentSpaceId;
+        
+        // Notify server about YouTube seek using emitMessage
+        if (currentSpaceId && emitMessage) {
+          const seekData = { 
+            spaceId: currentSpaceId,
+            seekTime: seekTime,
+            timestamp: Date.now() 
+          };
+          console.log("[Audio] Sending seek message to server via emitMessage:", seekData);
+          try {
+            // Check if we're using socket context or userStore emitMessage
+            if (sendMessageFromContext) {
+              // SocketContext format
+              sendMessageFromContext("seek-playback", seekData);
+            } else {
+              // UserStore format
+              emitMessage("seek-playback", seekData);
+            }
+            console.log("[Audio] ✅ Seek message sent successfully via emitMessage");
+          } catch (error) {
+            console.error("[Audio] ❌ Error sending seek message via emitMessage:", error);
+          }
+        } else {
+          console.warn("[Audio] Cannot send seek message - no spaceId or emitMessage function:", {
+            spaceId: currentSpaceId,
+            emitMessageAvailable: !!emitMessage
+          });
         }
         
         console.log("[Audio] YouTube player seeked to:", seekTime);
@@ -793,14 +889,25 @@ export function useAudio() {
       audioRef.current.currentTime = value;
       
       // Notify server about HTML audio seek
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ 
+      const currentState = useAudioStore.getState();
+      const currentSpaceId = currentState.currentSpaceId;
+      
+      if (ws && ws.readyState === WebSocket.OPEN && currentSpaceId) {
+        const seekMessage = {
           type: "seek-playback", 
           data: { 
+            spaceId: currentSpaceId,
             seekTime: value,
             timestamp: Date.now() 
           } 
-        }));
+        };
+        console.log("[Audio] Sending HTML audio seek message to server:", seekMessage);
+        ws.send(JSON.stringify(seekMessage));
+      } else {
+        console.warn("[Audio] Cannot send HTML audio seek message - WebSocket not ready or no spaceId:", {
+          wsReady: ws?.readyState === WebSocket.OPEN,
+          spaceId: currentSpaceId
+        });
       }
     }
   };
@@ -864,7 +971,14 @@ export function useAudio() {
     console.log("🎵 [PlayNext] Message type: 'playNext', data: 'playNext'");
     
     try {
-      emitMessage("playNext", "playNext");
+      // Check if we're using socket context or userStore emitMessage
+      if (sendMessageFromContext) {
+        // SocketContext format
+        sendMessageFromContext("playNext", { action: "playNext" });
+      } else {
+        // UserStore format - need to pass object
+        emitMessage("playNext", { action: "playNext" });
+      }
       console.log("🎵 [PlayNext] ✅ playNext message sent successfully via emitMessage");
     } catch (error) {
       console.error("🎵 [PlayNext] ❌ Error sending playNext message:", error);
@@ -884,7 +998,15 @@ export function useAudio() {
         console.error("Error pausing YouTube player for prev:", error);
       }
     }
-    emitMessage("playPrev", "playPrev");
+    
+    // Check if we're using socket context or userStore emitMessage
+    if (sendMessageFromContext) {
+      // SocketContext format
+      sendMessageFromContext("playPrev", { action: "playPrev" });
+    } else {
+      // UserStore format - need to pass object
+      emitMessage("playPrev", { action: "playPrev" });
+    }
   };
 
   // Function to set YouTube player reference
@@ -1212,14 +1334,20 @@ export function useAudio() {
       
       const handleEnd = () => {
         // Only use HTML audio ended event if we're not using YouTube player
-        if (!youtubePlayer) {
-          // Use custom songEnded callback if available, otherwise fallback to emitMessage
-          const customSongEndedCallback = (window as any).__songEndedCallback;
-          if (customSongEndedCallback) {
-            customSongEndedCallback();
+        if (!youtubePlayer) {        // Use custom songEnded callback if available, otherwise fallback to emitMessage
+        const customSongEndedCallback = (window as any).__songEndedCallback;
+        if (customSongEndedCallback) {
+          customSongEndedCallback();
+        } else {
+          // Check if we're using socket context or userStore emitMessage
+          if (sendMessageFromContext) {
+            // SocketContext format
+            sendMessageFromContext("songEnded", { action: "songEnded" });
           } else {
-            emitMessage("songEnded", "songEnded");
+            // UserStore format - need to pass object
+            emitMessage("songEnded", { action: "songEnded" });
           }
+        }
         }
         // If YouTube player is active, let it handle the songEnded event
       };
@@ -1497,7 +1625,8 @@ export function useAudio() {
     volume: currentVolume,
     progress: currentProgress,
     duration: currentDuration,
-    setProgress
+    setProgress,
+    setCurrentSpaceId  // Add spaceId setter to the return object
   };
 }
 

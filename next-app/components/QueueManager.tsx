@@ -374,9 +374,37 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           handlePlaybackPause();
           break;
         case 'seek':
-          console.log('⏩ Playback seek command received:', data.currentTime);
-          const { handlePlaybackSeek } = useAudioStore.getState();
-          handlePlaybackSeek(data.currentTime);
+          console.log('⏩ [QueueManager] Playback seek command received:', {
+            currentTime: data.currentTime,
+            spaceId: data.spaceId,
+            triggeredBy: data.triggeredBy,
+            forceSync: data.forceSync,
+            fullData: data
+          });
+          
+          const { handlePlaybackSeek, isSeeking } = useAudioStore.getState();
+          
+          // If this is a forced sync (from admin seek), apply immediately regardless of seeking state
+          if (data.forceSync) {
+            console.log('⏩ [QueueManager] Applying forced seek sync (forceSync=true)');
+            handlePlaybackSeek(data.currentTime);
+            
+            // Show sync notification for forced seek
+            if (typeof window !== 'undefined') {
+              const event = new CustomEvent('show-sync-toast', {
+                detail: { 
+                  message: `Admin seeked to ${Math.floor(data.currentTime)}s`, 
+                  type: 'info' 
+                }
+              });
+              window.dispatchEvent(event);
+            }
+          } else {
+            console.log('⏩ [QueueManager] Applying regular seek');
+            handlePlaybackSeek(data.currentTime);
+          }
+          
+          console.log('⏩ [QueueManager] Seek command processed by handlePlaybackSeek');
           break;
         case 'error':
           console.error('❌ Queue error received:', data);

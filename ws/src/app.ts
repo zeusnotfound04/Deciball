@@ -241,10 +241,26 @@ async function  processUserAction(type: string , data : Data ) {
             break;
 
         case "seek-playback":
-            console.log("⏩ Seek playback - TODO: Implement Redis-based handler");
-            // if (typeof data.seekTime === 'number') {
-            //     await RoomManager.getInstance().seekPlayback(data.spaceId, data.userId, data.seekTime);
-            // }
+            console.log("⏩ [Backend] Seek playback request received:", { 
+                spaceId: data.spaceId, 
+                userId: data.userId, 
+                seekTime: data.seekTime 
+            });
+            if (typeof data.seekTime === 'number' && data.spaceId) {
+                await RoomManager.getInstance().handlePlaybackSeek(
+                    data.spaceId,
+                    data.userId,
+                    data.seekTime
+                );
+                console.log("⏩ [Backend] Playback seek handled successfully");
+            } else {
+                console.error("❌ [Backend] Invalid seek data:", { 
+                    seekTime: data.seekTime, 
+                    spaceId: data.spaceId,
+                    hasSeekTime: typeof data.seekTime === 'number',
+                    hasSpaceId: !!data.spaceId
+                });
+            }
             break;
 
         case "get-playback-state":

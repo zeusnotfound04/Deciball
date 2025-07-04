@@ -376,6 +376,7 @@ export const Player: React.FC<PlayerProps> = ({
         customTogglePlayPause={togglePlayPause}
         spaceId={spaceId}
         userId={user?.id}
+        isAdmin={isAdmin}
       />
     </div>
   );

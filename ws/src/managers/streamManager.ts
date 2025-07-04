@@ -892,7 +892,7 @@ export class RoomManager {
         }
     }
     
-
+    
     async adminStreamHandler(
         spaceId : string,
         userId : string,
@@ -1359,20 +1359,59 @@ export class RoomManager {
     }
 
     async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {
+        console.log(`⏩ [StreamManager] handlePlaybackSeek called - spaceId: ${spaceId}, userId: ${userId}, seekTime: ${seekTime}`);
+        
         const space = this.spaces.get(spaceId);
-        if (!space) return;
+        if (!space) {
+            console.log(`❌ [StreamManager] Space ${spaceId} not found for seek operation`);
+            return;
+        }
 
         const now = Date.now();
         
-        // Update startedAt to reflect the new seek position
+        // IMPORTANT: Stop timestamp broadcasting during seek to prevent conflicts
+        console.log(`⏩ [StreamManager] Temporarily stopping timestamp broadcast during seek`);
+        this.stopTimestampBroadcast(spaceId);
+        
+        // Update playback state to the new seek position
         space.playbackState.startedAt = now - (seekTime * 1000);
         space.playbackState.pausedAt = null;
+        space.playbackState.isPlaying = true; // Ensure playing state
         space.playbackState.lastUpdated = now;
 
-        // Immediately broadcast the new timestamp
-        await this.broadcastCurrentTimestamp(spaceId);
+        console.log(`⏩ [StreamManager] Updated playback state - startedAt: ${space.playbackState.startedAt}, seekTime: ${seekTime}`);
+
+        // Broadcast seek command to all users in the space
+        let messagesSent = 0;
+        space.users.forEach((user, userIdInSpace) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "seek",
+                        data: { 
+                            currentTime: seekTime,
+                            spaceId: spaceId,
+                            triggeredBy: userId,
+                            forceSync: true // Flag to indicate this is a forced sync
+                        }
+                    }));
+                    messagesSent++;
+                }
+            });
+        });
+
+        console.log(`⏩ [StreamManager] Broadcasted seek event to ${messagesSent} WebSocket connections`);
+
+        // Wait a moment for seek to settle, then restart timestamp broadcasting
+        setTimeout(async () => {
+            console.log(`⏩ [StreamManager] Restarting timestamp broadcast after seek`);
+            this.startTimestampBroadcast(spaceId);
+            
+            // Send one immediate timestamp to confirm the new position
+            await this.broadcastCurrentTimestamp(spaceId);
+        }, 2000); // Wait 2 seconds before resuming broadcasts - longer than frontend seeking duration
         
-        console.log(`⏩ Playback seeked to ${seekTime}s for space ${spaceId}`);
+        console.log(`⏩ [StreamManager] Playback seeked to ${seekTime}s for space ${spaceId} by user ${userId}`);
     }
 
     // Sync new user to current playback state including timestamp
