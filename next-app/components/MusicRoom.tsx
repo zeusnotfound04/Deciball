@@ -94,7 +94,10 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           console.log('Room info updated:', { isAdmin: data.isAdmin, userCount: data.userCount });
           break;
         case 'room-joined':
-          console.log('Successfully joined room:', data);
+          console.log('✅ Successfully joined room:', data);
+          console.log('   - SpaceId:', data.spaceId);
+          console.log('   - UserId:', data.userId);
+          console.log('   - Message:', data.message);
           break;
         case 'user-update':
           setConnectedUsers(data.userCount || data.connectedUsers || 0);
@@ -118,6 +121,32 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           break;
         case 'error':
           console.error('Room error:', data.message || data);
+          // Show more helpful error messages to user
+          if (data.message === 'You are unauthorized to perform this action') {
+            console.error('❌ Authorization error - this might be due to:');
+            console.error('   - Invalid or expired authentication token');
+            console.error('   - User not properly joined to the room');
+            console.error('   - User ID mismatch between token and request');
+            console.error('   - Room connection lost');
+            console.error('Current user info:', { 
+              userId: user?.id, 
+              hasToken: !!user?.token,
+              tokenLength: user?.token?.length 
+            });
+            console.error('Socket info:', { 
+              connected: socket?.readyState === WebSocket.OPEN,
+              readyState: socket?.readyState 
+            });
+            
+            // Try to rejoin the room
+            if (user?.token && socket?.readyState === WebSocket.OPEN) {
+              console.log('🔄 Attempting to rejoin room due to authorization error...');
+              sendMessage('join-room', { 
+                spaceId, 
+                token: user.token 
+              });
+            }
+          }
           break;
         default:
           console.log('Unhandled message type in MusicRoom:', type);
@@ -127,6 +156,14 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     socket.addEventListener('message', handleMessage);
 
     // Join the room
+    console.log('🏠 Attempting to join room:', { 
+      spaceId, 
+      userId: user.id, 
+      hasToken: !!user.token,
+      tokenLength: user.token?.length,
+      tokenPreview: user.token?.substring(0, 20) + '...'
+    });
+    
     const roomJoined = sendMessage('join-room', { 
       spaceId, 
       token: user.token 
@@ -134,6 +171,8 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     
     if (!roomJoined) {
       console.error('❌ Failed to join room - connection issue');
+    } else {
+      console.log('✅ Join room message sent successfully');
     }
 
     return () => {

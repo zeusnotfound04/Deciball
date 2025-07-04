@@ -107,12 +107,12 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const handleProgressMouseUp = () => {
     if (isDragging) {
       // Only allow admin to seek
-      if (!isAdmin) {
-        console.log('[AudioController] 🚫 Non-admin user tried to seek - permission denied');
-        setIsDragging(false);
-        setTempProgress(0); // Reset temp progress
-        return;
-      }
+      // if (!isAdmin) {
+      //   console.log('[AudioController] 🚫 Non-admin user tried to seek - permission denied');
+      //   setIsDragging(false);
+      //   setTempProgress(0); // Reset temp progress
+      //   return;
+      // }
       
       const newTime = (tempProgress / 100) * duration;
       console.log('[AudioController] 🎯 Admin seeking to:', newTime, 'seconds');
@@ -192,6 +192,11 @@ const AudioController: React.FC<AudioControllerProps> = ({
           if (e.ctrlKey) {
             e.preventDefault();
             playPrev();
+            // if (isAdmin) {
+            //   playPrev();
+            // } else {
+            //   console.log('🚫 Non-admin user tried to use previous shortcut');
+            // }
           } else {
             const newTime = Math.max(0, progress - 10);
             seek(newTime);
@@ -201,6 +206,11 @@ const AudioController: React.FC<AudioControllerProps> = ({
           if (e.ctrlKey) {
             e.preventDefault();
             playNext();
+            // if (isAdmin) {
+            //   playNext();
+            // } else {
+            //   console.log('🚫 Non-admin user tried to use next shortcut');
+            // }
           } else {
             const newTime = Math.min(duration, progress + 10);
             seek(newTime);
@@ -338,6 +348,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
               onClick={playPrev}
               className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700"
               title="Previous (Ctrl + ←)"
+              // className={`p-2 transition-colors rounded-full ${
+              //   isAdmin 
+              //     ? 'text-gray-300 hover:text-white hover:bg-gray-700 cursor-pointer' 
+              //     : 'text-gray-500 cursor-not-allowed opacity-50'
+              // }`}
+              // title={isAdmin ? "Previous (Ctrl + ←)" : "Previous song not available"}
+              // disabled={!isAdmin}
             >
               <SkipBack className="w-5 h-5" />
             </button>
@@ -354,6 +371,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
               onClick={playNext}
               className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700"
               title="Next (Ctrl + →)"
+              // className={`p-2 transition-colors rounded-full ${
+              //   isAdmin 
+              //     ? 'text-gray-300 hover:text-white hover:bg-gray-700 cursor-pointer' 
+              //     : 'text-gray-500 cursor-not-allowed opacity-50'
+              // }`}
+              // title={isAdmin ? "Next (Ctrl + →)" : "Only admin can skip to next song"}
+              // disabled={!isAdmin}
             >
               <SkipForward className="w-5 h-5" />
             </button>

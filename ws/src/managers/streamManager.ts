@@ -1746,40 +1746,56 @@ export class RoomManager {
                 }
             }
             
-            return songs;
+            // Get vote counts and sort the queue to ensure most upvoted songs are first
+            const songsWithVotes = await Promise.all(
+                songs.map(async (song) => ({
+                    ...song,
+                    voteCount: await this.getSongVoteCount(spaceId, song.id)
+                }))
+            );
+            
+            // Sort by vote count (descending), then by addedAt timestamp (ascending)
+            songsWithVotes.sort((a, b) => {
+                if (b.voteCount !== a.voteCount) {
+                    return b.voteCount - a.voteCount; // Higher votes first
+                }
+                return a.addedAt - b.addedAt; // Earlier added songs first if votes are equal
+            });
+            
+            // Return sorted songs with vote counts
+            return songsWithVotes;
         } catch (error) {
             console.error('Error getting Redis queue:', error);
             return [];
         }
     }
 
-    // Get next song from queue (FIFO)
+    // Get next song from queue (highest voted first)
     async getNextSongFromRedisQueue(spaceId: string): Promise<QueueSong | null> {
         try {
             const queueKey = `queue:${spaceId}`;
-            const songDataList = await this.redisClient.lRange(queueKey, 0, -1);
             
-            const songs: QueueSong[] = [];
-            for (const songData of songDataList) {
-                try {
-                    const song = JSON.parse(songData) as QueueSong;
-                    songs.push(song);
-                } catch (parseError) {
-                    console.error('Error parsing song data from Redis:', parseError);
-                }
-            }
-
-
-            console.log("Current Redis queue songs:", songs);
-            const songData = await this.redisClient.lPop(queueKey);
+            // Get the sorted queue (most upvoted songs first)
+            const sortedQueue = await this.getRedisQueue(spaceId);
             
-            if (!songData) {
+            if (sortedQueue.length === 0) {
+                console.log("📭 Queue is empty, no songs to play");
                 return null;
             }
             
-            const song = JSON.parse(songData) as QueueSong;
-            console.log(`🎵 Got next song from Redis queue: ${song.title}`);
-            return song;
+            // Get the first song (most upvoted)
+            const nextSong = sortedQueue[0];
+            
+            console.log("🎵 Next song to play (most upvoted):", {
+                title: nextSong.title,
+                voteCount: await this.getSongVoteCount(spaceId, nextSong.id),
+                addedAt: new Date(nextSong.addedAt).toISOString()
+            });
+            
+            // Remove this song from the queue
+            await this.removeSongFromRedisQueue(spaceId, nextSong.id);
+            
+            return nextSong;
         } catch (error) {
             console.error('Error getting next song from Redis queue:', error);
             return null;
@@ -1901,6 +1917,11 @@ export class RoomManager {
             
             // Get current vote count
             const voteCount = await this.redisClient.zCard(votesKey);
+            
+            // Reorder the queue after voting to ensure most upvoted songs are at the top
+            console.log(`🗳️ Reordering queue after vote for song ${songId}`);
+            await this.reorderQueueByVotes(spaceId);
+            
             return voteCount;
         } catch (error) {
             console.error('Error voting on song:', error);
@@ -1916,6 +1937,67 @@ export class RoomManager {
         } catch (error) {
             console.error('Error getting song vote count:', error);
             return 0;
+        }
+    }
+
+    // Reorder queue by vote count (highest votes first, then by creation time)
+    async reorderQueueByVotes(spaceId: string): Promise<void> {
+        try {
+            console.log(`🔄 Reordering queue for space ${spaceId} by vote count`);
+            
+            const queueKey = `queue:${spaceId}`;
+            const songDataList = await this.redisClient.lRange(queueKey, 0, -1);
+            
+            if (songDataList.length === 0) {
+                console.log(`📭 Queue is empty for space ${spaceId}, nothing to reorder`);
+                return;
+            }
+            
+            // Parse songs from Redis (without voteCount)
+            const songs: Omit<QueueSong, 'voteCount'>[] = [];
+            for (const songData of songDataList) {
+                try {
+                    const song = JSON.parse(songData) as Omit<QueueSong, 'voteCount'>;
+                    songs.push(song);
+                } catch (parseError) {
+                    console.error('Error parsing song data from Redis:', parseError);
+                }
+            }
+            
+            // Get vote counts for all songs in parallel
+            const songsWithVotes = await Promise.all(
+                songs.map(async (song) => ({
+                    ...song,
+                    voteCount: await this.getSongVoteCount(spaceId, song.id)
+                }))
+            );
+            
+            // Sort by vote count (descending), then by addedAt timestamp (ascending) for stable sorting
+            songsWithVotes.sort((a, b) => {
+                if (b.voteCount !== a.voteCount) {
+                    return b.voteCount - a.voteCount; // Higher votes first
+                }
+                return a.addedAt - b.addedAt; // Earlier added songs first if votes are equal
+            });
+            
+            console.log(`🔄 Reordered queue:`, songsWithVotes.map(s => ({
+                title: s.title,
+                votes: s.voteCount,
+                addedAt: new Date(s.addedAt).toISOString()
+            })));
+            
+            // Clear the current queue
+            await this.redisClient.del(queueKey);
+            
+            // Rebuild the queue in sorted order (store without voteCount as it's computed dynamically)
+            for (const song of songsWithVotes) {
+                const { voteCount, ...songToStore } = song;
+                await this.redisClient.rPush(queueKey, JSON.stringify(songToStore));
+            }
+            
+            console.log(`✅ Successfully reordered queue for space ${spaceId}`);
+        } catch (error) {
+            console.error(`❌ Error reordering queue for space ${spaceId}:`, error);
         }
     }
 

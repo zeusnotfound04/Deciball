@@ -17,6 +17,7 @@ interface QueueItem {
   url: string;
   type: 'Youtube' | 'Spotify';
   voteCount: number;
+  createAt?: string; // Add creation timestamp for secondary sorting
   addedByUser: {
     id: string;
     username: string;
@@ -43,6 +44,25 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const { sendMessage, socket } = useSocket();
   const { user } = useUserStore();
   const { voteOnSong, addToQueue, play, currentSong: audioCurrentSong } = useAudio();
+
+  // Sort queue by vote count (descending) and then by creation time (ascending)
+  const sortedQueue = [...queue].sort((a, b) => {
+    // First sort by vote count (highest first)
+    if (b.voteCount !== a.voteCount) {
+      return b.voteCount - a.voteCount;
+    }
+    
+    // If vote counts are equal, sort by creation time (oldest first) 
+    // This ensures songs added earlier get played first when votes are tied
+    return new Date(a.createAt || 0).getTime() - new Date(b.createAt || 0).getTime();
+  });
+
+  console.log('[QueueManager] Queue sorting debug:', {
+    originalQueueLength: queue.length,
+    sortedQueueLength: sortedQueue.length,
+    originalOrder: queue.map(q => ({ id: q.id, title: q.title, votes: q.voteCount })),
+    sortedOrder: sortedQueue.map(q => ({ id: q.id, title: q.title, votes: q.voteCount }))
+  });
 
   // Utility function to clean up URLs
   const cleanUrl = (url: string): string => {

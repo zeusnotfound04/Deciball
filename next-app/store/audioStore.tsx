@@ -971,17 +971,36 @@ export function useAudio() {
     console.log("🎵 [PlayNext] Message type: 'playNext', data: 'playNext'");
     
     try {
+      // Check if we have spaceId and userId
+      if (!currentSpaceId) {
+        console.error("🎵 [PlayNext] ❌ CRITICAL: No spaceId available!");
+        return;
+      }
+      
+      if (!user?.id) {
+        console.error("🎵 [PlayNext] ❌ CRITICAL: No userId available!");
+        return;
+      }
+
+      console.log("🎵 [PlayNext] Sending play-next message with spaceId:", currentSpaceId, "userId:", user.id);
+
       // Check if we're using socket context or userStore emitMessage
       if (sendMessageFromContext) {
-        // SocketContext format
-        sendMessageFromContext("playNext", { action: "playNext" });
+        // SocketContext format - correct message type and data format
+        sendMessageFromContext("play-next", { 
+          spaceId: currentSpaceId, 
+          userId: user.id 
+        });
       } else {
-        // UserStore format - need to pass object
-        emitMessage("playNext", { action: "playNext" });
+        // UserStore format - correct message type and data format
+        emitMessage("play-next", { 
+          spaceId: currentSpaceId, 
+          userId: user.id 
+        });
       }
-      console.log("🎵 [PlayNext] ✅ playNext message sent successfully via emitMessage");
+      console.log("🎵 [PlayNext] ✅ play-next message sent successfully");
     } catch (error) {
-      console.error("🎵 [PlayNext] ❌ Error sending playNext message:", error);
+      console.error("🎵 [PlayNext] ❌ Error sending play-next message:", error);
     }
     
     console.log("🎵 [PlayNext] ====================== playNext() COMPLETED ======================");
@@ -989,6 +1008,9 @@ export function useAudio() {
 
   
   const playPrev = () => {
+    console.log("🎵 [PlayPrev] playPrev called - not implemented yet");
+    console.log("🎵 [PlayPrev] Note: Previous song functionality requires backend implementation");
+    
     audioRef.current?.pause();
     // Also pause YouTube player
     if (youtubePlayer) {
@@ -999,14 +1021,9 @@ export function useAudio() {
       }
     }
     
-    // Check if we're using socket context or userStore emitMessage
-    if (sendMessageFromContext) {
-      // SocketContext format
-      sendMessageFromContext("playPrev", { action: "playPrev" });
-    } else {
-      // UserStore format - need to pass object
-      emitMessage("playPrev", { action: "playPrev" });
-    }
+    // TODO: Implement play previous functionality
+    // This would require maintaining a "previous songs" history in Redis
+    console.log("🎵 [PlayPrev] Previous song functionality not yet implemented");
   };
 
   // Function to set YouTube player reference
@@ -1222,15 +1239,77 @@ export function useAudio() {
   };
 
   const voteOnSong = (streamId: string, vote: "upvote" | "downvote") => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: "cast-vote",
-        data: {
-          streamId,
-          vote
-        }
-      }));
+    console.log("[Audio] ====================== VOTE ON SONG CALLED ======================");
+    console.log("[Audio] StreamId:", streamId);
+    console.log("[Audio] Vote:", vote);
+    console.log("[Audio] SocketContext WebSocket available:", !!wsFromContext);
+    console.log("[Audio] SocketContext sendMessage available:", !!sendMessageFromContext);
+    console.log("[Audio] Current spaceId:", currentSpaceId);
+    console.log("[Audio] User info from userStore:", { 
+      userId: user?.id, 
+      hasToken: !!user?.token,
+      tokenLength: user?.token?.length 
+    });
+    
+    // Get current space ID from the state
+    const currentState = useAudioStore.getState();
+    const spaceId = currentState.currentSpaceId;
+    
+    if (!spaceId) {
+      console.error("[Audio] ❌ No spaceId available for voting");
+      return;
     }
+    
+    if (sendMessageFromContext) {
+      // Use SocketContext format
+      console.log("[Audio] Sending vote via SocketContext");
+      console.log("[Audio] Vote data being sent:", {
+        streamId,
+        vote,
+        spaceId
+      });
+      try {
+        const success = sendMessageFromContext("cast-vote", {
+          streamId,
+          vote,
+          spaceId
+        });
+        console.log("[Audio] ✅ Vote message sent via SocketContext, success:", success);
+      } catch (error) {
+        console.error("[Audio] ❌ Error sending vote via SocketContext:", error);
+      }
+    } else if (ws && ws.readyState === WebSocket.OPEN) {
+      // Fallback to old WebSocket format
+      console.log("[Audio] Sending vote via fallback WebSocket");
+      console.log("[Audio] Vote data being sent:", {
+        streamId,
+        vote,
+        spaceId
+      });
+      try {
+        ws.send(JSON.stringify({
+          type: "cast-vote",
+          data: {
+            streamId,
+            vote,
+            spaceId
+          }
+        }));
+        console.log("[Audio] ✅ Vote message sent successfully via fallback WebSocket");
+      } catch (error) {
+        console.error("[Audio] ❌ Error sending vote via fallback WebSocket:", error);
+      }
+    } else {
+      console.error("[Audio] ❌ No WebSocket connection available for voting");
+      console.error("[Audio] Debug info:", {
+        socketContextAvailable: !!sendMessageFromContext,
+        fallbackWsAvailable: !!ws,
+        fallbackWsReady: ws?.readyState === WebSocket.OPEN,
+        spaceId: spaceId
+      });
+    }
+    
+    console.log("[Audio] ====================== VOTE ON SONG COMPLETED ======================");
   };
   
   // Set media session metadata
