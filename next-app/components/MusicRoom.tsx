@@ -15,6 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/ca
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Users, Music, Settings, VolumeX, Volume2, Play, Pause } from 'lucide-react';
+import ListenerSidebar from '@/app/components/ListenerSidebar';
+import { SidebarProvider } from '@/app/components/ui/sidebar';
+
 import { searchResults } from '@/types';
 
 interface MusicRoomProps {
@@ -46,6 +49,13 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const [showPlayer, setShowPlayer] = useState(true);
   const [showDebug, setShowDebug] = useState(false);
   const [userDetails, setUserDetails] = useState<any[]>([]);
+  const [spaceInfo, setSpaceInfo] = useState<{ spaceName: string; hostId: string } | null>(null);
+
+  // Debug effect to track userDetails changes
+  useEffect(() => {
+    console.log('🔄 UserDetails state changed:', userDetails);
+    console.log('🔄 UserDetails length:', userDetails.length);
+  }, [userDetails]);
 
   useEffect(() => {
     if (session?.user && !user) {
@@ -71,6 +81,36 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       setCurrentSpaceId(spaceId);
     }
   }, [spaceId, setCurrentSpaceId]);
+
+  // Fetch space information when component mounts
+  useEffect(() => {
+    const fetchSpaceInfo = async () => {
+      try {
+        const response = await fetch(`/api/spaces?spaceId=${spaceId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setSpaceInfo({
+            spaceName: data.spaceName || `Room ${spaceId.slice(0, 8)}`,
+            hostId: data.hostId
+          });
+          setRoomName(data.spaceName || `Room ${spaceId.slice(0, 8)}`);
+        } else {
+          console.error('Failed to fetch space info:', data.message);
+          // Set fallback room name
+          setRoomName(`Room ${spaceId.slice(0, 8)}`);
+        }
+      } catch (error) {
+        console.error('Error fetching space info:', error);
+        // Set fallback room name
+        setRoomName(`Room ${spaceId.slice(0, 8)}`);
+      }
+    };
+
+    if (spaceId) {
+      fetchSpaceInfo();
+    }
+  }, [spaceId]);
 
   const handleBatchAddToQueue = async (tracks: any[]) => {
     console.log('🎵 Batch add completed by Search component:', { 
@@ -102,18 +142,27 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         case 'user-update':
           setConnectedUsers(data.userCount || data.connectedUsers || 0);
           if (data.userDetails) {
+            console.log('📊 Updating userDetails:', data.userDetails);
             setUserDetails(data.userDetails);
           }
           console.log('Updated user count:', data.userCount || data.connectedUsers || 0);
-          if (data.userDetails) {
-            console.log('User details (admin view):', data.userDetails);
-          }
+          console.log('Current userDetails state:', userDetails);
           break;
         case 'user-joined':
           setConnectedUsers(prev => prev + 1);
+          console.log('👋 User joined - new count will be:', connectedUsers + 1);
+          // Request updated user list
+          if (socket?.readyState === WebSocket.OPEN) {
+            sendMessage('get-room-users', { spaceId });
+          }
           break;
         case 'user-left':
           setConnectedUsers(prev => Math.max(0, prev - 1));
+          console.log('👋 User left - new count will be:', Math.max(0, connectedUsers - 1));
+          // Request updated user list
+          if (socket?.readyState === WebSocket.OPEN) {
+            sendMessage('get-room-users', { spaceId });
+          }
           break;
         case 'queue-update':
           console.log('Queue update received in MusicRoom:', data);
@@ -143,7 +192,8 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
               console.log('🔄 Attempting to rejoin room due to authorization error...');
               sendMessage('join-room', { 
                 spaceId, 
-                token: user.token 
+                token: user.token,
+                spaceName: spaceInfo?.spaceName
               });
             }
           }
@@ -155,30 +205,37 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
 
     socket.addEventListener('message', handleMessage);
 
-    // Join the room
-    console.log('🏠 Attempting to join room:', { 
-      spaceId, 
-      userId: user.id, 
-      hasToken: !!user.token,
-      tokenLength: user.token?.length,
-      tokenPreview: user.token?.substring(0, 20) + '...'
-    });
-    
-    const roomJoined = sendMessage('join-room', { 
-      spaceId, 
-      token: user.token 
-    });
-    
-    if (!roomJoined) {
-      console.error('❌ Failed to join room - connection issue');
+    // Join the room only if we have space info
+    if (spaceInfo) {
+      // Join the room
+      console.log('🏠 Attempting to join room:', { 
+        spaceId, 
+        spaceName: spaceInfo.spaceName,
+        userId: user.id, 
+        hasToken: !!user.token,
+        tokenLength: user.token?.length,
+        tokenPreview: user.token?.substring(0, 20) + '...'
+      });
+      
+      const roomJoined = sendMessage('join-room', { 
+        spaceId, 
+        token: user.token,
+        spaceName: spaceInfo?.spaceName
+      });
+      
+      if (!roomJoined) {
+        console.error('❌ Failed to join room - connection issue');
+      } else {
+        console.log('✅ Join room message sent successfully with space name:', spaceInfo.spaceName);
+      }
     } else {
-      console.log('✅ Join room message sent successfully');
+      console.log('⏳ Waiting for space info before joining room...');
     }
 
     return () => {
       socket.removeEventListener('message', handleMessage);
     };
-  }, [socket, user, spaceId, sendMessage]);
+  }, [socket, user, spaceId, sendMessage, spaceInfo]);
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
@@ -197,180 +254,198 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-4">
-      {/* Include Spotify Player (invisible component) */}
-      <SpotifyPlayer />
-      
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Room Header */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl">{roomName}</CardTitle>
-                <div className="flex items-center gap-4 mt-2">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-4 h-4" />
-                    <span className="text-sm">{connectedUsers} connected</span>
+    <SidebarProvider>
+      <div className="flex min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+        <ListenerSidebar 
+          listeners={userDetails.length > 0 ? userDetails : [
+          
+            ...Array.from({ length: connectedUsers }, (_, i) => ({
+              userId: `user-${i}`,
+              isCreator: i === 0,
+              name: i === 0 ? 'Room Creator' : `Listener ${i}`,
+              imageUrl: ''
+            }))
+          ]} 
+        />
+        <main className="flex-1 p-4 overflow-y-auto">
+          {/* Include Spotify Player (invisible component) */}
+          <SpotifyPlayer />
+          
+          <div className="max-w-7xl mx-auto space-y-6">
+            {/* Room Header */}
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-2xl text-white">{roomName}</CardTitle>
+                    <div className="flex items-center gap-4 mt-2">
+                      <div className="flex items-center gap-1 text-gray-400">
+                        <Users className="w-4 h-4" />
+                        <span className="text-sm">{connectedUsers} connected</span>
+                      </div>
+                      <Badge variant={isAdmin ? 'default' : 'secondary'} className={isAdmin ? "bg-purple-600" : "bg-gray-700"}>
+                        {isAdmin ? 'Admin' : 'Listener'}
+                      </Badge>
+                      {/* Connection Status Badge */}
+                      <Badge 
+                        variant={
+                          loading ? 'secondary' :
+                          connectionError ? 'destructive' :
+                          socket?.readyState === WebSocket.OPEN ? 'default' : 'secondary'
+                        }
+                        className="flex items-center gap-1 bg-gray-700 border-gray-600"
+                      >
+                        <div 
+                          className={`w-2 h-2 rounded-full ${
+                            loading ? 'bg-yellow-500 animate-pulse' :
+                            connectionError ? 'bg-red-500' :
+                            socket?.readyState === WebSocket.OPEN ? 'bg-green-500' : 'bg-gray-500'
+                          }`}
+                        />
+                        {loading ? 'Connecting...' :
+                         connectionError ? 'Connection Error' :
+                         socket?.readyState === WebSocket.OPEN ? 'Connected' : 'Disconnected'}
+                      </Badge>
+                    </div>
                   </div>
-                  <Badge variant={isAdmin ? 'default' : 'secondary'}>
-                    {isAdmin ? 'Admin' : 'Listener'}
-                  </Badge>
-                  {/* Connection Status Badge */}
-                  <Badge 
-                    variant={
-                      loading ? 'secondary' :
-                      connectionError ? 'destructive' :
-                      socket?.readyState === WebSocket.OPEN ? 'default' : 'secondary'
-                    }
-                    className="flex items-center gap-1"
-                  >
-                    <div 
-                      className={`w-2 h-2 rounded-full ${
-                        loading ? 'bg-yellow-500 animate-pulse' :
-                        connectionError ? 'bg-red-500' :
-                        socket?.readyState === WebSocket.OPEN ? 'bg-green-500' : 'bg-gray-500'
-                      }`}
+                  
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowSearch(!showSearch)}
+                      className="bg-gray-700 border-gray-600 hover:bg-gray-600"
+                    >
+                      <Music className="w-4 h-4 mr-2" />
+                      {showSearch ? 'Hide Search' : 'Add Music'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowQueue(!showQueue)}
+                      className="bg-gray-700 border-gray-600 hover:bg-gray-600"
+                    >
+                      Queue ({showQueue ? 'Hide' : 'Show'})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowPlayer(!showPlayer)}
+                      className="bg-gray-700 border-gray-600 hover:bg-gray-600"
+                    >
+                      Player ({showPlayer ? 'Hide' : 'Show'})
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowDebug(!showDebug)}
+                        className="border-orange-500 text-orange-500 hover:bg-orange-900/50"
+                      >
+                        Debug ({showDebug ? 'Hide' : 'Show'})
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Unified Player Component */}
+            {showPlayer && (
+              <Player 
+                spaceId={spaceId}
+                isAdmin={isAdmin}
+                userCount={connectedUsers}
+                userDetails={userDetails}
+                className="w-full"
+              />
+            )}
+
+            {/* Debug Section (Admin Only) */}
+            {showDebug && isAdmin && (
+              <DebugBatchQueue spaceId={spaceId} />
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Music Search */}
+              {showSearch && (
+                <Card className="bg-gray-800 border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="text-white">Add Music</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col space-y-4">
+                      <p className="text-sm text-gray-400">
+                        {isAdmin ? 'Search and select multiple songs to add to the queue' : 'Search and add songs to the queue'}
+                      </p>
+                      <SearchSongPopup 
+                        onSelect={(track) => {
+                          console.log('Song selected:', track.name);
+                          // The Search component handles adding to queue internally
+                        }}
+                        onBatchSelect={handleBatchAddToQueue}
+                        buttonClassName="w-full bg-gray-700 hover:bg-gray-600 border-gray-600"
+                        maxResults={12}
+                        isAdmin={true}
+                        enableBatchSelection={true}
+                        spaceId={spaceId}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Queue Manager */}
+              {showQueue && (
+                <Card className={`${showSearch ? '' : 'lg:col-span-2'} bg-gray-800 border-gray-700`}>
+                  <CardHeader>
+                    <CardTitle className="text-white">Music Queue</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <QueueManager 
+                      spaceId={spaceId} 
+                      isAdmin={isAdmin}
                     />
-                    {loading ? 'Connecting...' :
-                     connectionError ? 'Connection Error' :
-                     socket?.readyState === WebSocket.OPEN ? 'Connected' : 'Disconnected'}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowSearch(!showSearch)}
-                >
-                  <Music className="w-4 h-4 mr-2" />
-                  {showSearch ? 'Hide Search' : 'Add Music'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowQueue(!showQueue)}
-                >
-                  Queue ({showQueue ? 'Hide' : 'Show'})
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPlayer(!showPlayer)}
-                >
-                  Player ({showPlayer ? 'Hide' : 'Show'})
-                </Button>
-                {isAdmin && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowDebug(!showDebug)}
-                    className="border-orange-500 text-orange-600 hover:bg-orange-50"
-                  >
-                    Debug ({showDebug ? 'Hide' : 'Show'})
-                  </Button>
-                )}
-              </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          </CardHeader>
-        </Card>
 
-        {/* Unified Player Component */}
-        {showPlayer && (
-          <Player 
-            spaceId={spaceId}
-            isAdmin={isAdmin}
-            userCount={connectedUsers}
-            userDetails={userDetails}
-            className="w-full"
-          />
-        )}
-
-        {/* Debug Section (Admin Only) */}
-        {showDebug && isAdmin && (
-          <DebugBatchQueue spaceId={spaceId} />
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Music Search */}
-          {showSearch && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Add Music</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col space-y-4">
-                  <p className="text-sm text-gray-600">
-                    {isAdmin ? 'Search and select multiple songs to add to the queue' : 'Search and add songs to the queue'}
-                  </p>
-                  <SearchSongPopup 
-                    onSelect={(track) => {
-                      console.log('Song selected:', track.name);
-                      // The Search component handles adding to queue internally
-                    }}
-                    onBatchSelect={handleBatchAddToQueue}
-                    buttonClassName="w-full"
-                    maxResults={12}
-                    isAdmin={true}
-                    enableBatchSelection={true}
-                    spaceId={spaceId}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Queue Manager */}
-          {showQueue && (
-            <Card className={showSearch ? '' : 'lg:col-span-2'}>
-              <CardHeader>
-                <CardTitle>Music Queue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <QueueManager 
-                  spaceId={spaceId} 
-                  isAdmin={isAdmin}
-                />
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Connected Users (Admin View) */}
-        {isAdmin && userDetails.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Connected Users ({connectedUsers})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {userDetails.map((userDetail, index) => (
-                  <div key={userDetail.userId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                        {userDetail.userId.slice(0, 2).toUpperCase()}
+            {/* Connected Users (Admin View) */}
+            {isAdmin && userDetails.length > 0 && (
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2 text-white">
+                    <Users className="w-5 h-5" />
+                    Connected Users ({connectedUsers})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {userDetails.map((userDetail, index) => (
+                      <div key={userDetail.userId} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                            {userDetail.userId.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-white">User {userDetail.userId.slice(0, 8)}</p>
+                            <p className="text-sm text-gray-400">
+                              {userDetail.isCreator ? 'Room Creator' : 'Listener'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {userDetail.isCreator && (
+                            <Badge variant="default" className="bg-purple-600">Creator</Badge>
+                          )}
+                          <div className="w-2 h-2 bg-green-500 rounded-full" title="Online"></div>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">User {userDetail.userId.slice(0, 8)}</p>
-                        <p className="text-sm text-gray-500">
-                          {userDetail.isCreator ? 'Room Creator' : 'Listener'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {userDetail.isCreator && (
-                        <Badge variant="default">Creator</Badge>
-                      )}
-                      <div className="w-2 h-2 bg-green-500 rounded-full" title="Online"></div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };

@@ -106,30 +106,14 @@ export async function POST(req:NextRequest) {
             }
         }
 
-        const smallImage = JSON.stringify(res.thumbnail.thumbnails[0].url);
+        // ✅ REMOVED: Stream creation moved to WebSocket handler for real-time processing
+        // This API route now only handles validation and rate limiting
         
-        const bigImage = JSON.stringify(res.thumbnail.thumbnails.at(-1).url);
-
-
-        const stream = await prisma.stream.create({
-            data : {
-                userId :data.creatorId,
-                addedBy : user.id,
-                url : data.url,
-                extractedId,
-                title : res.title,
-                smallImg : smallImage,
-                bigImg : bigImage,
-                type : "Youtube"
-            }
-        })
-
-        console.log(stream)
-
         return NextResponse.json({
-          ...stream ,
-          hasUpvoted: false,
-          upvotes : 0
+            message: "Use WebSocket 'add-to-queue' message to add songs",
+            extractedId,
+            title: res.title,
+            validated: true
         })
     } catch (e) {
         return NextResponse.json({

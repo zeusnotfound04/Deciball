@@ -35,6 +35,26 @@ body {
     background: hsl(var(--background));
     color: hsl(var(--foreground));
   }
+  :root {
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  .dark {
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
 }
 
 @layer components {
@@ -71,3 +91,64 @@ body {
     box-shadow: 0 0 20px white;
   }
 }
+
+/* Custom Sidebar Animations */
+[data-sidebar] {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-sidebar="collapsed"] {
+  width: 60px !important;
+}
+
+[data-sidebar="expanded"] {
+  width: 240px !important;
+}
+
+/* Smooth backdrop transitions */
+.sidebar-backdrop {
+  backdrop-filter: blur(4px);
+  transition: backdrop-filter 0.3s ease-in-out;
+}
+
+/* Enhanced hover animations for sidebar items */
+.sidebar-item {
+  transition: all 0.2s ease-in-out;
+  transform: translateX(0);
+}
+
+.sidebar-item:hover {
+  transform: translateX(2px);
+  background-color: rgba(55, 65, 81, 0.7);
+}
+
+/* Staggered animation support */
+.stagger-children > * {
+  opacity: 0;
+  transform: translateX(-10px);
+  animation: slideInLeft 0.3s ease-out forwards;
+}
+
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes slideInLeft {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/*
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+*/

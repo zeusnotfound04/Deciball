@@ -74,15 +74,6 @@ export default function SearchSongPopup({
   // Get socket and user context for WebSocket communication
   const { sendMessage, user: socketUser, socket } = useSocket();
   
-  console.log("🎵 SearchSongPopup rendered with props:", {
-    isAdmin,
-    enableBatchSelection,
-    hasOnBatchSelect: !!onBatchSelect,
-    selectedTracksCount: selectedTracks.length,
-    spaceId,
-    hasSpaceId: !!spaceId
-  });
-  
   // Add keyboard shortcut to open search with Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -137,12 +128,10 @@ export default function SearchSongPopup({
     setError(null);
     
     try {
-      console.log(`Searching for: "${query}"`);
       const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
       
       if (!res.ok) {
         const errorText = await res.text();
-        console.error('Error response:', errorText);
         try {
           const errorData = JSON.parse(errorText);
           setError(errorData.error || 'Error searching for tracks');
@@ -155,21 +144,15 @@ export default function SearchSongPopup({
       
       const data = await res.json();
       
-      console.log('Search response data:', data);
-      
       if (!data || !data.body.tracks || !Array.isArray(data.body.tracks.items)) {
-        console.error('Unexpected data structure:', data);
         setError('Unexpected data structure from API');
         setResults([]);
         return;
       }
       
       const tracks = data.body.tracks.items;
-
-      console.log(`Found ${tracks.length} tracks`);
       setResults(tracks.slice(0, maxResults));
     } catch (error) {
-      console.error('Error fetching search results:', error);
       setError('Failed to fetch search results');
       setResults([]);
     } finally {
@@ -237,33 +220,28 @@ export default function SearchSongPopup({
 
   // Helper function to try multiple YouTube search results until one works
   const tryMultipleResults = async (searchResults: any[], track: any, spaceId: string, autoPlay: boolean = false): Promise<boolean> => {
-    console.log(`🔄 Trying ${searchResults.length} search results for track: ${track.name}, autoPlay: ${autoPlay}`);
-    
     for (let i = 0; i < searchResults.length; i++) {
       const result = searchResults[i];
       const videoId = result.downloadUrl[0].url;
       
-      console.log(`🎯 Trying result ${i + 1}/${searchResults.length} for "${track.name}": ${videoId}`);
-      
       // Validate video ID format
       if (!videoId || videoId.length !== 11 || !/^[a-zA-Z0-9_-]+$/.test(videoId)) {
-        console.warn(`⚠️ Invalid video ID format: ${videoId}`);
         continue;
       }
 
       const finalUrl = `https://www.youtube.com/watch?v=${videoId}`;
       
       try {
-        // Send message and check success response
+        // ✅ Send WebSocket message with Spotify album image (not YouTube thumbnail)
         const success = sendMessage("add-to-queue", {
           spaceId: spaceId,
           userId: socketUser?.id || '',
           url: finalUrl,
-          autoPlay: autoPlay, // Add autoPlay flag
+          autoPlay: autoPlay,
           trackData: {
             title: track.name,
             artist: track.artists?.[0]?.name || 'Unknown Artist',
-            image: track.album?.images?.[0]?.url || '',
+            image: track.album?.images?.[0]?.url || '', // 🎯 SPOTIFY ALBUM IMAGE - NOT YOUTUBE
             source: 'Youtube',
             spotifyId: track.id,
             youtubeId: videoId,
@@ -272,49 +250,40 @@ export default function SearchSongPopup({
               username: socketUser?.username || 'Unknown'
             }
           },
-          // Legacy fields for backward compatibility
+          // Legacy fields for backward compatibility - ALSO USE SPOTIFY IMAGE
           title: track.name,
           artist: track.artists?.[0]?.name || 'Unknown Artist',
-          image: track.album?.images?.[0]?.url || '',
+          image: track.album?.images?.[0]?.url || '', // 🎯 SPOTIFY ALBUM IMAGE - NOT YOUTUBE
           source: 'Youtube',
           spotifyId: track.id,
           youtubeId: videoId
         });
 
         if (success) {
-          console.log(`✅ Successfully sent "${track.name}" using result ${i + 1} - assuming success`);
           return true;
         }
         
-        console.log(`❌ Failed to send result ${i + 1} for "${track.name}", trying next...`);
         // Wait a bit before trying next result
         await new Promise(resolve => setTimeout(resolve, 200));
       } catch (error) {
-        console.error(`❌ Error with result ${i + 1} for "${track.name}":`, error);
+        // Continue to next result
       }
     }
     
-    console.error(`❌ All ${searchResults.length} results failed for "${track.name}"`);
     return false;
   };
 
   const handleTrackSelect = async (track: Track) => {
-    console.log("🎵 handleTrackSelect called:", {
-      trackName: track.name,
-      enableBatchSelection,
-      isAdmin,
-      currentSelectionCount: selectedTracks.length
-    });
-    
+    // console.log("🎵 handleTrackSelect called:", {
+    //   trackName: track.name,
+    //   enableBatchSelection,
+    //   isAdmin,
+    //   currentSelectionCount: selectedTracks.length
+    // });
+    console.log("🎵 Selected track with Spotify image:", track.album?.images?.[0]?.url);
     // If batch selection is enabled and this is an admin, toggle selection
     if (enableBatchSelection && isAdmin) {
       const isSelected = selectedTracks.some(t => t.id === track.id);
-      console.log("🎵 Batch selection mode - toggling track:", {
-        trackName: track.name,
-        wasSelected: isSelected,
-        willBeSelected: !isSelected
-      });
-      
       if (isSelected) {
         setSelectedTracks(prev => prev.filter(t => t.id !== track.id));
       } else {
@@ -323,14 +292,9 @@ export default function SearchSongPopup({
       return;
     }
 
-    console.log("🎵 Single selection mode - adding to queue immediately");
-
     // Add song to queue via WebSocket
     try {
-      console.log("🎵 Processing Spotify track:", track.name);
-      
       const response = await axios.post("/api/spotify/getTrack", track);
-      console.log("🔍 Full API response:", response.data);
       
       if (!response.data?.body || response.data.body.length === 0) {
         throw new Error("No search results found for this track");
@@ -352,7 +316,6 @@ export default function SearchSongPopup({
       const success = await tryMultipleResults(searchResults, track, spaceId, true);
       
       if (success) {
-        console.log("✅ Song added to queue successfully");
         if (onSelect) {
           onSelect(track);
         }
@@ -361,7 +324,6 @@ export default function SearchSongPopup({
         throw new Error("Failed to add track - all video sources failed");
       }
     } catch (error) {
-      console.error('❌ Error adding selected track to queue:', error);
       
       // Provide more specific error messages
       if (error instanceof Error) {
@@ -386,38 +348,27 @@ export default function SearchSongPopup({
     if (selectedTracks.length === 0) return;
 
     try {
-      console.log("🎵 Adding multiple tracks to queue:", selectedTracks.length);
-      
       // Use spaceId prop instead of extracting from URL
       if (!spaceId) {
-        console.error("❌ No spaceId provided as prop");
         setError('Room ID not found. Please rejoin the room.');
         return;
       }
-      
-      console.log("🏠 Using spaceId for batch:", spaceId);
 
       // Process each selected track with fallback logic
       const results = [];
       let trackIndex = 0;
       for (const track of selectedTracks) {
         try {
-          console.log("🎵 Processing track:", track.name);
-          
           const response = await axios.post("/api/spotify/getTrack", track);
           const searchResults = response.data.body; 
           
           if (!searchResults || searchResults.length === 0) {
-            console.error("❌ No search results for track:", track.name);
             results.push({ track: track.name, success: false, error: "No search results" });
             continue;
           }
           
-          console.log(`🔍 Found ${searchResults.length} search results for "${track.name}"`);
-          
           // Auto-play the first song in batch selection
           const shouldAutoPlay = trackIndex === 0;
-          console.log(`🎵 Track ${trackIndex + 1}/${selectedTracks.length}: autoPlay = ${shouldAutoPlay}`);
           
           // Try multiple results using fallback logic
           const success = await tryMultipleResults(searchResults, track, spaceId, shouldAutoPlay);
@@ -428,31 +379,23 @@ export default function SearchSongPopup({
           // Small delay between tracks
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
-          console.error("❌ Error processing track:", track.name, error);
           results.push({ track: track.name, success: false, error: error instanceof Error ? error.message : "Unknown error" });
           trackIndex++;
         }
       }
 
-      // Log final results
+      // Show results summary
       const successful = results.filter(r => r.success).length;
       const failed = results.filter(r => !r.success).length;
-      
-      console.log(`📊 Batch selection complete: ${successful} successful, ${failed} failed`);
-      
-      if (failed > 0) {
-        console.log("❌ Failed tracks:", results.filter(r => !r.success).map(r => `${r.track}: ${r.error}`));
-      }
+      console.log(`Batch complete: ${successful} successful, ${failed} failed`);
 
       if (onBatchSelect) {
         onBatchSelect(selectedTracks);
       }
       
-      console.log("✅ Finished adding all selected tracks");
       setOpen(false);
       setSelectedTracks([]);
     } catch (error) {
-      console.error('Error adding selected tracks to queue:', error);
       setError('Failed to add selected tracks to queue');
     }
   };

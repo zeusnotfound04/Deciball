@@ -16,7 +16,6 @@ interface PlayerCoverProps {
 function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
   const { user, setShowAddDragOptions, emitMessage } = useUserStore();
   const { sendMessage } = useSocket();
-  
   // Use the new Zustand-based hook
   const { currentSong, isPlaying, setYouTubePlayer, youtubePlayer, pause, resume } = useAudio();
   const { setIsPlaying } = useAudioStore();
@@ -115,7 +114,8 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
       return "https://us-east-1.tixte.net/uploads/tanmay111-files.tixte.co/d61488c1ddafe4606fe57013728a7e84.jpg";
     }
   };
-  
+
+  console.log("Full Song Data ----->>>:", currentSong);
   // Remove this local playerRef since we're using the one from useAudio
   // const playerRef = useRef<any>(null);
 
@@ -340,7 +340,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
               width={300}
               className="cover z-10  aspect-square h-full object-cover  w-full"
               src={
-                cleanImageUrl(currentSong?.image?.[currentSong.image.length - 1]?.url || '')
+                cleanImageUrl(currentSong?.image?.[0]?.url || '')
               }
             />
           </div>

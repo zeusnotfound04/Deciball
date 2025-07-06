@@ -1,12 +1,8 @@
-import WebSocket from "ws";
+import jwt from 'jsonwebtoken';
 import { createClient, RedisClientType } from "redis";
-//@ts-ignore
-import youtubesearchapi from "youtube-search-api";
-import { Job, Queue, tryCatch, Worker } from "bullmq";
-import { PrismaClient } from "@prisma/client";
-import { getVideoId, isValidYoutubeURL } from "../utils/utils";
-import { MusicSourceManager } from "../handlers";
+import { WebSocket } from "ws";
 import crypto from "crypto";
+import { MusicSourceManager } from "../handlers/index";
 
 const redisUrl = process.env.REDIS_URL
 
@@ -69,6 +65,8 @@ type User = {
     userId: string;
     ws: WebSocket[];
     token: string;
+    username?: string;
+    email?: string;
 };
 
 type Space = {
@@ -85,12 +83,9 @@ export class RoomManager {
     public redisClient : RedisClientType;
     public publisher : RedisClientType;
     public subscriber : RedisClientType;
-    public prisma : PrismaClient;
-    public queue : Queue ;
-    public worker : Worker;
     public wsToSpace : Map<WebSocket, string>
     private timestampIntervals: Map<string, NodeJS.Timeout> = new Map();
-    private readonly TIMESTAMP_BROADCAST_INTERVAL = 5000; // Broadcast every 5 seconds (reduced frequency)
+    private readonly TIMESTAMP_BROADCAST_INTERVAL = 5000; // Broadcast every 5 seconds
 
     
     private constructor() {
@@ -120,14 +115,8 @@ export class RoomManager {
                 reconnectStrategy : () => 1000,
             }
         })
-        this.prisma = new PrismaClient();
+        
         this.musicSourceManager = new MusicSourceManager();
-        this.queue = new Queue(process.pid.toString(), {
-            connection
-        })
-        this.worker = new Worker(process.pid.toString(), this.processJob, {
-            connection,
-          });
         this.wsToSpace = new Map();
     }
 
@@ -137,48 +126,6 @@ export class RoomManager {
         }
         return RoomManager.instance;
     }
-
-
-    async processJob(job: Job) {
-      try{
-        const { data, name } = job;
-        if (name === "cast-vote") {
-          console.log("From the Process Job 💦 Going to caste the vote (btw em minor)")
-          await RoomManager.getInstance().adminCasteVote(
-            // data.creatorId,
-            data.userId,
-            data.streamId,
-            data.vote,
-            data.spaceId
-          );
-        } else if (name === "add-to-queue") {
-          console.log("🎵 Processing add-to-queue job:", data);
-          await RoomManager.getInstance().adminStreamHandler(
-            data.spaceId,
-            data.userId,
-            data.url,
-            data.existingActiveStream,
-            data.trackData,
-            data.autoPlay
-          );
-          console.log("✅ Finished processing add-to-queue job");
-        } else if (name === "play-next") {
-          await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId , data.url);
-        } else if (name === "remove-song") {
-          await RoomManager.getInstance().adminRemoveSong(
-            data.spaceId,
-            data.userId,
-            data.streamId
-          );
-        } else if (name === "empty-queue") {
-          await RoomManager.getInstance().adminEmptyQueue(data.spaceId);
-        }
-      } catch(error : any){
-        console.error("Error processing job:", error);
-        throw error; // Re-throw to mark job as failed
-      }
-        
-      }
     
 
 
@@ -186,10 +133,8 @@ export class RoomManager {
         await this.redisClient.connect();
         await this.publisher.connect();
         await this.subscriber.connect();
-        console.log("✅ Connected to Upstash Redis");
     }
     onSubscribeRoom(message: string, spaceId: string) {
-        console.log("Subscibe Room", spaceId);
         const { type, data } = JSON.parse(message);
         if (type === "new-stream") {
           RoomManager.getInstance().publishNewStream(spaceId, data);
@@ -210,8 +155,7 @@ export class RoomManager {
       }
 
 
-    async createRoom(spaceId: string) {
-        console.log(process.pid + ": createRoom: ", { spaceId });
+    async createRoom(spaceId: string, spaceName?: string) {
         if (!this.spaces.has(spaceId)) {
           this.spaces.set(spaceId, {
             users: new Map<string, User>(),
@@ -224,6 +168,15 @@ export class RoomManager {
               lastUpdated: Date.now()
             }
           });
+
+          // Cache space name in Redis if provided
+          if (spaceName) {
+            await this.redisClient.set(
+              `space-details-${spaceId}`,
+              JSON.stringify({ name: spaceName }),
+              { EX: 86400 } // Cache for 24 hours
+            );
+          }
         
           await this.subscriber.subscribe(spaceId, this.onSubscribeRoom);
         }
@@ -232,26 +185,30 @@ export class RoomManager {
 
 
     async addUser(userId: string, ws: WebSocket, token: string) {
-        console.log(`[addUser] Adding user ${userId} to users Map`);
         let user = this.users.get(userId);
+        
+        // Decode JWT token to extract user information
+        const userTokenInfo = this.decodeUserToken(token);
+        
         if (!user) {
-          console.log(`[addUser] Creating new user entry for ${userId}`);
+          // Store user info in Redis for future reference
+          if (userTokenInfo) {
+            await this.storeUserInfo(userId, {
+              username: userTokenInfo.username,
+              email: userTokenInfo.email
+            });
+          }
+          
           this.users.set(userId, {
             userId,
             ws: [ws],
             token,
+            username: userTokenInfo?.username,
+            email: userTokenInfo?.email
           });
-          console.log(`[addUser] User ${userId} added to users Map. Total users: ${this.users.size}`);
-          
-          // Log all users for debugging
-          console.log("All users:", Array.from(this.users.keys()));
         } else {
-          console.log(`[addUser] User ${userId} already exists, checking WebSocket connections`);
           if (!user.ws.some((existingWs : any ) => existingWs === ws)) {
             user.ws.push(ws);
-            console.log(`[addUser] Added new WebSocket connection for user ${userId}. Total connections: ${user.ws.length}`);
-          } else {
-            console.log(`[addUser] WebSocket connection already exists for user ${userId}`);
           }
         }
       }
@@ -263,43 +220,39 @@ export class RoomManager {
         creatorId: string,
         userId: string,
         ws: WebSocket,
-        token: string
+        token: string,
+        spaceName?: string
       ) {
-        console.log(`[joinRoom] User ${userId} attempting to join space ${spaceId}`);
-        console.log(`[joinRoom] CreatorId from token: ${creatorId}`);
-    
         let space = this.spaces.get(spaceId);
         let user = this.users.get(userId);
-        
-        console.log(`[joinRoom] Space exists: ${!!space}, User exists: ${!!user}`);
     
         if (!space) {
-          console.log(`[joinRoom] Creating new space: ${spaceId}`);
-          await this.createRoom(spaceId);
+          await this.createRoom(spaceId, spaceName);
           space = this.spaces.get(spaceId);
+        } else if (spaceName) {
+          // Update space name cache if provided and space already exists
+          await this.redisClient.set(
+            `space-details-${spaceId}`,
+            JSON.stringify({ name: spaceName }),
+            { EX: 86400 } // Cache for 24 hours
+          );
         }
     
         if (!user) {
-          console.log(`[joinRoom] Adding new user: ${userId}`);
           await this.addUser(userId, ws, token);
           user = this.users.get(userId);
-          console.log(`[joinRoom] User added to users Map: ${!!user}`);
         } else {
-          console.log(`[joinRoom] User exists, checking WebSocket connections`);
           if (!user.ws.some((existingWs : any) => existingWs === ws)) {
             user.ws.push(ws);
-            console.log(`[joinRoom] Added new WebSocket connection for user ${userId}`);
           }
         }
     
         this.wsToSpace.set(ws, spaceId);
-        console.log(`[joinRoom] Set wsToSpace mapping for WebSocket`);
     
         if (space && user) {
           // If space has no creator, set this user as creator
           if (!space.creatorId || space.creatorId === "") {
             space.creatorId = creatorId;
-            console.log(`[joinRoom] Set ${creatorId} as room creator`);
           }
           
           space.users.set(userId, user);
@@ -316,14 +269,11 @@ export class RoomManager {
             }
           });
           
-          console.log(`[joinRoom] User ${userId} added to space ${spaceId}. Total users in space: ${space.users.size}`);
-          console.log(`[joinRoom] Room creator: ${space.creatorId}, Is this user the creator: ${userId === space.creatorId}`);
-          
           // Send room info to the joining user first
           await this.sendRoomInfoToUser(spaceId, userId);
           
           // Then broadcast user update to all users in the room
-          this.broadcastUserUpdate(spaceId);
+          await this.broadcastUserUpdate(spaceId);
           
           // Send current queue to the newly joined user
           await this.sendCurrentQueueToUser(spaceId, userId);
@@ -334,7 +284,6 @@ export class RoomManager {
           // Send current playing song to the newly joined user
           await this.sendCurrentPlayingSongToUser(spaceId, userId);
         } else {
-          console.error(`[joinRoom] Failed to add user to space. Space: ${!!space}, User: ${!!user}`);
           throw new Error("Failed to add user to space");
         }
       }
@@ -353,21 +302,12 @@ export class RoomManager {
       }
 
     async adminEmptyQueue(spaceId: string) {
-        const room = this.spaces.get(spaceId);
-        const userId = this.spaces.get(spaceId)?.creatorId;
-        const user = this.users.get(userId as string);
-    
-        if (room && user) {
-          await this.prisma.stream.updateMany({
-            where: {
-              played: false,
-              spaceId: spaceId,
-            },
-            data: {
-              played: true,
-              playedTs: new Date(),
-            },
-          });
+        const space = this.spaces.get(spaceId);
+        if (space) {
+          // Clear Redis queue
+          await this.clearRedisQueue(spaceId);
+          
+          // Broadcast empty queue to all users
           await this.publisher.publish(
             spaceId,
             JSON.stringify({
@@ -377,11 +317,10 @@ export class RoomManager {
         }
       }
 
-    publishRemoveSong(spaceId : string , streamId : string){
-        console.log("publishRemoveSong")
+    publishRemoveSong(spaceId: string, streamId: string) {
         const space = this.spaces.get(spaceId);
-        space?.users.forEach((user , userId) => {
-            user?.ws.forEach((ws : WebSocket) => {
+        space?.users.forEach((user, userId) => {
+            user?.ws.forEach((ws: WebSocket) => {
                 ws.send(
                     JSON.stringify({
                         type: `remove-song/${spaceId}`,
@@ -390,52 +329,45 @@ export class RoomManager {
                           spaceId,
                         }
                     })
-                )
-                
+                );
             });
         });
     }
 
 
     
-    async adminRemoveSong(spaceId : string , userId : string , streamId : string  ){
-        console.log("adminRemoveSong")
+    async adminRemoveSong(spaceId: string, userId: string, streamId: string) {
         const user = this.users.get(userId);
         const creatorId = this.spaces.get(spaceId)?.creatorId;
 
-        if (user && userId == creatorId){
-            await this.prisma.stream.delete({
-                where : {
-                    id :streamId,
-                    spaceId : spaceId
-                }
-            })
-
-            await this.publisher.publish(
-                spaceId,
-                JSON.stringify({
-                    type : "remove-song",
-                    data :{
-                        streamId,
-                        spaceId
-                    }
-
-                })
-            )
-        } else {
-            user?.ws.forEach((ws : WebSocket) => {
-                ws.send(
+        if (user && userId == creatorId) {
+            // Remove from Redis queue
+            const removed = await this.removeSongFromRedisQueue(spaceId, streamId);
+            
+            if (removed) {
+                await this.publisher.publish(
+                    spaceId,
                     JSON.stringify({
-                        type : "error",
-                        data : {
-                            message : "You cant remove the song. You are not the host"
+                        type: "remove-song",
+                        data: {
+                            streamId,
+                            spaceId
                         }
                     })
-                )
-                
+                );
+            }
+        } else {
+            user?.ws.forEach((ws: WebSocket) => {
+                ws.send(
+                    JSON.stringify({
+                        type: "error",
+                        data: {
+                            message: "You cant remove the song. You are not the host"
+                        }
+                    })
+                );
             });
         }
-
     }
 
 
@@ -453,185 +385,19 @@ export class RoomManager {
       }
 
 
-    async PlayNext(spaceId: string, userId: string, url: string) {
-        const space = this.spaces.get(spaceId);
-        const creatorId = space?.creatorId;
-        console.log("PlayNext", creatorId, userId);
-    
-        const targetUser = this.users.get(userId);
-        if (!targetUser || !creatorId || !space) return;
-    
-        const extractedId = getVideoId(url);
-        if (!extractedId) {
-            targetUser?.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "error",
-                        data: { message: "Invalid YouTube URL" },
-                    }));
-                }
-            });
-            return;
-        }
-    
-        let res;
-        try {
-            res = await youtubesearchapi.GetVideoDetails(extractedId);
-        } catch (error) {
-            console.error("YouTube API error:", error);
-            targetUser?.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "error",
-                        data: { message: "Failed to fetch video details" },
-                    }));
-                }
-            });
-            return;
-        }
-    
-        if (!res.thumbnail) {
-            targetUser?.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "error",
-                        data: { message: "Unable to fetch video details" },
-                    }));
-                }
-            });
-            return;
-        }
-    
-        const stream = await this.prisma.stream.create({
-            data: {
-                id: crypto.randomUUID(),
-                userId: creatorId,
-                url,
-                extractedId,
-                type: "Youtube",
-                addedBy: userId,
-                title: res.title ?? "Can't find video",
-                smallImg: res.thumbnail.thumbnails[0].url,
-                bigImg: res.thumbnail.thumbnails.at(-1).url,
-                spaceId,
-            },
-        });
-    
-        await Promise.all([
-            this.prisma.currentStream.upsert({
-                where: { spaceId },
-                update: { spaceId, userId, streamId: stream.id },
-                create: { id: crypto.randomUUID(), spaceId, userId, streamId: stream.id },
-            }),
-            this.prisma.stream.update({
-                where: { id: stream.id },
-                data: { played: true, playedTs: new Date() },
-            }),
-        ]);
-
-        // Update in-memory playback state - THIS WAS MISSING!
-        const now = Date.now();
-        space.playbackState = {
-            currentSong: {
-                id: stream.id,
-                title: stream.title,
-                artist: stream.artist || undefined,
-                url: stream.url,
-                duration: stream.duration || undefined,
-                extractedId: stream.extractedId
-            },
-            startedAt: now,
-            pausedAt: null,
-            isPlaying: true,
-            lastUpdated: now
-        };
-        console.log("🎵 Updated playback state for space", spaceId, "with song:", stream.title);
-
-        // Broadcast the new current song to all users
-        const songData = {
-            ...stream,
-            voteCount: 0 // New song has no votes yet
-        };
-
-        space.users.forEach((user) => {
-            user.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "current-song-update",
-                        data: { song: songData }
-                    }));
-                }
-            });
-        });
-    
-        try {
-            await this.publisher.publish(spaceId, JSON.stringify({ 
-                type: "play-next",
-                data: { 
-                    song: songData
-                }
-            }));
-        } catch (error) {
-            console.error("Publish error:", error);
-        }
-    }
-    
-
-    async adminPlayNext(spaceId: string, userId: string, URL?: string) {
-        console.log("🎵 adminPlayNext called", { spaceId, userId, URL });
-        
+    async adminPlayNext(spaceId: string, userId: string) {
         const space = this.spaces.get(spaceId);
         const creatorId = space?.creatorId;
         const targetUser = this.users.get(userId);
         
         if (!targetUser || !creatorId || !space) {
-            console.log("❌ User, creator, or space not found", { targetUser: !!targetUser, creatorId, space: !!space });
             return;
         }
 
-        // First, mark the currently playing song as played (if any)
-        const currentStream = await this.prisma.currentStream.findUnique({
-            where: { spaceId },
-            include: { stream: true }
-        });
-        
-        if (currentStream && currentStream.stream && !currentStream.stream.played) {
-            console.log("🎵 Marking current song as played:", currentStream.stream.title);
-            await this.prisma.stream.update({
-                where: { id: currentStream.stream.id },
-                data: { played: true, playedTs: new Date() }
-            });
-        }
+        // Get the next song from Redis queue
+        const nextSong = await this.getNextSongFromRedisQueue(spaceId);
 
-        // Get the next song from the queue (highest voted, then oldest)
-        const nextStream = await this.prisma.stream.findFirst({
-            where: {
-                spaceId: spaceId,
-                played: false
-            },
-            include: {
-                upvotes: true,
-                addedByUser: {
-                    select: {
-                        id: true,
-                        username: true
-                    }
-                }
-            },
-            orderBy: [
-                {
-                    upvotes: {
-                        _count: "desc"
-                    }
-                },
-                {
-                    createAt: "asc"
-                }
-            ]
-        });
-
-        if (!nextStream) {
-            console.log("❌ No songs in queue to play");
+        if (!nextSong) {
             // Notify users that queue is empty and clear playback state
             space.playbackState = {
                 currentSong: null,
@@ -654,72 +420,54 @@ export class RoomManager {
             return;
         }
 
-        console.log("🎵 Playing next song:", nextStream.title);
-
-        // Set the next song as current stream (but DON'T mark it as played yet)
-        await this.prisma.currentStream.upsert({
-            where: { spaceId },
-            update: { spaceId, userId: creatorId, streamId: nextStream.id },
-            create: { id: crypto.randomUUID(), spaceId, userId: creatorId, streamId: nextStream.id },
-        });
+        // Remove the song from the queue (it's now being played)
+        await this.removeSongFromRedisQueue(spaceId, nextSong.id);
 
         // Update in-memory playback state
-        if (space) {
-            const now = Date.now();
-            space.playbackState = {
-                currentSong: {
-                    id: nextStream.id,
-                    title: nextStream.title,
-                    artist: nextStream.artist || undefined,
-                    url: nextStream.url,
-                    duration: nextStream.duration || undefined,
-                    extractedId: nextStream.extractedId
-                },
-                startedAt: 0, // Will be set when admin starts playback
-                pausedAt: null,
-                isPlaying: false, // Always start paused
-                lastUpdated: now
-            };
-            console.log("🎵 Updated playback state for space", spaceId, "with song:", nextStream.title);
-        }
+        const now = Date.now();
+        space.playbackState = {
+            currentSong: {
+                id: nextSong.id,
+                title: nextSong.title,
+                artist: nextSong.artist || undefined,
+                url: nextSong.url,
+                duration: nextSong.duration || undefined,
+                extractedId: nextSong.extractedId
+            },
+            startedAt: 0, // Will be set when admin starts playback
+            pausedAt: null,
+            isPlaying: false, // Always start paused
+            lastUpdated: now
+        };
 
         // Broadcast the new current song to all users
-        if (space) {
-            const songData = {
-                ...nextStream,
-                voteCount: nextStream.upvotes.length,
-                addedByUser: nextStream.addedByUser || {
-                    id: nextStream.userId,
-                    username: 'Unknown User'
+        const songData = {
+            ...nextSong,
+            voteCount: nextSong.voteCount || 0
+        };
+
+        space.users.forEach((user) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "current-song-update",
+                        data: { song: songData }
+                    }));
                 }
-            };
-
-            space.users.forEach((user) => {
-                user.ws.forEach((ws: WebSocket) => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            type: "current-song-update",
-                            data: { song: songData }
-                        }));
-                    }
-                });
             });
+        });
 
-            // Start timestamp broadcasting for synchronized playback
-            this.startTimestampBroadcast(spaceId);
-        }
+        // Start timestamp broadcasting for synchronized playback
+        this.startTimestampBroadcast(spaceId);
 
-        // Broadcast updated queue (without the now-playing song)
-        await this.broadcastQueueUpdate(spaceId);
+        // Broadcast updated queue
+        await this.broadcastRedisQueueUpdate(spaceId);
 
         try {
             await this.publisher.publish(spaceId, JSON.stringify({ 
                 type: "play-next",
                 data: { 
-                    song: {
-                        ...nextStream,
-                        voteCount: nextStream.upvotes.length
-                    }
+                    song: songData
                 }
             }));
         } catch (error) {
@@ -733,79 +481,61 @@ export class RoomManager {
         vote: "upvote" | "downvote",
         votedBy: string
     ) {
-        console.log(process.pid + " publishNewVote");
         const spaces = this.spaces.get(spaceId);
-        spaces?.users.forEach((user , userId ) => {
-            user?.ws.forEach((ws : WebSocket)=> {
+        spaces?.users.forEach((user, userId) => {
+            user?.ws.forEach((ws: WebSocket) => {
                 ws.send(
                     JSON.stringify({
-                        type : `new-vote/${spaceId}`,
-                        data : {
+                        type: `new-vote/${spaceId}`,
+                        data: {
                             vote,
                             streamId,
                             votedBy,
                             spaceId
                         }
                     })
-                )
-            })
-        } )
+                );
+            });
+        });
     }
 
-    async adminCasteVote (
-        // creatorId : string ,
-        userId : string,
-        streamId : string,
-        vote : string,
-        spaceId : string
+    async adminCasteVote(
+        userId: string,
+        streamId: string,
+        vote: string,
+        spaceId: string
     ) {
-
-
-        console.log(process.pid + "adminCaste");
-
-        console.log("Inside the admin caste vote 🥶")
-        if (vote === "upvote"){
-            await this.prisma.upvote.create({
-              data: {
-                id : crypto.randomUUID(),
-                userId ,
-                streamId 
-              }
-            })
+        // Store vote in Redis (temporary storage for the session)
+        const voteKey = `vote:${spaceId}:${streamId}:${userId}`;
+        
+        if (vote === "upvote") {
+            await this.redisClient.set(voteKey, "upvote", { EX: 3600 }); // Expire after 1 hour
         } else {
-            await this.prisma.upvote.delete({
-                where : {
-                    userId_streamId : {
-                        userId,
-                        streamId
-                    }
-                }
-            })
+            await this.redisClient.del(voteKey);
         }
 
         await this.redisClient.set(
             `lastVoted-${spaceId}-${userId}`,
             new Date().getTime(),
             {
-                EX : TIME_SPAN_FOR_VOTE /1000,
+                EX: TIME_SPAN_FOR_VOTE / 1000,
             }
-        )
-
+        );
 
         await this.publisher.publish(
             spaceId,
             JSON.stringify({
-                type : "new-type",
-                data : {
+                type: "new-vote",
+                data: {
                     streamId,
                     vote,
-                    voteBy : userId
+                    votedBy: userId
                 }
             })
         );
 
         // Broadcast updated queue with new vote counts
-        await this.broadcastQueueUpdate(spaceId);
+        await this.broadcastRedisQueueUpdate(spaceId);
     }
 
 
@@ -815,65 +545,39 @@ export class RoomManager {
       vote: "upvote" | "downvote",
       spaceId: string
   ) {
-      console.log(process.pid + "casteVote")
-      console.log("Inside the casting vote function 🥳")
-      
-      const space = this.spaces.get(spaceId)
-      const currentUser = this.users.get(userId)
+      const space = this.spaces.get(spaceId);
+      const currentUser = this.users.get(userId);
       const creatorId = this.spaces.get(spaceId)?.creatorId;
       const isCreator = currentUser?.userId === creatorId;
-  
-      console.log(userId)
-      console.log(streamId)
-      console.log(vote)
-      console.log(spaceId)
-    
-      // Make sure space and currentUser exist
-      // if(!space || !currentUser){
-      //     return;
-      // }
 
-      console.log("Calling the admin caste vote function")
-          // Fix: Match the parameters with the adminCasteVote function
-          await this.adminCasteVote(
-              userId,
-              streamId,
-              vote,
-              spaceId
-          );
-  
-      if (!isCreator){
+      if (!isCreator) {
           const lastVoted = await this.redisClient.get(
               `lastVoted-${spaceId}-${userId}`
-          )
-          if (lastVoted){
-              currentUser?.ws.forEach((ws : WebSocket)=> {
+          );
+          if (lastVoted) {
+              currentUser?.ws.forEach((ws: WebSocket) => {
                   ws.send(
                       JSON.stringify({
-                          type : "error",
-                          data : {
-                              message : "You can vote after 20 mins"
+                          type: "error",
+                          data: {
+                              message: "You can vote after 20 mins"
                           }
                       })
-                  )
+                  );
               });
               return;
-        }
-          
-          console.log("Calling the admin caste vote function")
-          // Fix: Match the parameters with the adminCasteVote function
-          await this.adminCasteVote(
-              userId,
-              streamId,
-              vote,
-              spaceId
-          );
+          }
       }
+      
+      await this.adminCasteVote(
+          userId,
+          streamId,
+          vote,
+          spaceId
+      );
   }
 
     publishNewStream(spaceId: string, data: any) {
-        console.log(process.pid + ": PublishNewStream");
-        console.log("Publish New Stream", spaceId);
         const space = this.spaces.get(spaceId);
     
         if (space) {
@@ -892,258 +596,10 @@ export class RoomManager {
         }
     }
     
-    
-    async adminStreamHandler(
-        spaceId : string,
-        userId : string,
-        url : string,
-        existingActiveStream? : any,
-        trackData? : any,
-        autoPlay? : boolean
-        ){
-            console.log(process.pid+"adminAddStreamHandler")
-            console.log("🎵 adminAddStreamHandler - spaceId:", spaceId)
-            console.log("🎵 adminAddStreamHandler - trackData:", trackData)
-            console.log("🎵 adminAddStreamHandler - autoPlay:", autoPlay)
-            const room = this.spaces.get(spaceId)
-            const currentUser = this.users.get(userId)
+    // ========================================
+    // TIMESTAMP BROADCASTING SYSTEM
+    // ========================================
 
-             if (!this.musicSourceManager.validateUrl(url)) {
-            currentUser?.ws.forEach((ws: WebSocket) => {
-                ws.send(
-                    JSON.stringify({
-                        type: "error",
-                        data: {
-                            message: "Invalid music URL. Supported: YouTube, Spotify"
-                        }
-                    })
-                );
-            });
-            return;
-        }
-            // if(!room || typeof existingActiveStream !== "number"){
-            //     return
-            // }
-        await this.redisClient.set(
-            `queue-length-${spaceId}`,
-            existingActiveStream + 1
-        );
-
-        // Get track details using the unified interface
-        const trackDetails = await this.musicSourceManager.getTrackDetails(url);
-
-        if (!trackDetails) {
-            currentUser?.ws.forEach((ws: WebSocket) => {
-                ws.send(
-                    JSON.stringify({
-                        type: "error",
-                        data: {
-                            message: "Could not fetch track details"
-                        }
-                    })
-                );
-            });
-            return;
-        }
-         const stream = await this.prisma.stream.create({
-            data: {
-                id: crypto.randomUUID(),
-                userId: userId,
-                url: url,
-                type: trackDetails.source,
-
-                extractedId: trackDetails.extractedId,
-                title: trackDetails.title,
-                artist: trackDetails.artist,
-                album: trackDetails.album,
-                duration: trackDetails.duration,
-                smallImg: trackDetails.smallImg,
-                bigImg: trackDetails.bigImg,
-                privousURL: trackDetails.previewUrl,
-                addedBy: userId,
-                spaceId: spaceId
-            }
-        });
-
-        await this.redisClient.set(`${spaceId}-${url}`, new Date().getTime(), {
-            EX: TIME_SPAN_FOR_REPEAT / 1000,
-        });
-
-        await this.redisClient.set(
-            `lastAdded-${spaceId}-${userId}`,
-            new Date().getTime(),
-            {
-                EX: TIME_SPAN_FOR_REPEAT / 1000
-            }
-        );
-
-        await this.publisher.publish(
-            spaceId,
-            JSON.stringify({
-                type: "new-stream",
-                data: {
-                    ...stream,
-                    hasUpvoted: false,
-                    upvotes: 0,
-                },
-            })
-        );
-
-        // Broadcast song-added event to all users in the space
-        const space = this.spaces.get(spaceId);
-        if (space) {
-            // Get user data from database to include proper username
-            const addedByUser = await this.prisma.user.findUnique({
-                where: { id: userId },
-                select: { id: true, username: true }
-            });
-
-            const songData = {
-                ...stream,
-                voteCount: 0,
-                addedByUser: addedByUser || {
-                    id: userId,
-                    username: 'Unknown User'
-                }
-            };
-
-            space.users.forEach((user) => {
-                user.ws.forEach((ws: WebSocket) => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            type: "song-added",
-                            data: { 
-                                song: songData,
-                                autoPlay: autoPlay || false
-                            }
-                        }));
-                    }
-                });
-            });
-        }
-
-        // Broadcast updated queue to all users
-        // await this.broadcastQueueUpdate(spaceId); // TODO: Implement this method if needed
-
-        // Auto-play logic: If this is the first song in an empty queue, start playing it
-        const currentQueueLength = await this.prisma.stream.count({
-            where: {
-                spaceId: spaceId,
-                played: false,
-            },
-        });
-
-        // Check if there's currently a playing song
-        const currentPlaying = await this.prisma.currentStream.findFirst({
-            where: { spaceId: spaceId },
-            include: { stream: true }
-        });
-
-        console.log("🎵 Auto-play check:", { 
-            queueLength: currentQueueLength, 
-            hasCurrentlyPlaying: !!currentPlaying,
-            autoPlay: autoPlay 
-        });
-
-        // If this is the first song or auto-play is explicitly requested, and nothing is currently playing
-        if ((currentQueueLength === 1 || autoPlay) && !currentPlaying) {
-            console.log("🎵 Auto-starting playback for first song");
-            
-            // Get the stream we just created to play it
-            const streamToPlay = await this.prisma.stream.findFirst({
-                where: {
-                    spaceId: spaceId,
-                    played: false
-                },
-                orderBy: {
-                    id: 'asc' // Get the oldest unplayed song
-                }
-            });
-
-            if (streamToPlay) {
-                // Set this song as currently playing
-                await this.prisma.currentStream.upsert({
-                    where: { spaceId: spaceId },
-                    update: {
-                        streamId: streamToPlay.id,
-                        userId: streamToPlay.userId
-                    },
-                    create: {
-                        spaceId: spaceId,
-                        streamId: streamToPlay.id,
-                        userId: streamToPlay.userId
-                    }
-                });
-
-                // Get stream with upvotes for frontend
-                const streamWithVotes = await this.prisma.stream.findUnique({
-                    where: { id: streamToPlay.id },
-                    include: {
-                        upvotes: {
-                            select: {
-                                userId: true
-                            }
-                        }
-                    }
-                });
-
-                if (streamWithVotes && space) {
-                    // Get user data from database
-                    const addedByUser = await this.prisma.user.findUnique({
-                        where: { id: streamWithVotes.userId },
-                        select: { id: true, username: true }
-                    });
-
-                    const songData = {
-                        ...streamWithVotes,
-                        voteCount: streamWithVotes.upvotes?.length || 0,
-                        addedByUser: addedByUser || {
-                            id: streamWithVotes.userId,
-                            username: 'Unknown User'
-                        }
-                    };
-
-                    // Update playback state for the new song
-                    const now = Date.now();
-                    space.playbackState = {
-                        currentSong: {
-                            id: songData.id,
-                            title: songData.title,
-                            artist: songData.artist || undefined,
-                            url: songData.url,
-                            duration: songData.duration || undefined,
-                            extractedId: songData.extractedId
-                        },
-                        startedAt: now,
-                        pausedAt: null,
-                        isPlaying: true,
-                        lastUpdated: now
-                    };
-
-                    // Broadcast current-song-update to start playback
-                    if (space) {
-                        space.users.forEach((user) => {
-                            user.ws.forEach((ws: WebSocket) => {
-                                if (ws.readyState === WebSocket.OPEN) {
-                                    ws.send(JSON.stringify({
-                                        type: "current-song-update",
-                                        data: { song: songData }
-                                    }));
-                                }
-                            });
-                        });
-
-                        // Start timestamp broadcasting for synchronized playback
-                        this.startTimestampBroadcast(spaceId);
-                    }
-
-                    console.log("✅ Auto-started playback for song:", streamWithVotes.title);
-                }
-            }
-        }
-    }
-
-    // Start timestamp broadcasting for a space
     private startTimestampBroadcast(spaceId: string) {
         // Clear existing interval if any
         this.stopTimestampBroadcast(spaceId);
@@ -1153,7 +609,6 @@ export class RoomManager {
         }, this.TIMESTAMP_BROADCAST_INTERVAL);
         
         this.timestampIntervals.set(spaceId, interval);
-        console.log(`🕐 Started timestamp broadcasting for space ${spaceId}`);
     }
 
     // Stop timestamp broadcasting for a space
@@ -1162,7 +617,6 @@ export class RoomManager {
         if (interval) {
             clearInterval(interval);
             this.timestampIntervals.delete(spaceId);
-            console.log(`🕐 Stopped timestamp broadcasting for space ${spaceId}`);
         }
     }
 
@@ -1201,12 +655,6 @@ export class RoomManager {
             songId: playbackState.currentSong?.id,
             totalDuration: playbackState.currentSong?.duration
         };
-
-        console.log(`📡 Broadcasting timestamp for space ${spaceId}:`, {
-            currentTime: timestampData.currentTime,
-            isPlaying: timestampData.isPlaying,
-            songId: timestampData.songId
-        });
 
         // Broadcast to all users in the space
         space.users.forEach((user) => {
@@ -1312,10 +760,8 @@ export class RoomManager {
         // Start broadcasting timestamps
         this.startTimestampBroadcast(spaceId);
 
-        // Immediately broadcast current state
+        // Send immediately broadcast current state
         await this.broadcastCurrentTimestamp(spaceId);
-        
-        console.log(`▶️ Playback started for space ${spaceId}`);
     }
 
     async handlePlaybackPause(spaceId: string, userId: string) {
@@ -1346,23 +792,17 @@ export class RoomManager {
 
         // Send final timestamp before pausing
         await this.broadcastCurrentTimestamp(spaceId);
-        
-        console.log(`⏸️ Playback paused for space ${spaceId}`);
     }
 
-    async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {
-        console.log(`⏩ [StreamManager] handlePlaybackSeek called - spaceId: ${spaceId}, userId: ${userId}, seekTime: ${seekTime}`);
-        
+    async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {        
         const space = this.spaces.get(spaceId);
         if (!space) {
-            console.log(`❌ [StreamManager] Space ${spaceId} not found for seek operation`);
             return;
         }
 
         const now = Date.now();
         
         // IMPORTANT: Stop timestamp broadcasting during seek to prevent conflicts
-        console.log(`⏩ [StreamManager] Temporarily stopping timestamp broadcast during seek`);
         this.stopTimestampBroadcast(spaceId);
         
         // Update playback state to the new seek position
@@ -1371,10 +811,7 @@ export class RoomManager {
         space.playbackState.isPlaying = true; // Ensure playing state
         space.playbackState.lastUpdated = now;
 
-        console.log(`⏩ [StreamManager] Updated playback state - startedAt: ${space.playbackState.startedAt}, seekTime: ${seekTime}`);
-
         // Broadcast seek command to all users in the space
-        let messagesSent = 0;
         space.users.forEach((user, userIdInSpace) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -1387,23 +824,17 @@ export class RoomManager {
                             forceSync: true // Flag to indicate this is a forced sync
                         }
                     }));
-                    messagesSent++;
                 }
             });
         });
 
-        console.log(`⏩ [StreamManager] Broadcasted seek event to ${messagesSent} WebSocket connections`);
-
         // Wait a moment for seek to settle, then restart timestamp broadcasting
         setTimeout(async () => {
-            console.log(`⏩ [StreamManager] Restarting timestamp broadcast after seek`);
             this.startTimestampBroadcast(spaceId);
             
             // Send one immediate timestamp to confirm the new position
             await this.broadcastCurrentTimestamp(spaceId);
         }, 2000); // Wait 2 seconds before resuming broadcasts - longer than frontend seeking duration
-        
-        console.log(`⏩ [StreamManager] Playback seeked to ${seekTime}s for space ${spaceId} by user ${userId}`);
     }
 
     // Sync new user to current playback state including timestamp
@@ -1413,7 +844,6 @@ export class RoomManager {
             setTimeout(async () => {
                 await this.sendCurrentTimestampToUser(spaceId, userId);
             }, 100);
-            console.log(`🔄 Synced user ${userId} to playback state in space ${spaceId}`);
         } catch (error) {
             console.error(`Error syncing user ${userId} to playback:`, error);
         }
@@ -1428,7 +858,6 @@ export class RoomManager {
             // Remove space
             this.spaces.delete(spaceId);
             
-            console.log(`🗑️ Destroyed space ${spaceId} and stopped timestamp broadcasting`);
             return true;
         } catch (error) {
             console.error(`Error destroying space ${spaceId}:`, error);
@@ -1443,23 +872,19 @@ export class RoomManager {
             const user = this.users.get(userId);
 
             if (!space || !user) {
-                console.log(`Space or user not found for leave room: ${spaceId}, ${userId}`);
                 return false;
             }
 
             // Remove user from space
             space.users.delete(userId);
-            
-            console.log(`User ${userId} left space ${spaceId}. Remaining users: ${space.users.size}`);
 
             // If no users left, stop timestamp broadcasting and clean up
             if (space.users.size === 0) {
                 this.stopTimestampBroadcast(spaceId);
                 this.destroySpace(spaceId);
-                console.log(`🛑 Last user left space ${spaceId}, stopped timestamp broadcasting`);
             } else {
                 // Broadcast user update to remaining users
-                this.broadcastUserUpdate(spaceId);
+                await this.broadcastUserUpdate(spaceId);
             }
 
             return true;
@@ -1470,9 +895,7 @@ export class RoomManager {
     }
 
     // Method to handle user disconnection
-    disconnect(ws: WebSocket) {
-        console.log("Handling user disconnect");
-        
+    async disconnect(ws: WebSocket) {
         // Find the space this WebSocket belongs to
         const spaceId = this.wsToSpace.get(ws);
         
@@ -1503,17 +926,14 @@ export class RoomManager {
                 // If space is empty, stop timestamp broadcasting and clean up
                 if (space.users.size === 0) {
                     this.stopTimestampBroadcast(spaceId);
-                    console.log(`🛑 Last user left space ${spaceId}, stopped timestamp broadcasting`);
                     // Optionally clean up the space
                     // this.spaces.delete(spaceId);
                 } else {
                     // Broadcast user update to remaining users
-                    this.broadcastUserUpdate(spaceId);
+                    await this.broadcastUserUpdate(spaceId);
                 }
             }
         }
-        
-        console.log(`User ${disconnectedUserId} disconnected from space ${spaceId}`);
     }
 
     // Helper methods for user management and communication
@@ -1523,8 +943,12 @@ export class RoomManager {
         
         if (!user || !space) return;
         
+        // Get space name from Redis cache
+        const spaceName = await this.getSpaceName(spaceId);
+        
         const roomInfo = {
             spaceId,
+            spaceName,
             creatorId: space.creatorId,
             userCount: space.users.size,
             isCreator: userId === space.creatorId
@@ -1540,11 +964,27 @@ export class RoomManager {
         });
     }
 
-    broadcastUserUpdate(spaceId: string) {
+    async broadcastUserUpdate(spaceId: string) {
         const space = this.spaces.get(spaceId);
         if (!space) return;
         
         const userList = Array.from(space.users.keys());
+        
+        // Get space name from Redis cache
+        const spaceName = await this.getSpaceName(spaceId);
+        
+        // Get user details with real names from Redis cache
+        const userDetails = await Promise.all(
+            userList.map(async (userId) => {
+                const userInfo = await this.getUserInfo(userId);
+                return {
+                    userId,
+                    name: userInfo?.username || `User ${userId.slice(0, 8)}`,
+                    imageUrl: '',
+                    isCreator: userId === space.creatorId
+                };
+            })
+        );
         
         space.users.forEach((user, userId) => {
             user.ws.forEach((ws: WebSocket) => {
@@ -1552,8 +992,11 @@ export class RoomManager {
                     ws.send(JSON.stringify({
                         type: "user-update",
                         data: {
+                            spaceName,
+                            userCount: space.users.size,
+                            userDetails: userDetails,
                             users: userList,
-                            userCount: space.users.size
+                            connectedUsers: space.users.size
                         }
                     }));
                 }
@@ -1627,57 +1070,28 @@ export class RoomManager {
         if (!space) return;
         
         try {
-            const queue = await this.getQueueWithVotes(spaceId);
+            const queue = await this.getRedisQueue(spaceId);
+            
+            // Add vote counts to each song
+            const queueWithVotes = await Promise.all(
+                queue.map(async (song) => ({
+                    ...song,
+                    voteCount: await this.getSongVoteCount(spaceId, song.id)
+                }))
+            );
             
             space.users.forEach((user, userId) => {
                 user.ws.forEach((ws: WebSocket) => {
                     if (ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({
                             type: "queue-update",
-                            data: { queue }
+                            data: { queue: queueWithVotes }
                         }));
                     }
                 });
             });
         } catch (error) {
             console.error("Error broadcasting queue update:", error);
-        }
-    }
-
-    // Method to get queue with vote information
-    async getQueueWithVotes(spaceId: string) {
-        try {
-            const streams = await this.prisma.stream.findMany({
-                where: {
-                    spaceId: spaceId,
-                    played: false
-                },
-                include: {
-                    upvotes: {
-                        select: {
-                            userId: true
-                        }
-                    },
-                    addedByUser: {
-                        select: {
-                            id: true,
-                            username: true
-                        }
-                    }
-                },
-                orderBy: {
-                    createAt: 'asc'
-                }
-            });
-            
-            return streams.map(stream => ({
-                ...stream,
-                upvoteCount: stream.upvotes.length,
-                upvotedBy: stream.upvotes.map(vote => vote.userId)
-            }));
-        } catch (error) {
-            console.error("Error getting queue with votes:", error);
-            return [];
         }
     }
 
@@ -1714,8 +1128,6 @@ export class RoomManager {
 
             // Set expiration for song data (24 hours)
             await this.redisClient.expire(songKey, 86400);
-            
-            console.log(`🎵 Added song to Redis queue: ${song.title} in space ${spaceId}`);
         } catch (error) {
             console.error('Error adding song to Redis queue:', error);
             throw error;
@@ -1840,8 +1252,6 @@ export class RoomManager {
             
             // Clear the queue
             await this.redisClient.del(queueKey);
-            
-            console.log(`🗑️ Cleared Redis queue for space: ${spaceId}`);
         } catch (error) {
             console.error('Error clearing Redis queue:', error);
         }
@@ -1863,7 +1273,6 @@ export class RoomManager {
         try {
             const currentKey = `current:${spaceId}`;
             await this.redisClient.set(currentKey, JSON.stringify(song), { EX: 86400 }); // 24 hour expiry
-            console.log(`🎵 Set current playing song: ${song.title} in space ${spaceId}`);
         } catch (error) {
             console.error('Error setting current playing song:', error);
         }
@@ -1999,13 +1408,11 @@ export class RoomManager {
 
     // Updated addToQueue method using Redis
     async addToQueueRedis(spaceId: string, userId: string, url: string, trackData?: any, autoPlay?: boolean): Promise<void> {
-        console.log("🎵 addToQueueRedis called", { spaceId, userId, url, trackData, autoPlay });
         
         const space = this.spaces.get(spaceId);
         const currentUser = this.users.get(userId);
         
         if (!space || !currentUser) {
-            console.log("❌ Room or User not defined");
             return;
         }
 
@@ -2045,6 +1452,10 @@ export class RoomManager {
         }
 
         // Create queue song object
+        // Priority: Use Spotify album image from trackData if available, fallback to music source manager images
+        const primaryImage = trackData?.image || trackDetails.smallImg;
+        const secondaryImage = trackData?.image || trackDetails.bigImg;
+        
         const queueSong: QueueSong = {
             id: crypto.randomUUID(),
             title: trackDetails.title,
@@ -2053,8 +1464,8 @@ export class RoomManager {
             url: trackDetails.url,
             extractedId: trackDetails.extractedId,
             source: trackDetails.source as 'Youtube' | 'Spotify',
-            smallImg: trackDetails.smallImg,
-            bigImg: trackDetails.bigImg,
+            smallImg: primaryImage,
+            bigImg: secondaryImage,
             userId: userId,
             addedAt: Date.now(),
             duration: trackDetails.duration,
@@ -2096,40 +1507,26 @@ export class RoomManager {
         const currentPlaying = await this.getCurrentPlayingSong(spaceId);
         
         if ((queueLength === 0 || autoPlay) && !currentPlaying) {
-            console.log("🎵 Loading first song in queue (but not auto-starting playback)");
             await this.playNextFromRedisQueue(spaceId, userId);
         }
     }
 
     // Updated adminPlayNext method using Redis
-    async playNextFromRedisQueue(spaceId: string, userId: string): Promise<void> {
-        console.log("🎵 [StreamManager] playNextFromRedisQueue called");
-        console.log("🎵 [StreamManager] Input params:", { spaceId, userId });
-        
+    async playNextFromRedisQueue(spaceId: string, userId: string): Promise<void> {        
         const space = this.spaces.get(spaceId);
-        console.log("🎵 [StreamManager] Space found:", !!space);
         
         if (!space) {
-            console.log("❌ [StreamManager] Space not found, exiting");
             return;
         }
 
-        console.log("🎵 [StreamManager] Space users count:", space.users.size);
-        console.log("🎵 [StreamManager] Getting next song from Redis queue...");
-
         // Get the next song from Redis queue
         const nextSong = await this.getNextSongFromRedisQueue(spaceId);
-        console.log("🎵 [StreamManager] Next song from Redis:", nextSong ? nextSong.title : 'null');
         
         if (!nextSong) {
-            console.log("❌ [StreamManager] No songs in Redis queue to play");
-            
             // Clear current playing song
-            console.log("🎵 [StreamManager] Clearing current playing song from Redis");
             await this.redisClient.del(`current:${spaceId}`);
             
             // Update in-memory playback state
-            console.log("🎵 [StreamManager] Updating in-memory playback state to empty");
             space.playbackState = {
                 currentSong: null,
                 startedAt: 0,
@@ -2139,7 +1536,6 @@ export class RoomManager {
             };
             
             // Notify users that queue is empty
-            console.log("🎵 [StreamManager] Notifying users that queue is empty");
             space.users.forEach((user) => {
                 user.ws.forEach((ws: WebSocket) => {
                     if (ws.readyState === WebSocket.OPEN) {
@@ -2153,21 +1549,10 @@ export class RoomManager {
             return;
         }
 
-        console.log("🎵 [StreamManager] Playing next song from Redis queue:", nextSong.title);
-        console.log("🎵 [StreamManager] Song details:", {
-            id: nextSong.id,
-            title: nextSong.title,
-            artist: nextSong.artist,
-            extractedId: nextSong.extractedId,
-            source: nextSong.source
-        });
-
         // Set this song as currently playing in Redis
-        console.log("🎵 [StreamManager] Setting song as currently playing in Redis");
         await this.setCurrentPlayingSong(spaceId, nextSong);
 
         // Update in-memory playback state
-        console.log("🎵 [StreamManager] Updating in-memory playback state");
         const now = Date.now();
         space.playbackState = {
             currentSong: {
@@ -2184,9 +1569,7 @@ export class RoomManager {
             lastUpdated: now
         };
 
-        console.log("🎵 [StreamManager] Getting vote count for song...");
         const voteCount = await this.getSongVoteCount(spaceId, nextSong.id);
-        console.log("🎵 [StreamManager] Vote count:", voteCount);
 
         // Broadcast the new current song to all users
         const songData = {
@@ -2198,15 +1581,6 @@ export class RoomManager {
             }
         };
 
-        console.log("🎵 [StreamManager] Broadcasting current-song-update to", space.users.size, "users");
-        console.log("🎵 [StreamManager] Song data being broadcast:", {
-            id: songData.id,
-            title: songData.title,
-            extractedId: songData.extractedId,
-            voteCount: songData.voteCount
-        });
-
-        let messagesSent = 0;
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -2214,18 +1588,12 @@ export class RoomManager {
                         type: "current-song-update",
                         data: { song: songData }
                     }));
-                    messagesSent++;
                 }
             });
         });
 
-        console.log("🎵 [StreamManager] Sent current-song-update to", messagesSent, "WebSocket connections");
-
         // Start timestamp broadcasting for synchronized playback
-        console.log("🎵 [StreamManager] Starting timestamp broadcasting");
         this.startTimestampBroadcast(spaceId);
-
-        console.log("✅ [StreamManager] Successfully completed playNextFromRedisQueue");
     }
 
     // Updated broadcast queue method for Redis
@@ -2259,49 +1627,75 @@ export class RoomManager {
         }
     }
 
-    // Method to migrate existing database queue to Redis (optional, for transition)
-    async migrateDbQueueToRedis(spaceId: string): Promise<void> {
+    // Helper method to set space name in Redis cache
+    async setSpaceName(spaceId: string, spaceName: string): Promise<void> {
         try {
-            console.log(`🔄 Migrating database queue to Redis for space ${spaceId}`);
-            
-            // Get existing queue from database
-            const dbQueue = await this.prisma.stream.findMany({
-                where: {
-                    spaceId: spaceId,
-                    played: false
-                },
-                orderBy: {
-                    createAt: 'asc'
-                }
-            });
-
-            // Clear existing Redis queue
-            await this.clearRedisQueue(spaceId);
-
-            // Add each song to Redis queue
-            for (const dbSong of dbQueue) {
-                const queueSong: QueueSong = {
-                    id: dbSong.id,
-                    title: dbSong.title,
-                    artist: dbSong.artist || undefined,
-                    url: dbSong.url,
-                    extractedId: dbSong.extractedId,
-                    source: dbSong.type as 'Youtube' | 'Spotify',
-                    smallImg: dbSong.smallImg,
-                    bigImg: dbSong.bigImg,
-                    userId: dbSong.userId,
-                    addedAt: dbSong.createAt.getTime(),
-                    duration: dbSong.duration || undefined,
-                    voteCount: 0 // Will be updated with actual votes
-                };
-
-                await this.addSongToRedisQueue(spaceId, queueSong);
-            }
-
-            console.log(`✅ Successfully migrated ${dbQueue.length} songs to Redis queue`);
+            await this.redisClient.set(
+                `space-details-${spaceId}`,
+                JSON.stringify({ name: spaceName }),
+                { EX: 86400 } // Cache for 24 hours
+            );
         } catch (error) {
-            console.error('Error migrating database queue to Redis:', error);
+            console.error(`Error setting space name for ${spaceId}:`, error);
         }
     }
-}
 
+    // Helper method to get space name from Redis cache
+    async getSpaceName(spaceId: string): Promise<string> {
+        try {
+            const cachedSpaceDetails = await this.redisClient.get(`space-details-${spaceId}`);
+            
+            if (cachedSpaceDetails) {
+                const spaceData = JSON.parse(cachedSpaceDetails);
+                return spaceData.name || `Room ${spaceId.slice(0, 8)}`;
+            }
+        } catch (error) {
+            console.error(`Error getting space name for ${spaceId}:`, error);
+        }
+        
+        return `Room ${spaceId.slice(0, 8)}`; // Default fallback
+    }
+
+    // Helper method to decode JWT token and extract user info
+    private decodeUserToken(token: string): { userId: string; username?: string; email?: string } | null {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+            return {
+                userId: decoded.userId,
+                username: decoded.username,
+                email: decoded.email
+            };
+        } catch (error) {
+            console.error('Error decoding JWT token:', error);
+            return null;
+        }
+    }
+
+    // Helper method to store user info in Redis
+    async storeUserInfo(userId: string, userInfo: { username?: string; email?: string }): Promise<void> {
+        try {
+            await this.redisClient.set(
+                `user-info-${userId}`,
+                JSON.stringify(userInfo),
+                { EX: 86400 } // Cache for 24 hours
+            );
+        } catch (error) {
+            console.error(`Error storing user info for ${userId}:`, error);
+        }
+    }
+
+    // Helper method to get user info from Redis
+    async getUserInfo(userId: string): Promise<{ username?: string; email?: string } | null> {
+        try {
+            const userInfo = await this.redisClient.get(`user-info-${userId}`);
+            if (userInfo) {
+                return JSON.parse(userInfo);
+            }
+        } catch (error) {
+            console.error(`Error getting user info for ${userId}:`, error);
+        }
+        return null;
+    }
+
+    // ========================================
+}

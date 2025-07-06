@@ -193,7 +193,7 @@ export async function GET(req:NextRequest) {
           if (spaceId) {
             const space = await prisma.space.findUnique({
               where: { id: spaceId },
-              select: { hostId: true },
+              select: { hostId: true, name: true },
             });
       
             if (!space) {
@@ -204,7 +204,7 @@ export async function GET(req:NextRequest) {
             }
       
             return NextResponse.json(
-              { success: true, message: "Host ID retrieved successfully", hostId: space.hostId },
+              { success: true, message: "Space information retrieved successfully", hostId: space.hostId, spaceName: space.name },
               { status: 200 }
             );
           }

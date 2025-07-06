@@ -28,6 +28,7 @@ if ( cluster.isPrimary) {
 type Data = {
     userId : string ;
     spaceId : string ;
+    spaceName? : string ;
     token : string;
     url : string;
     vote : "upvote" | "downvote";
@@ -90,9 +91,10 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
                         creatorId,
                         userId,
                         ws,
-                        data.token
+                        data.token,
+                        data.spaceName
                     );
-                    console.log(`User ${userId} successfully joined room ${data.spaceId}`);
+                    console.log(`User ${userId} successfully joined room ${data.spaceId}${data.spaceName ? ` (${data.spaceName})` : ''}`);
                     
                     // Send success response to the user
                     ws.send(JSON.stringify({
@@ -129,8 +131,6 @@ async function  processUserAction(type: string , data : Data ) {
             break;
         
         case "add-to-queue":
-            console.log("🎵 ADD TO QUEUE FUNCTION (REDIS) IS GOING TO TRIGGER");
-            console.log("🎵 Received data:", JSON.stringify(data, null, 2));
             await RoomManager.getInstance().addToQueueRedis(
                   data.spaceId,
                   data.userId,
@@ -141,25 +141,14 @@ async function  processUserAction(type: string , data : Data ) {
             break;
 
         case "play-next":
-            console.log("🎵 ====================== PLAY-NEXT MESSAGE RECEIVED ======================");
-            console.log("🎵 Received play-next data:", JSON.stringify(data, null, 2));
-            console.log("🎵 SpaceId:", data.spaceId);
-            console.log("🎵 UserId:", data.userId);
-            console.log("🎵 About to call playNextFromRedisQueue...");
-            
             try {
-                const result = await RoomManager.getInstance().playNextFromRedisQueue(data.spaceId, data.userId);
-                console.log("🎵 ✅ Successfully completed playNextFromRedisQueue, result:", result);
+                await RoomManager.getInstance().playNextFromRedisQueue(data.spaceId, data.userId);
             } catch (error) {
-                console.error("🎵 ❌ Error in playNextFromRedisQueue:", error);
-                console.error("🎵 Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+                console.error("Error in playNextFromRedisQueue:", error);
             }
-            
-            console.log("🎵 ====================== PLAY-NEXT HANDLER COMPLETED ======================");
             break;
 
         case "remove-song":
-            console.log("🗑️ REMOVE SONG FROM REDIS QUEUE");
             const removed = await RoomManager.getInstance().removeSongFromRedisQueue(data.spaceId, data.streamId);
             if (removed) {
                 // Broadcast updated queue
@@ -168,17 +157,14 @@ async function  processUserAction(type: string , data : Data ) {
             break;
         
         case "empty-queue":
-            console.log("🗑️ EMPTY REDIS QUEUE");
             await RoomManager.getInstance().clearRedisQueue(data.spaceId);
             await RoomManager.getInstance().broadcastRedisQueueUpdate(data.spaceId);
-            break;
-    
-        case "next-play":
-            await RoomManager.getInstance().PlayNext(
-            data.spaceId,
-            data.userId,
-            data.url
-            );
+            break;        case "next-play":
+            try {
+                await RoomManager.getInstance().playNextFromRedisQueue(data.spaceId, data.userId);
+            } catch (error) {
+                console.error("Error in playNextFromRedisQueue:", error);
+            }
             break;
 
         // Song ended - automatically play next song from Redis queue

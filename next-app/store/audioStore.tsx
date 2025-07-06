@@ -91,13 +91,12 @@
             set({ background });
           },
           setYoutubePlayer: (youtubePlayer) => {
-            console.log("[AudioStore] Setting YouTube player in store:", !!youtubePlayer);
             set({ youtubePlayer });
             
             // Process any pending sync when player becomes available
             const state = get();
             if (youtubePlayer && state.pendingSync) {
-              console.log("[AudioStore] Processing pending sync after player ready:", state.pendingSync);
+  
               const { timestamp, isPlaying, song } = state.pendingSync;
               
               // Update current song if provided in pending sync
@@ -119,7 +118,6 @@
             }
           },
           setSpotifyPlayer: (spotifyPlayer) => {
-            console.log("[AudioStore] Setting Spotify player in store:", !!spotifyPlayer);
             set({ spotifyPlayer });
           },
           setSpotifyReady: (isSpotifyReady) => set({ isSpotifyReady }),
@@ -131,12 +129,10 @@
           // Synchronization actions
           syncPlaybackToTimestamp: (timestamp) => {
             const state = get();
-            console.log("[AudioStore] 🎯 Syncing playback to timestamp:", timestamp);
-            console.log("[AudioStore] 🎯 Current seeking state:", state.isSeeking);
             
             // Skip sync if we're currently seeking to avoid conflicts
             if (state.isSeeking) {
-              console.log("[AudioStore] ⏭️ Skipping sync - currently seeking, will apply after seek completes");
+  
               return;
             }
             
@@ -145,17 +141,12 @@
                 const currentTime = state.youtubePlayer.getCurrentTime();
                 const timeDiff = Math.abs(currentTime - timestamp);
                 
-                console.log("[AudioStore] 🎯 YouTube sync check:", {
-                  currentTime,
-                  targetTimestamp: timestamp,
-                  timeDiff,
-                  seeking: state.isSeeking
-                });
+
                 
                 // Only sync if the difference is significant (more than 3 seconds)
                 // This prevents choppy playback from frequent small corrections
                 if (timeDiff > 3) {
-                  console.log("[AudioStore] Significant time difference detected:", timeDiff, "seconds. Syncing...");
+
                   state.youtubePlayer.seekTo(timestamp, true);
                   set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
                   
@@ -167,7 +158,7 @@
                     window.dispatchEvent(event);
                   }
                 } else {
-                  console.log("[AudioStore] Time difference within acceptable range:", timeDiff, "seconds. Updating progress only.");
+
                   set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
                 }
               } catch (error) {
@@ -175,14 +166,14 @@
               }
             } else if (state.youtubePlayer === null) {
               // Player not yet initialized, this is expected for new users
-              console.log("[AudioStore] YouTube player not ready, this will be handled when player initializes");
+
             }
             
             if (state.spotifyPlayer && state.isSpotifyReady) {
               try {
                 state.spotifyPlayer.seek(timestamp * 1000); // Spotify uses milliseconds
                 set({ currentProgress: timestamp, isSynchronized: true, lastSyncTimestamp: Date.now() });
-                console.log("[AudioStore] Spotify player synced to:", timestamp);
+
               } catch (error) {
                 console.error("[AudioStore] Error syncing Spotify player:", error);
               }
@@ -191,11 +182,11 @@
           
           handleRoomSync: (currentTime, isPlaying, currentSong, isInitialSync = false) => {
             const state = get();
-            console.log("[AudioStore] Handling room sync:", { currentTime, isPlaying, currentSong, isInitialSync });
+
 
             // If it's an initial sync for a new user, load the song but stay paused at 0:00
             if (isInitialSync) {
-              console.log("[AudioStore] Initial sync: Loading song paused at 0:00.");
+
               if (currentSong) {
                 // Set the song, but force paused state and 0 progress
                 set({
@@ -211,7 +202,7 @@
                 if (state.youtubePlayer && state.youtubePlayer.cueVideoById && currentSong.downloadUrl?.[0]?.url) {
                   try {
                     const videoId = currentSong.downloadUrl[0].url;
-                    console.log("[AudioStore] Cueing video for initial sync:", videoId);
+
                     state.youtubePlayer.cueVideoById(videoId, 0);
                   } catch (e) {
                     console.error("Error cueing video on initial sync:", e);
@@ -315,7 +306,7 @@
           
           handlePlaybackSeek: (seekTime) => {
             const state = get();
-            console.log("[AudioStore] 🎯 Handling playback seek to:", seekTime);
+            console.log("[AudioStore] Handling playback seek to:", seekTime);
             
             // Set a flag to prevent timestamp sync conflicts during seek
             set({ isSeeking: true });
@@ -323,7 +314,7 @@
             // Apply the seek immediately for smooth user experience
             if (state.youtubePlayer && state.youtubePlayer.seekTo) {
               try {
-                console.log("[AudioStore] 🎯 Applying seek to YouTube player");
+                console.log("[AudioStore] Applying seek to YouTube player");
                 state.youtubePlayer.seekTo(seekTime, true);
                 set({ currentProgress: seekTime });
               } catch (error) {
@@ -333,7 +324,7 @@
             
             if (state.spotifyPlayer && state.isSpotifyReady) {
               try {
-                console.log("[AudioStore] 🎯 Applying seek to Spotify player");
+                console.log("[AudioStore] Applying seek to Spotify player");
                 state.spotifyPlayer.seek(seekTime * 1000); // Spotify uses milliseconds
                 set({ currentProgress: seekTime });
               } catch (error) {
@@ -343,7 +334,7 @@
             
             // Clear the seeking flag after a longer delay to prevent race conditions
             setTimeout(() => {
-              console.log("[AudioStore] 🎯 Seek operation completed, resuming normal sync");
+              console.log("[AudioStore] Seek operation completed, resuming normal sync");
               set({ isSeeking: false });
             }, 2500); // Wait 2.5 seconds - longer than backend pause duration
           },
@@ -417,9 +408,6 @@
 
     // Play function
     const play = async (song: searchResults) => {
-      console.log("🎵 [Play] ====================== PLAY FUNCTION CALLED (Simplified) ======================");
-      console.log("🎵 [Play] Loading song, but will remain paused:", song.name);
-      
       setCurrentSong(song);
       setIsPlaying(false); // Ensure song is paused on load
       
@@ -439,7 +427,6 @@
       
       if (isSpotifyTrack && spotifyPlayer && isSpotifyReady) {
         // Just load, don't play for spotify
-        console.log("🎵 [Play] Spotify track loaded, but not playing.");
         return;
       }
       
@@ -447,12 +434,10 @@
       if (youtubePlayer && song.downloadUrl?.[0]?.url && !isSpotifyTrack) {
         try {
           const videoId = song.downloadUrl[0].url;
-          console.log("🎵 [Play] YouTube playback section - Cueing video with ID:", videoId);
           
           // Cue the video instead of loading and playing it immediately.
           // This loads the thumbnail and prepares the player but doesn't start playback.
           youtubePlayer.cueVideoById(videoId, 0);
-          console.log("🎵 [Play] Successfully called cueVideoById");
 
           // Set playing state to false as the video is just cued, not playing.
           setIsPlaying(false);
@@ -474,7 +459,6 @@
       }
 
       // If YouTube player is not ready yet but we have a YouTube video, just set the song, don't play
-      console.log("🎵 [Play] Fallback: Song set, player paused.");
     };
 
     // Pause function
@@ -721,7 +705,7 @@
                 // UserStore format
                 emitMessage("seek-playback", seekData);
               }
-              console.log("[Audio] ✅ Seek message sent successfully via emitMessage");
+              console.log("[Audio] Seek message sent successfully via emitMessage");
             } catch (error) {
               console.error("[Audio] ❌ Error sending seek message via emitMessage:", error);
             }
@@ -786,61 +770,29 @@
 
 
     const playNext = () => {
-      console.log("🎵 [PlayNext] ====================== playNext() CALLED ======================");
-      console.log("🎵 [PlayNext] Current song:", currentSong?.name || 'None');
-      console.log("🎵 [PlayNext] Current song ID:", currentSong?.id || 'None');
-      console.log("🎵 [PlayNext] Current song source:", currentSong?.source || 'None');
-      console.log("🎵 [PlayNext] Current song URL:", currentSong?.url || 'None');
-      console.log("🎵 [PlayNext] Current isPlaying state:", isPlaying);
-      console.log("🎵 [PlayNext] User role:", user?.role || 'unknown');
-      console.log("🎵 [PlayNext] YouTube player available:", !!youtubePlayer);
-      console.log("🎵 [PlayNext] HTML audio ref available:", !!audioRef.current);
-      console.log("🎵 [PlayNext] WebSocket available:", !!ws);
-      console.log("🎵 [PlayNext] WebSocket ready state:", ws?.readyState);
-      console.log("🎵 [PlayNext] WebSocket OPEN:", WebSocket.OPEN);
-      console.log("🎵 [PlayNext] Is WebSocket ready:", !!ws && ws.readyState === WebSocket.OPEN);
-      
-      // Log audio element state
+      // Pause current playback
       if (audioRef.current) {
-        console.log("🎵 [PlayNext] HTML audio current time:", audioRef.current.currentTime);
-        console.log("🎵 [PlayNext] HTML audio duration:", audioRef.current.duration);
-        console.log("🎵 [PlayNext] HTML audio paused:", audioRef.current.paused);
-        console.log("🎵 [PlayNext] HTML audio src:", audioRef.current.src);
-        console.log("🎵 [PlayNext] Pausing HTML audio element");
         audioRef.current.pause();
-      } else {
-        console.log("🎵 [PlayNext] No HTML audio element available");
       }
       
-      // Log YouTube player state
       if (youtubePlayer) {
         try {
-          console.log("🎵 [PlayNext] YouTube player state before pause:", youtubePlayer.getPlayerState ? youtubePlayer.getPlayerState() : 'getPlayerState not available');
-          console.log("🎵 [PlayNext] YouTube video ID:", youtubePlayer.getVideoData ? youtubePlayer.getVideoData()?.video_id : 'getVideoData not available');
-          console.log("🎵 [PlayNext] Pausing YouTube player");
           youtubePlayer.pauseVideo();
-          console.log("🎵 [PlayNext] YouTube player paused successfully");
         } catch (error) {
-          console.error("🎵 [PlayNext] Error pausing YouTube player for next:", error);
+          console.error("Error pausing YouTube player for next:", error);
         }
-      } else {
-        console.log("🎵 [PlayNext] No YouTube player available");
       }
       
       // Check WebSocket readiness before sending
       if (!ws) {
-        console.error("🎵 [PlayNext] ❌ CRITICAL: WebSocket is null/undefined!");
+        console.error("WebSocket is null/undefined!");
         return;
       }
       
       if (ws.readyState !== WebSocket.OPEN) {
-        console.error("🎵 [PlayNext] ❌ CRITICAL: WebSocket is not open! State:", ws.readyState);
-        console.error("🎵 [PlayNext] WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3");
+        console.error("WebSocket is not open! State:", ws.readyState);
         return;
       }
-      
-      console.log("🎵 [PlayNext] ✅ WebSocket is ready, sending playNext message");
-      console.log("🎵 [PlayNext] Message type: 'playNext', data: 'playNext'");
       
       try {
         // Check if we have spaceId and userId

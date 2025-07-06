@@ -84,7 +84,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
     //   return;
     // }
     
-    console.log('[AudioController] 🎯 Admin started dragging timeline');
     e.preventDefault();
     setIsDragging(true);
     
@@ -115,8 +114,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
       // }
       
       const newTime = (tempProgress / 100) * duration;
-      console.log('[AudioController] 🎯 Admin seeking to:', newTime, 'seconds');
-      console.log('[AudioController] 🎯 Sending seek command to server...');
       
       // Set local seeking state for UI feedback
       setIsLocalSeeking(true);
@@ -125,9 +122,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
       // Apply seek immediately for responsive UI
       seek(newTime);
       setIsDragging(false);
-      
-      // Show temporary seeking indicator
-      console.log('[AudioController] ✅ Seek command sent successfully');
     }
   };
 
@@ -143,7 +137,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
       const rect = progressBarRef.current.getBoundingClientRect();
       const percent = ((e.clientX - rect.left) / rect.width) * 100;
       const newTime = (percent / 100) * duration;
-      console.log('[AudioController] 🎯 Admin clicked timeline to seek to:', newTime, 'seconds');
       
       // Set local seeking state for UI feedback
       setIsLocalSeeking(true);

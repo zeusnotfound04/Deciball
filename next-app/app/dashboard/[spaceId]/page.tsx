@@ -15,6 +15,7 @@ export default function Page(){
 
     const { socket, user, setUser, connectionError, loading } = useSocket();
     const [creatorId, setCreatorId] = useState("");
+    const [spaceName, setSpaceName] = useState("");
     const [isLoading, setLoading] = useState(true);
     const router = useRouter();
 
@@ -32,15 +33,18 @@ export default function Page(){
                 setLoading(true)
                 const response = await axios.get(`/api/spaces/?spaceId=${spaceId}`)
                 const data = await response.data;
-                console.log(data)
+                console.log("Space data received:", data)
                 setCreatorId(data.hostId)
+                setSpaceName(data.spaceName || `Room ${spaceId.slice(0, 8)}`)
             } catch (error : any) {
-                console.error("Error fetching host ID:", error);
+                console.error("Error fetching space info:", error);
 
                 if (error.response) {
                     console.error("Server Error:", error.response.data);
-                    alert(`Error: ${error.response.data.message || "Failed to fetch host ID."}`);
+                    alert(`Error: ${error.response.data.message || "Failed to fetch space info."}`);
                 }
+                // Set fallback values
+                setSpaceName(`Room ${spaceId.slice(0, 8)}`)
             } finally{
                 setLoading(false)
             }
@@ -54,7 +58,8 @@ export default function Page(){
         async function connectToWebSocket() {
             console.log("Second UseEffect Ran")
             console.log("Creator Id" , creatorId)
-            if(user && socket && creatorId) {
+            console.log("Space Name" , spaceName)
+            if(user && socket && creatorId && spaceName) {
                 console.log("trying to connect with websocket....")
                 console.log("USER ID : ", user?.id )
                 const response = await axios.post("/api/generate-token", {
@@ -70,7 +75,8 @@ export default function Page(){
                         type : "join-room",
                         data : {
                             token,
-                            spaceId
+                            spaceId,
+                            spaceName
                         },
                     })
                 );
@@ -84,7 +90,7 @@ export default function Page(){
 
         connectToWebSocket();
         
-    } , [user , spaceId , creatorId , socket])
+    } , [user , spaceId , creatorId , socket, spaceName])
 
     useEffect(() => {
         if (creatorId && user?.id && creatorId === user.id) {
