@@ -675,9 +675,9 @@ export class RoomManager {
                     duration: nextStream.duration || undefined,
                     extractedId: nextStream.extractedId
                 },
-                startedAt: now,
+                startedAt: 0, // Will be set when admin starts playback
                 pausedAt: null,
-                isPlaying: true,
+                isPlaying: false, // Always start paused
                 lastUpdated: now
             };
             console.log("🎵 Updated playback state for space", spaceId, "with song:", nextStream.title);
@@ -1182,14 +1182,7 @@ export class RoomManager {
         if (playbackState.startedAt > 0) {
             if (playbackState.isPlaying) {
                 // If playing, calculate current position from start time
-                if (playbackState.pausedAt) {
-                    // If we previously paused, calculate from resume point
-                    const pausedDuration = (playbackState.pausedAt - playbackState.startedAt) / 1000;
-                    currentTime = pausedDuration + ((now - playbackState.lastUpdated) / 1000);
-                } else {
-                    // Calculate from original start time
-                    currentTime = (now - playbackState.startedAt) / 1000;
-                }
+                currentTime = (now - playbackState.startedAt) / 1000;
             } else {
                 // If paused, use the time when we paused
                 if (playbackState.pausedAt) {
@@ -1291,18 +1284,17 @@ export class RoomManager {
 
         const now = Date.now();
         
-        // Update playback state
-        space.playbackState.isPlaying = true;
-        space.playbackState.pausedAt = null;
-        
         // If resuming from pause, adjust startedAt to account for pause duration
-        if (space.playbackState.pausedAt) {
+        if (space.playbackState.pausedAt && space.playbackState.startedAt) {
             const pauseDuration = now - space.playbackState.pausedAt;
             space.playbackState.startedAt += pauseDuration;
         } else if (!space.playbackState.startedAt) {
             space.playbackState.startedAt = now;
         }
         
+        // Update playback state AFTER calculating pause adjustment
+        space.playbackState.isPlaying = true;
+        space.playbackState.pausedAt = null;
         space.playbackState.lastUpdated = now;
 
         // Send immediate play command to all users
@@ -2104,7 +2096,7 @@ export class RoomManager {
         const currentPlaying = await this.getCurrentPlayingSong(spaceId);
         
         if ((queueLength === 0 || autoPlay) && !currentPlaying) {
-            console.log("🎵 Auto-starting playback for first song");
+            console.log("🎵 Loading first song in queue (but not auto-starting playback)");
             await this.playNextFromRedisQueue(spaceId, userId);
         }
     }
@@ -2186,9 +2178,9 @@ export class RoomManager {
                 duration: nextSong.duration,
                 extractedId: nextSong.extractedId
             },
-            startedAt: now,
+            startedAt: 0, // Will be set when admin starts playback
             pausedAt: null,
-            isPlaying: true,
+            isPlaying: false, // Always start paused
             lastUpdated: now
         };
 

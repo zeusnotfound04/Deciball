@@ -212,7 +212,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   video: true
                 };
                 setTimeout(() => {
-                  handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, existingAudioSong);
+                  handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, existingAudioSong, true);
                 }, 500);
               }
               break;
@@ -278,7 +278,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   }
                   // Clear pending sync
                   const { handleRoomSync } = useAudioStore.getState();
-                  handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong);
+                  handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong, true);
                 } else {
                   console.log('🔄 YouTube player not ready yet, pending sync will be applied when ready');
                   // The PlayerCover component will handle this when onPlayerReady is called
@@ -331,7 +331,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             // Store the sync data to apply once we get the song
             // This will be handled by the audioStore's pending sync mechanism
             const { handleRoomSync } = useAudioStore.getState();
-            handleRoomSync(data.currentTime, data.isPlaying, null);
+            handleRoomSync(data.currentTime, data.isPlaying, null, data.isInitialSync || false);
             return;
           }
           
@@ -367,7 +367,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           
           // Use audioStore to handle synchronization
           const { handleRoomSync } = useAudioStore.getState();
-          handleRoomSync(data.currentTime, data.isPlaying, audioStoreSong);
+          handleRoomSync(data.currentTime, data.isPlaying, audioStoreSong, data.isInitialSync || false);
           
           // Show sync notification for initial sync (new user joining)
           if (data.isInitialSync) {

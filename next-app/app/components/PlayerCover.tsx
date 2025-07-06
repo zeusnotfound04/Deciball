@@ -18,7 +18,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
   const { sendMessage } = useSocket();
   
   // Use the new Zustand-based hook
-  const { currentSong, isPlaying, setYouTubePlayer, youtubePlayer } = useAudio();
+  const { currentSong, isPlaying, setYouTubePlayer, youtubePlayer, pause, resume } = useAudio();
   const { setIsPlaying } = useAudioStore();
   
   // Add useEffect to handle song changes after initial load
@@ -55,21 +55,17 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
           if (currentVideoData?.video_id !== videoId) {
             console.log("🎬 [PlayerCover] Video IDs don't match - updating player with new video");
             
-            // Always use loadVideoById to force a new video load
-            if (isPlaying) {
-              console.log("🎬 [PlayerCover] Loading and playing new video");
-              youtubePlayer.loadVideoById(videoId, 0);
-            } else {
-              console.log("🎬 [PlayerCover] Loading new video without auto-play");
-              youtubePlayer.loadVideoById(videoId, 0);
-              // Pause it immediately after loading if not supposed to be playing
-              setTimeout(() => {
-                if (!isPlaying) {
-                  console.log("🎬 [PlayerCover] Pausing video as isPlaying is false");
-                  youtubePlayer.pauseVideo();
-                }
-              }, 500);
-            }
+            // Always use cueVideoById to avoid auto-playing when changing songs
+            console.log("🎬 [PlayerCover] Cueing new video without auto-play");
+            youtubePlayer.cueVideoById(videoId, 0);
+            
+            // Then apply the correct state after a short delay
+            setTimeout(() => {
+              if (isPlaying) {
+                console.log("🎬 [PlayerCover] Starting playback as app state is playing");
+                youtubePlayer.playVideo();
+              }
+            }, 500);
             
             console.log("🎬 [PlayerCover] ✅ Successfully updated player with new video");
           } else {
@@ -181,35 +177,30 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
           const { pendingSync } = useAudioStore.getState();
           console.log("🎬 [PlayerCover] Pending sync:", pendingSync);
           
+          // Always cue the video first (this loads it but doesn't start playing)
+          console.log("🎬 [PlayerCover] Cueing video without auto-play");
+          event.target.cueVideoById(videoId, 0);
+          
           if (pendingSync) {
-            console.log("🎬 [PlayerCover] New user with pending sync - loading video and will apply sync");
-            // For new users, always load and then apply the sync position and state
-            event.target.loadVideoById(videoId, 0);
-            
-            // Apply pending sync after video loads
+            console.log("🎬 [PlayerCover] New user with pending sync - will apply after cueing");
+            // Apply pending sync after video is cued
             setTimeout(() => {
               console.log("🎬 [PlayerCover] Applying pending sync:", pendingSync);
               event.target.seekTo(pendingSync.timestamp, true);
               if (pendingSync.isPlaying) {
                 console.log("🎬 [PlayerCover] Starting playback from pending sync");
                 event.target.playVideo();
-              } else {
-                console.log("🎬 [PlayerCover] Pausing from pending sync");
-                event.target.pauseVideo();
               }
               // Clear the pending sync
               const { handleRoomSync } = useAudioStore.getState();
-              handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, currentSong);
+              handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, currentSong, false);
             }, 1000);
-          } else {
-            // Normal case - existing user
-            if (isPlaying) {
-              console.log("🎬 [PlayerCover] Loading and playing video (existing user, isPlaying=true)");
-              event.target.loadVideoById(videoId, 0);
-            } else {
-              console.log("🎬 [PlayerCover] Cueing video without auto-play (existing user, isPlaying=false)");
-              event.target.cueVideoById(videoId, 0);
-            }
+          } else if (isPlaying) {
+            // Only start playing if the app state says we should be playing
+            console.log("🎬 [PlayerCover] App state is playing, starting video");
+            setTimeout(() => {
+              event.target.playVideo();
+            }, 500);
           }
           
           console.log("🎬 [PlayerCover] ✅ Successfully set up video loading");
@@ -249,27 +240,6 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
             console.log("🎬 [PlayerCover] State changed:", event.data);
             console.log("🎬 [PlayerCover] Current song:", currentSong?.name);
             
-            // Log what video is actually loaded in the player
-            try {
-              const videoData = event.target.getVideoData();
-              console.log("🎬 [PlayerCover] Actual video loaded in player:", {
-                video_id: videoData?.video_id,
-                title: videoData?.title,
-                author: videoData?.author
-              });
-              console.log("🎬 [PlayerCover] Expected video ID:", currentSong?.downloadUrl?.[0]?.url);
-              
-              if (videoData?.video_id !== currentSong?.downloadUrl?.[0]?.url) {
-                console.error("🎬 [PlayerCover] ❌ MISMATCH: Player has different video than expected!");
-                console.error("🎬 [PlayerCover] Player has:", videoData?.video_id);
-                console.error("🎬 [PlayerCover] Expected:", currentSong?.downloadUrl?.[0]?.url);
-              } else {
-                console.log("🎬 [PlayerCover] ✅ Video ID matches expected");
-              }
-            } catch (e) {
-              console.log("🎬 [PlayerCover] Could not get video data");
-            }
-            
             // YouTube player states: -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (cued)
             switch (event.data) {
               case -1:
@@ -280,18 +250,27 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
                 setIsPlaying(false);
                 break;
               case 1:
-                console.log("🎬 [PlayerCover] State: Playing - setting isPlaying to true");
-                setIsPlaying(true);
+                console.log("🎬 [PlayerCover] State: Playing");
+                // Only call resume if our app state doesn't match
+                if (!isPlaying) {
+                  console.log("🎬 [PlayerCover] YouTube playing but app paused - syncing with server");
+                  resume();
+                }
                 break;
               case 2:
-                console.log("🎬 [PlayerCover] State: Paused - setting isPlaying to false");
-                setIsPlaying(false);
+                console.log("🎬 [PlayerCover] State: Paused");
+                // Only call pause if our app state doesn't match
+                if (isPlaying) {
+                  console.log("🎬 [PlayerCover] YouTube paused but app playing - syncing with server");
+                  pause();
+                }
                 break;
               case 3:
                 console.log("🎬 [PlayerCover] State: Buffering");
                 break;
               case 5:
                 console.log("🎬 [PlayerCover] State: Cued (video loaded but not playing)");
+                setIsPlaying(false);
                 break;
               default:
                 console.log("🎬 [PlayerCover] State: Unknown state:", event.data);
@@ -310,14 +289,6 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
               modestbranding: 1,
               rel: 0,
             },
-          }}
-          onPause={() => {
-            console.log("[YouTube] Video paused - updating state");
-            setIsPlaying(false);
-          }}
-          onPlay={() => {
-            console.log("[YouTube] Video started playing - updating state");
-            setIsPlaying(true);
           }}
           onReady={onPlayerReady}
         />
