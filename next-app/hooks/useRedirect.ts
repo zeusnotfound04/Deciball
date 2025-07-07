@@ -45,7 +45,7 @@ export default function useRedirect(options: UseRedirectOptions = {}) {
   const determineRedirectDestination = (userSpaces: Space[]) => {
     // Case 1: User not logged in -> redirect to login (only when manually triggered)
     if (session.status === "unauthenticated") {
-      return '/login';
+      return '/signin';
     }
 
     // Case 2: User logged in but no spaces -> redirect to space creation/onboarding (only when manually triggered)
@@ -109,7 +109,7 @@ export default function useRedirect(options: UseRedirectOptions = {}) {
         // Handle specific redirect cases
         switch (redirectTo) {
           case 'login':
-            handleRedirect('/login');
+            handleRedirect('/signin');
             break;
           case 'onboarding':
             handleRedirect('/dashboard');

@@ -1,13 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
-import { Loader2, Plus, Users, Music, Trash2, ExternalLink } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/app/components/ui/dropdown-menu";
+import { Loader2, Plus, Users, Music, Trash2, ExternalLink, User, LogOut, Settings } from "lucide-react";
 import useRedirect from "@/hooks/useRedirect";
 import BeamsBackground from "@/components/Background";
 import ChromaGrid, { ChromaItem } from "@/app/components/ui/ChromaGrid";
@@ -107,6 +109,39 @@ export default function SpacesPage() {
     router.push('/dashboard');
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut({ redirect: true, callbackUrl: '/' });
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  // Get user's profile picture URL
+  const getProfilePicture = () => {
+    if (session?.user?.pfpUrl) {
+      return session.user.pfpUrl;
+    }
+    if (session?.user?.pfpUrl) {
+      return session.user.pfpUrl;
+    }
+    return null;
+  };
+
+  // Get user's initials for fallback
+  const getUserInitials = () => {
+    if (session?.user?.name) {
+      return session.user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    }
+    if (session?.user?.username) {
+      return session.user.username.slice(0, 2).toUpperCase();
+    }
+    if (session?.user?.email) {
+      return session.user.email.slice(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
+
   useEffect(() => {
     if (isAuthenticated && !redirectLoading) {
       fetchSpaces();
@@ -144,6 +179,61 @@ export default function SpacesPage() {
       {/* Fixed background that doesn't scroll */}
       <div className="fixed inset-0 z-0">
         <BeamsBackground intensity="medium" />
+      </div>
+      
+      {/* User Avatar in Top Right */}
+      <div className="fixed top-4 right-4 z-50">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-zinc-800/50">
+              <Avatar className="h-10 w-10 ring-2 ring-cyan-400/20 hover:ring-cyan-400/40 transition-all duration-300">
+                <AvatarImage 
+                  src={getProfilePicture() || undefined} 
+                  alt={session?.user?.name || 'User'} 
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-teal-500 text-white font-semibold">
+                  {getUserInitials()}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56 bg-zinc-900/95 border-zinc-800" align="end" forceMount>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none text-zinc-100">
+                  {session?.user?.name || session?.user?.username || 'User'}
+                </p>
+                <p className="text-xs leading-none text-zinc-400">
+                  {session?.user?.email}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-zinc-800" />
+            <DropdownMenuItem 
+              className="text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 cursor-pointer"
+              onClick={() => router.push('/profile')}
+            >
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 cursor-pointer"
+              onClick={() => router.push('/settings')}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-zinc-800" />
+            <DropdownMenuItem 
+              className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       
       {/* Scrollable content */}
@@ -221,7 +311,7 @@ export default function SpacesPage() {
             />
             
             {/* Floating Action Buttons */}
-            <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-50">
+            <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-40">
               {/* Delete Mode Toggle */}
               <Button
                 variant="outline"

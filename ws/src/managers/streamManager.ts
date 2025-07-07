@@ -10,7 +10,7 @@ const TIME_SPAN_FOR_VOTE = 1200000; // 20min
 const TIME_SPAN_FOR_QUEUE = 1200000; // 20min 
 const TIME_SPAN_FOR_REPEAT = 3600000;
 const MAX_QUEUE_LENGTH = 20;
-
+const EXPIRY_SECONDS = 4 * 24 * 60 * 60; // 4 days
 const connection = {
     username: process.env.REDIS_USERNAME || "",
     password: process.env.REDIS_PASSWORD || "",
@@ -174,7 +174,7 @@ export class RoomManager {
             await this.redisClient.set(
               `space-details-${spaceId}`,
               JSON.stringify({ name: spaceName }),
-              { EX: 86400 } // Cache for 24 hours
+              { EX: EXPIRY_SECONDS } // Cache for 24 hours
             );
           }
         
@@ -234,7 +234,7 @@ export class RoomManager {
           await this.redisClient.set(
             `space-details-${spaceId}`,
             JSON.stringify({ name: spaceName }),
-            { EX: 86400 } // Cache for 24 hours
+            { EX: EXPIRY_SECONDS } // Cache for 24 hours
           );
         }
     
@@ -509,7 +509,7 @@ export class RoomManager {
         const voteKey = `vote:${spaceId}:${streamId}:${userId}`;
         
         if (vote === "upvote") {
-            await this.redisClient.set(voteKey, "upvote", { EX: 3600 }); // Expire after 1 hour
+            await this.redisClient.set(voteKey, "upvote", { EX: 86400 }); // Expire after 24 hour
         } else {
             await this.redisClient.del(voteKey);
         }
@@ -595,11 +595,6 @@ export class RoomManager {
             console.error(`Space with ID ${spaceId} not found.`);
         }
     }
-    
-    // ========================================
-    // TIMESTAMP BROADCASTING SYSTEM
-    // ========================================
-
     private startTimestampBroadcast(spaceId: string) {
         // Clear existing interval if any
         this.stopTimestampBroadcast(spaceId);
@@ -1127,7 +1122,7 @@ export class RoomManager {
             });
 
             // Set expiration for song data (24 hours)
-            await this.redisClient.expire(songKey, 86400);
+            await this.redisClient.expire(songKey, EXPIRY_SECONDS);
         } catch (error) {
             console.error('Error adding song to Redis queue:', error);
             throw error;
@@ -1272,7 +1267,7 @@ export class RoomManager {
     async setCurrentPlayingSong(spaceId: string, song: QueueSong): Promise<void> {
         try {
             const currentKey = `current:${spaceId}`;
-            await this.redisClient.set(currentKey, JSON.stringify(song), { EX: 86400 }); // 24 hour expiry
+            await this.redisClient.set(currentKey, JSON.stringify(song), { EX: EXPIRY_SECONDS }); // 24 hour expiry
         } catch (error) {
             console.error('Error setting current playing song:', error);
         }
@@ -1312,7 +1307,7 @@ export class RoomManager {
                 // Add new vote
                 const score = voteType === 'upvote' ? 1 : -1;
                 await this.redisClient.zAdd(votesKey, { score, value: userId });
-                await this.redisClient.set(userVoteKey, songId, { EX: 86400 });
+                await this.redisClient.set(userVoteKey, songId, { EX: EXPIRY_SECONDS });
                 console.log(`🗳️ Added ${voteType} from user ${userId} for song ${songId}`);
             }
             
@@ -1633,7 +1628,7 @@ export class RoomManager {
             await this.redisClient.set(
                 `space-details-${spaceId}`,
                 JSON.stringify({ name: spaceName }),
-                { EX: 86400 } // Cache for 24 hours
+                { EX: EXPIRY_SECONDS } // Cache for 24 hours
             );
         } catch (error) {
             console.error(`Error setting space name for ${spaceId}:`, error);
@@ -1677,7 +1672,7 @@ export class RoomManager {
             await this.redisClient.set(
                 `user-info-${userId}`,
                 JSON.stringify(userInfo),
-                { EX: 86400 } // Cache for 24 hours
+                { EX: EXPIRY_SECONDS } // Cache for 24 hours
             );
         } catch (error) {
             console.error(`Error storing user info for ${userId}:`, error);
