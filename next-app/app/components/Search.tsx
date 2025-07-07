@@ -13,8 +13,6 @@ import {
 } from "@/app/components/ui/dialog";
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { cn } from "@/app/lib/utils";
-import { useAudio } from '@/store/audioStore'; // Import the audio store
-import { getSpotifyTrack } from '@/actions/spotify/getSpotifyTrack';
 import axios from 'axios';
 import { searchResults } from '@/types';
 import { useSocket } from '@/context/socket-context';
@@ -274,14 +272,7 @@ export default function SearchSongPopup({
   };
 
   const handleTrackSelect = async (track: Track) => {
-    // console.log("🎵 handleTrackSelect called:", {
-    //   trackName: track.name,
-    //   enableBatchSelection,
-    //   isAdmin,
-    //   currentSelectionCount: selectedTracks.length
-    // });
-    console.log("🎵 Selected track with Spotify image:", track.album?.images?.[0]?.url);
-    // If batch selection is enabled and this is an admin, toggle selection
+ 
     if (enableBatchSelection && isAdmin) {
       const isSelected = selectedTracks.some(t => t.id === track.id);
       if (isSelected) {
@@ -292,8 +283,9 @@ export default function SearchSongPopup({
       return;
     }
 
-    // Add song to queue via WebSocket
+  
     try {
+      console.log("Sending the fuckinnn Track ", track);
       const response = await axios.post("/api/spotify/getTrack", track);
       
       if (!response.data?.body || response.data.body.length === 0) {
@@ -301,17 +293,11 @@ export default function SearchSongPopup({
       }
       
       const searchResults = response.data.body;
-      console.log(`� Found ${searchResults.length} search results for "${track.name}"`);
       
-      // Use spaceId prop instead of extracting from URL
       if (!spaceId) {
-        console.error("❌ No spaceId provided as prop");
         setError('Room ID not found. Please rejoin the room.');
         return;
       }
-      
-      console.log("🏠 Using spaceId:", spaceId);
-      
       // Try multiple results using fallback logic with autoPlay enabled for single selection
       const success = await tryMultipleResults(searchResults, track, spaceId, true);
       
@@ -359,6 +345,7 @@ export default function SearchSongPopup({
       let trackIndex = 0;
       for (const track of selectedTracks) {
         try {
+          console.log("Processing track:", track);
           const response = await axios.post("/api/spotify/getTrack", track);
           const searchResults = response.data.body; 
           

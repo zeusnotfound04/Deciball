@@ -29,9 +29,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
   
   // Debug effect to track when listeners prop changes
   useEffect(() => {
-    console.log('🎧 ListenerSidebar - listeners prop updated:', listeners);
-    console.log('🎧 ListenerSidebar - listeners count:', listeners.length);
-    console.log('🎧 ListenerSidebar - sidebar state:', state);
+   
   }, [listeners, state]);
   
   console.log('🎧 ListenerSidebar - rendering with state:', listeners);

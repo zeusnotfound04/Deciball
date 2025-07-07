@@ -1,21 +1,24 @@
 import ytmusic from "@/lib/YTmusic";
-import readyYTMusic from "@/lib/YTmusic";
-
+interface Artist {
+    external_urls : string[];
+    href : string;
+    id : string;
+    name : string;
+    type : string;
+    uri : string
+}
 export const getSpotifyTrack = async (
     song: any
 ): Promise<any> => {
     try {
-        const artist = song.artists[0].name;
+        const artists = song.artists.map((artist: Artist) => artist.name).join(', ');
+
         const name = song.name;
-        console.log("Artist Name:: 🥠", `${name} and ${artist}`);
-        
-        // const ytmusic = await readyYTMusic; 
-        // console.log("YT MUSIC:::", ytmusic);
-        await ytmusic.initialize({})
-        const ytSongs = await ytmusic.searchSongs(`${name} ${artist}`);
+        console.log("Artist Name:: 🥠", `${name} by ${artists}`);
        
-        
-        // Return multiple search results for fallback (top 3 results)
+        await ytmusic.initialize({})
+        const ytSongs = await ytmusic.searchSongs(`${name} ${artists}`);
+       
         const tracks = ytSongs?.slice(0, 3).map((s: any) => ({
             id: s.videoId,
             name: s.name,
@@ -45,9 +48,8 @@ export const getSpotifyTrack = async (
                 },
             ],
         })) || [];
-         console.log("tracks ::💦💦💦", JSON.stringify(tracks));
+        
         return tracks;
-        // return ytSongs  
     } catch (error) {
         console.error("Error in getSpotifyTrack:", error);
         throw error;

@@ -22,14 +22,14 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
   
   // Add useEffect to handle song changes after initial load
   useEffect(() => {
-    console.log("🎬 [PlayerCover] ====================== SONG CHANGE DETECTED ======================");
-    console.log("🎬 [PlayerCover] Song changed, current song:", currentSong?.name);
-    console.log("🎬 [PlayerCover] YouTube player available:", !!youtubePlayer);
-    console.log("🎬 [PlayerCover] Is playing:", isPlaying);
+    // console.log("🎬 [PlayerCover] ====================== SONG CHANGE DETECTED ======================");
+    // console.log("🎬 [PlayerCover] Song changed, current song:", currentSong?.name);
+    // console.log("🎬 [PlayerCover] YouTube player available:", !!youtubePlayer);
+    // console.log("🎬 [PlayerCover] Is playing:", isPlaying);
     
     if (youtubePlayer && currentSong?.downloadUrl?.[0]?.url) {
       let videoId = currentSong.downloadUrl[0].url;
-      console.log("🎬 [PlayerCover] Raw video URL/ID from currentSong:", videoId);
+      // console.log("🎬 [PlayerCover] Raw video URL/ID from currentSong:", videoId);
       
       // Extract video ID if it's a full YouTube URL
       if (videoId && videoId.includes('youtube.com/watch?v=')) {
@@ -39,7 +39,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
       } else if (videoId && videoId.includes('youtu.be/')) {
         const match = videoId.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
         videoId = match ? match[1] : videoId;
-        console.log("🎬 [PlayerCover] Extracted ID from youtu.be URL:", videoId);
+        // console.log("🎬 [PlayerCover] Extracted ID from youtu.be URL:", videoId);
       }
       
       console.log("🎬 [PlayerCover] Final extracted video ID:", videoId);
@@ -48,8 +48,8 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
         try {
           // Check what's currently loaded in the player
           const currentVideoData = youtubePlayer.getVideoData();
-          console.log("🎬 [PlayerCover] Currently loaded video ID:", currentVideoData?.video_id);
-          console.log("🎬 [PlayerCover] New video ID to load:", videoId);
+          // console.log("🎬 [PlayerCover] Currently loaded video ID:", currentVideoData?.video_id);
+          // console.log("🎬 [PlayerCover] New video ID to load:", videoId);
           
           if (currentVideoData?.video_id !== videoId) {
             console.log("🎬 [PlayerCover] Video IDs don't match - updating player with new video");

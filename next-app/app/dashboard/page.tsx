@@ -27,9 +27,9 @@ export default function Page() {
   const [isCreating, setIsCreating] = useState(false)
   
   // Remove auto-redirect logic - users will only reach this page when needed
-  const { isLoading: redirectLoading, isAuthenticated } = useRedirect({
-    redirectTo: 'manual'
-  })
+  // const { isLoading: redirectLoading, isAuthenticated } = useRedirect({
+  //   redirectTo: 'manual'
+  // })
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -57,18 +57,18 @@ export default function Page() {
     }
   }
 
-  if (status === 'loading' || redirectLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-black to-zinc-900">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
-          <p className="text-zinc-400 text-lg">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (status === 'loading' || redirectLoading) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-black to-zinc-900">
+  //       <div className="text-center">
+  //         <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
+  //         <p className="text-zinc-400 text-lg">Loading...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
-  if (!isAuthenticated) {
+  if (!session || !session.user) {  
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-black to-zinc-900">
         <div className="text-center">

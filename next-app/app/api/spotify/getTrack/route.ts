@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        // console.log("Body Requested", body);
+  
         const track = await getSpotifyTrack(body)
 
         return NextResponse.json({ 
