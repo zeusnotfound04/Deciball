@@ -94,7 +94,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
 
   // Utility function to clean and validate URLs
   const cleanImageUrl = (url: string): string => {
-    if (!url) return "https://us-east-1.tixte.net/uploads/tanmay111-files.tixte.co/d61488c1ddafe4606fe57013728a7e84.jpg";
+    if (!url) return "https://deciball-web-storage.s3.ap-south-1.amazonaws.com/Seedhe-Maut-Lunch-Front-Cover-Art-4K.png";
     
     // Remove extra quotes from the beginning and end
     let cleanedUrl = url.trim();
@@ -111,7 +111,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
       return cleanedUrl;
     } catch (error) {
       console.error('Invalid image URL:', cleanedUrl, error);
-      return "https://us-east-1.tixte.net/uploads/tanmay111-files.tixte.co/d61488c1ddafe4606fe57013728a7e84.jpg";
+      return "https://deciball-web-storage.s3.ap-south-1.amazonaws.com/Seedhe-Maut-Lunch-Front-Cover-Art-4K.png";
     }
   };
 

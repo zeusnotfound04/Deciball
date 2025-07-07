@@ -1,11 +1,8 @@
+import { getRedisQueue, getRedisQueueLength } from "@/actions/redis";
 import { authOptions } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/db";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-// import { authOptions } from "@/app/lib/auth";
-// import { prisma } from "@/app/lib/db";
-// import { getServerSession } from "next-auth";
-// import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
     try {
@@ -213,10 +210,56 @@ export async function GET(req:NextRequest) {
         const spaces = await prisma.space.findMany({
             where:{
                 hostId:session.user.id
+            },
+            select: {
+                id: true,
+                name: true,
+                hostId: true,
+                isActive: true
+            },
+            orderBy: {
+                id: 'desc' // Most recently created first
             }
-        })
+        });
+
+        // Enhance spaces with Redis queue data (with fallback)
+        const enhancedSpaces = await Promise.all(
+            spaces.map(async (space) => {
+                try {
+                    // Get queue length from Redis
+                    const queueLength = await getRedisQueueLength(space.id);
+                    
+                    // Get a sample track from queue for display
+                    const queueSongs = await getRedisQueue(space.id);
+                    const firstTrack = queueSongs.length > 0 ? queueSongs[0] : null;
+                    
+                    return {
+                        ...space,
+                        _count: {
+                            streams: queueLength
+                        },
+                        streams: firstTrack ? [{
+                            id: firstTrack.id,
+                            title: firstTrack.title,
+                            smallImg: firstTrack.smallImg,
+                            bigImg: firstTrack.bigImg,
+                            artist: firstTrack.artist
+                        }] : []
+                    };
+                } catch (error) {
+                    console.error(`Error enhancing space ${space.id} with Redis data:`, error);
+                    // Fallback to basic space data if Redis fails
+                    return {
+                        ...space,
+                        _count: { streams: 0 },
+                        streams: []
+                    };
+                }
+            })
+        );
+
         return NextResponse.json(
-            { success: true, message: "Spaces retrieved successfully", spaces },
+            { success: true, message: "Spaces retrieved successfully", spaces: enhancedSpaces },
             { status: 200 }
         )
       

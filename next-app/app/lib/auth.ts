@@ -76,6 +76,8 @@ session : {
                 token.id = user.id;
                 token.email = user.email;
                 token.username = user.username;
+                token.pfpUrl = user.pfpUrl || null;
+                token.name = user.name || null;
             }
             // console.log('JWT callback', token);
             return token;
@@ -85,6 +87,8 @@ session : {
                 id : token.id,
                 email : token.email,
                 username : token.username,
+                pfpUrl : token.pfpUrl,
+                name : token.name,
             }
             // console.log('Session callback', session);
             return session;

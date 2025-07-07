@@ -19,6 +19,8 @@ datasource db {
     email           String      @unique
     username        String      @unique
     password        String
+      pfpUrl       String?      @default("")
+        name          String?     @default("")
     provider        Provider
     streams         Stream[]    @relation("user")
     upvotes         Upvote[]  

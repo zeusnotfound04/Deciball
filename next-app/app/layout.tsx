@@ -1,7 +1,7 @@
-
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./provider";
+import BeamsBackground from "@/components/Background";
 
 
 export const metadata: Metadata = {
@@ -17,18 +17,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {/* <SessionProviderWrapper> */}
-          {/* <Container> */}
-           {/* <SocketContextProvider> */}
 <Providers>
-
+{/* <BeamsBackground intensity="strong"> */}
 {children}
+{/* </BeamsBackground> */}
 </Providers>
-           {/* </SocketContextProvider> */}
-           
-          {/* </Container> */}
-        {/* </SessionProviderWrapper> */}
-       
       </body>
     </html>
   );
