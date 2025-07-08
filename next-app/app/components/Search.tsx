@@ -41,6 +41,14 @@ type Track = {
   external_urls: { spotify: string };
   preview_url?: string; // Add preview_url for audio playback
 };
+interface Artist {
+    external_urls : string[];
+    href : string;
+    id : string;
+    name : string;
+    type : string;
+    uri : string
+}
 
 interface SearchSongPopupProps {
   onSelect?: (track: Track) => void;
@@ -219,26 +227,29 @@ export default function SearchSongPopup({
   // Helper function to try multiple YouTube search results until one works
   const tryMultipleResults = async (searchResults: any[], track: any, spaceId: string, autoPlay: boolean = false): Promise<boolean> => {
     for (let i = 0; i < searchResults.length; i++) {
-      const result = searchResults[i];
-      const videoId = result.downloadUrl[0].url;
-      
+      // const result = searchResults[i];
+      // const videoId = result.downloadUrl[0].url;
+      const { downloadUrl: [{ url: videoId }] } = searchResults[i];
       // Validate video ID format
       if (!videoId || videoId.length !== 11 || !/^[a-zA-Z0-9_-]+$/.test(videoId)) {
         continue;
       }
-
-      const finalUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      
+      
+      
+      const title : string = track.name.replace(/\s*\(.*?\)\s*/g, '').trim();
       
       try {
         // ✅ Send WebSocket message with Spotify album image (not YouTube thumbnail)
         const success = sendMessage("add-to-queue", {
           spaceId: spaceId,
+          addedByUser : socketUser?.username || "",
           userId: socketUser?.id || '',
-          url: finalUrl,
+          url: `https://www.youtube.com/watch?v=${videoId}`,
           autoPlay: autoPlay,
           trackData: {
-            title: track.name,
-            artist: track.artists?.[0]?.name || 'Unknown Artist',
+            title: title,
+            artist:  track.artists.map((artist: Artist) => artist.name).join(', ') || 'Unknown Artist',
             image: track.album?.images?.[0]?.url || '', // 🎯 SPOTIFY ALBUM IMAGE - NOT YOUTUBE
             source: 'Youtube',
             spotifyId: track.id,
@@ -261,10 +272,9 @@ export default function SearchSongPopup({
           return true;
         }
         
-        // Wait a bit before trying next result
         await new Promise(resolve => setTimeout(resolve, 200));
       } catch (error) {
-        // Continue to next result
+        console.error(`Error adding track ${track.name} with video ID ${videoId}:`, error);
       }
     }
     

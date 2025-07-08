@@ -296,25 +296,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
         <div className="flex items-center justify-between">
           {/* Song Info */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-12 h-12 rounded-lg overflow-hidden shadow-lg flex-shrink-0">
-              {currentSong.image?.[0]?.url ? (
-                <img 
-                  src={currentSong.image[0].url} 
-                  alt="Album art"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-lg">♪</div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-white font-medium truncate text-sm">
-                {currentSong.name}
-              </div>
-              <div className="text-gray-400 text-xs truncate">
-                {currentSong.artistes?.primary?.[0]?.name || 'Unknown Artist'}
-              </div>
-            </div>
+         
             <button
               onClick={() => setIsLiked(!isLiked)}
               className={`p-1 rounded-full transition-colors ${

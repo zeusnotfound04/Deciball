@@ -38,34 +38,56 @@ export class YoutubeHandler implements MusicHandler {
       return null;
     }
 
-    const res = await youtubesearchapi.GetVideoDetails(id);
+    // const res = await youtubesearchapi.GetVideoDetails(id);
+    const searchResult = await youtubesearchapi.GetListByKeyword(`https://youtube.com/watch?v=${id}`, false, 1);
+
+    const video = searchResult?.items?.[0];
+    console.log("The Response from the Youtube API is: ", video);
     // console.log(`[YoutubeHandler] API Response:`, JSON.stringify(res, null, 2));
 
     // Check if response exists and has the expected structure
-    if (!res || typeof res !== "object") {
-      console.warn(`[YoutubeHandler] Invalid or empty response from YouTube API for ID: ${id}`);
-      return null;
-    }
+    // if (!res || typeof res !== "object") {
+    //   console.warn(`[YoutubeHandler] Invalid or empty response from YouTube API for ID: ${id}`);
+    //   return null;
+    // }
 
-    // Check if the video details are available
-    if (!res.title) {
-      console.warn(`[YoutubeHandler] Video title not found for ID: ${id}. Video may be private, deleted, or restricted.`);
-      return null;
-    }
+    // // Check if the video details are available
+    // if (!res.title) {
+    //   console.warn(`[YoutubeHandler] Video title not found for ID: ${id}. Video may be private, deleted, or restricted.`);
+    //   return null;
+    // }
+    const title = video.title;
 
-    const title = res.title;
-    
-    // Handle thumbnail extraction more safely
+    // Handle thumbnail extraction
     let smallImage = "";
     let bigImage = "";
-    
-    if (res.thumbnail && res.thumbnail.thumbnails && Array.isArray(res.thumbnail.thumbnails)) {
-      const thumbnails = res.thumbnail.thumbnails;
-      if (thumbnails.length > 0) {
-        smallImage = thumbnails[0]?.url || "";
-        bigImage = thumbnails[thumbnails.length - 1]?.url || "";
-      }
+
+    if (video.thumbnail && Array.isArray(video.thumbnail.thumbnails)) {
+      const thumbnails = video.thumbnail.thumbnails;
+      smallImage = thumbnails[0]?.url || "";
+      bigImage = thumbnails[thumbnails.length - 1]?.url || smallImage;
     }
+
+    // Fallback thumbnails
+    if (!smallImage && !bigImage) {
+      const fallback = `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+      smallImage = fallback;
+      bigImage = fallback;
+    }
+
+    // const title = res.title;
+    
+    // Handle thumbnail extraction more safely
+    // let smallImage = "";
+    // let bigImage = "";
+    
+    // if (res.thumbnail && res.thumbnail.thumbnails && Array.isArray(res.thumbnail.thumbnails)) {
+    //   const thumbnails = res.thumbnail.thumbnails;
+    //   if (thumbnails.length > 0) {
+    //     smallImage = thumbnails[0]?.url || "";
+    //     bigImage = thumbnails[thumbnails.length - 1]?.url || "";
+    //   }
+    // }
 
     // Fallback thumbnail if none found
     if (!smallImage && !bigImage) {
@@ -82,6 +104,7 @@ export class YoutubeHandler implements MusicHandler {
       title,
       smallImg: smallImage,
       bigImg: bigImage,
+      duration: video.length.simpleText 
     };
     
   } catch (error) {

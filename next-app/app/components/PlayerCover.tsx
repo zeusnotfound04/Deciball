@@ -298,7 +298,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
         draggable
         onDragStart={(e) => handleDragStart(e)}
         onDragEnd={handleDragEnd}
-        className=" border-2 border-white/10 relative h-auto min-h-40  overflow-hidden rounded-xl "
+        className="  relative h-auto min-h-40  overflow-hidden rounded-xl "
       >
         {!currentSong?.video ? (
           <Image

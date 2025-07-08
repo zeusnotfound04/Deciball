@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAudio } from '@/store/audioStore';
 import { useUserStore } from '@/store/userStore';
 import { useSocket } from '@/context/socket-context';
@@ -24,7 +25,7 @@ import {
 // Import the existing components
 import PLayerCover from '@/app/components/PlayerCover';
 import AudioController from '@/app/components/Controller';
-import { Listener } from './Listener';
+import { CommandShortcut } from '@/app/components/ui/command';
 
 interface PlayerProps {
   spaceId: string;
@@ -57,9 +58,7 @@ export const Player: React.FC<PlayerProps> = ({
   const { user } = useUserStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showListeners, setShowListeners] = useState(false);
-  const [activeTab, setActiveTab] = useState<'cover' | 'listeners' | 'settings'>('cover');
-
-  // Set up song ended callback for HTML audio fallback
+  const [activeTab, setActiveTab] = useState<'cover'>('cover');
   useEffect(() => {
     const songEndedCallback = () => {
       console.log("[Player] Song ended, sending songEnded message to backend");
@@ -157,227 +156,95 @@ export const Player: React.FC<PlayerProps> = ({
       </Card>
     );
   }
-
+  
+ console.log("[Player] Rendered with currentSong:", currentSong);
   return (
-    <div className={`w-full space-y-4 ${className}`}>
-      {/* Main Player Card */}
-      <Card className="w-full overflow-hidden">
+    <motion.div
+      className={`w-full space-y-4 ${className}`}
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.7, ease: 'easeOut' }}
+    >
+      {/* Main Player Card - Dark Animated Theme */}
+      <motion.div
+        className="w-full overflow-hidden bg-gradient-to-br from-[#181c2b] via-[#23263a] to-[#181c2b] shadow-2xl rounded-2xl border border-[#23263a]"
+        initial={{ scale: 0.98 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+      >
         <CardContent className="p-0">
-          <div className={`transition-all duration-300 ${isExpanded ? 'min-h-[600px]' : 'min-h-[400px]'}`}>
-            {/* Player Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                  <div>
-                    <h2 className="font-semibold">Now Playing</h2>
-                    <p className="text-sm opacity-80">Room: {spaceId.slice(0, 8)}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {/* Tab Navigation */}
-                  <div className="flex bg-white/20 rounded-lg p-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setActiveTab('cover')}
-                      className={`text-white hover:bg-white/20 ${activeTab === 'cover' ? 'bg-white/30' : ''}`}
-                    >
-                      <Music className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setActiveTab('listeners')}
-                      className={`text-white hover:bg-white/20 ${activeTab === 'listeners' ? 'bg-white/30' : ''}`}
-                    >
-                      <Users className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setActiveTab('settings')}
-                      className={`text-white hover:bg-white/20 ${activeTab === 'settings' ? 'bg-white/30' : ''}`}
-                    >
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  
-                  {/* Expand/Collapse */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="text-white hover:bg-white/20"
-                  >
-                    {isExpanded ? (
-                      <Minimize2 className="w-4 h-4" />
-                    ) : (
-                      <Maximize2 className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-
+          <motion.div
+            className={`transition-all duration-300 ${isExpanded ? 'min-h-[600px]' : 'min-h-[400px]'}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+          >
             {/* Player Content */}
             <div className="p-6">
               <div className={`grid gap-6 ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
                 {/* Left Column - Always visible */}
                 <div className="space-y-4">
-                  {/* Song Info */}
-                  <div className="text-center lg:text-left">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                      {currentSong.name}
-                    </h1>
-                    {currentSong.artistes?.primary?.[0]?.name && (
-                      <p className="text-lg text-gray-600 mb-3">
-                        {currentSong.artistes.primary[0].name}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-center lg:justify-start gap-3">
-                      <Badge variant={currentSong.url?.includes('spotify.com') ? 'default' : 'secondary'}>
-                        {currentSong.url?.includes('spotify.com') ? 'Spotify' : 'YouTube'}
-                      </Badge>
-                      {currentSong.addedByUser && (
-                        <span className="text-sm text-gray-500">
-                          Added by @{currentSong.addedByUser.username}
-                        </span>
-                      )}
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-500">{userCount} listening</span>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Album Cover */}
                   {activeTab === 'cover' && (
-                    <div className="flex justify-center">
-                      <div className="w-full max-w-sm">
+                    <div className="flex flex-col items-center">
+                      <motion.div
+                        className="w-full max-w-sm"
+                        initial={{ scale: 0.95, boxShadow: '0 0 0 0 #0000' }}
+                        animate={{ scale: 1, boxShadow: '0 8px 32px 0 #0004' }}
+                        transition={{ duration: 0.6, ease: 'easeInOut' }}
+                        whileHover={{ scale: 1.03, boxShadow: '0 12px 40px 0 #0006' }}
+                      >
                         <PLayerCover spaceId={spaceId} userId={user?.id} />
-                      </div>
+                      </motion.div>
+                      {/* Song Name and Artist Name */}
+                      <motion.div
+                        className="mt-6 text-center"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.7, delay: 0.3 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                      >
+                        <motion.h1
+                          className="text-2xl font-bold text-white mb-2 drop-shadow-lg"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.7, delay: 0.4 }}
+                        >
+                          {currentSong.name}
+                        </motion.h1>
+                        {currentSong.artistes?.primary?.[0]?.name && (
+                          <motion.p
+                            className="text-lg text-[#b3b8d1] mb-3"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.7, delay: 0.5 }}
+                          >
+                            {currentSong.artistes.primary[0].name}
+                          </motion.p>
+                        )}
+                      </motion.div>
                     </div>
                   )}
-
-                  {/* Listeners */}
-                  {activeTab === 'listeners' && (
-                    <Listener 
-                      spaceId={spaceId}
-                      isAdmin={isAdmin}
-                      userCount={userCount}
-                      userDetails={userDetails}
-                    />
-                  )}
-
-                  {/* Settings */}
-                  {activeTab === 'settings' && (
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="space-y-4">
-                          <h3 className="font-semibold">Player Settings</h3>
-                          
-                          {/* Volume Control */}
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Volume</label>
-                            <div className="flex items-center gap-3">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={isMuted ? unmute : mute}
-                              >
-                                {isMuted ? (
-                                  <VolumeX className="w-4 h-4" />
-                                ) : (
-                                  <Volume2 className="w-4 h-4" />
-                                )}
-                              </Button>
-                              <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.01"
-                                value={isMuted ? 0 : volume}
-                                onChange={(e) => {
-                                  // Handle volume change through audio store
-                                }}
-                                className="flex-1"
-                              />
-                              <span className="text-sm text-gray-500 w-12">
-                                {Math.round((isMuted ? 0 : volume) * 100)}%
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Quick Actions */}
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Quick Actions</label>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm">
-                                <Play className="w-4 h-4 mr-2" />
-                                Keyboard Shortcuts
-                              </Button>
-                              {isAdmin && (
-                                <Button variant="outline" size="sm">
-                                  <Settings className="w-4 h-4 mr-2" />
-                                  Room Settings
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Keyboard Shortcuts Info */}
-                          <div className="text-xs text-gray-500 space-y-1">
-                            <p><kbd className="bg-gray-100 px-1 rounded">Space</kbd> - Play/Pause</p>
-                            <p><kbd className="bg-gray-100 px-1 rounded">Ctrl+→</kbd> - Next Song</p>
-                            <p><kbd className="bg-gray-100 px-1 rounded">Ctrl+←</kbd> - Previous Song</p>
-                            <p><kbd className="bg-gray-100 px-1 rounded">M</kbd> - Mute/Unmute</p>
-                            <p><kbd className="bg-gray-100 px-1 rounded">Ctrl+L</kbd> - Toggle Listeners</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
                 </div>
-
-                {/* Right Column - Only visible when expanded */}
-                {isExpanded && (
-                  <div className="space-y-4">
-                    {/* Additional content when expanded */}
-                    <Card>
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold mb-3">Room Activity</h3>
-                        <div className="space-y-2 text-sm text-gray-600">
-                          <p>• {userCount} users connected</p>
-                          <p>• Song playing for {Math.floor(Math.random() * 60)} seconds</p>
-                          <p>• {Math.floor(Math.random() * 10)} songs in queue</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Show listeners in expanded view regardless of tab */}
-                    <Listener 
-                      spaceId={spaceId}
-                      isAdmin={isAdmin}
-                      userCount={userCount}
-                      userDetails={userDetails}
-                    />
-                  </div>
-                )}
               </div>
             </div>
-          </div>
+          </motion.div>
         </CardContent>
-      </Card>
+      </motion.div>
 
       {/* Audio Controller - Always at bottom */}
-      <AudioController 
-        customTogglePlayPause={togglePlayPause}
-        spaceId={spaceId}
-        userId={user?.id}
-        isAdmin={isAdmin}
-      />
-    </div>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, delay: 0.4 }}
+      >
+        <AudioController 
+          customTogglePlayPause={togglePlayPause}
+          spaceId={spaceId}
+          userId={user?.id}
+          isAdmin={isAdmin}
+        />
+      </motion.div>
+    </motion.div>
   );
 };

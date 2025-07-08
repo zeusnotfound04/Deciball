@@ -1,3 +1,4 @@
+
 import jwt from 'jsonwebtoken';
 import { createClient, RedisClientType } from "redis";
 import { WebSocket } from "ws";
@@ -49,6 +50,8 @@ type QueueSong = {
     artist?: string;
     album?: string;
     url: string;
+    addedByUser: string;
+    // artists?: string[];
     extractedId: string;
     source: 'Youtube' | 'Spotify';
     smallImg: string;
@@ -177,21 +180,18 @@ export class RoomManager {
               { EX: EXPIRY_SECONDS } // Cache for 24 hours
             );
           }
-        
           await this.subscriber.subscribe(spaceId, this.onSubscribeRoom);
         }
       }
     
-
-
     async addUser(userId: string, ws: WebSocket, token: string) {
         let user = this.users.get(userId);
         
-        // Decode JWT token to extract user information
+        
         const userTokenInfo = this.decodeUserToken(token);
         
         if (!user) {
-          // Store user info in Redis for future reference
+          
           if (userTokenInfo) {
             await this.storeUserInfo(userId, {
               username: userTokenInfo.username,
@@ -212,9 +212,7 @@ export class RoomManager {
           }
         }
       }
-    
-
-
+      
       async joinRoom(
         spaceId: string,
         creatorId: string,
@@ -230,11 +228,11 @@ export class RoomManager {
           await this.createRoom(spaceId, spaceName);
           space = this.spaces.get(spaceId);
         } else if (spaceName) {
-          // Update space name cache if provided and space already exists
+          
           await this.redisClient.set(
             `space-details-${spaceId}`,
             JSON.stringify({ name: spaceName }),
-            { EX: EXPIRY_SECONDS } // Cache for 24 hours
+            { EX: EXPIRY_SECONDS } 
           );
         }
     
@@ -1042,7 +1040,7 @@ export class RoomManager {
                     voteCount: await this.getSongVoteCount(spaceId, currentSong.id),
                     addedByUser: {
                         id: currentSong.userId,
-                        username: 'User' // We might need to get this from database or Redis
+                        username: currentSong.addedByUser
                     }
                 };
                 
@@ -1103,7 +1101,7 @@ export class RoomManager {
             
             // Add to queue list
             await this.redisClient.rPush(queueKey, songData);
-            
+            console.log("The Original Song Adding in the QUEUE🐉🐉😘😘", song)
             // Also store song details in a hash for easy access
             const songKey = `song:${song.id}`;
             await this.redisClient.hSet(songKey, {
@@ -1184,13 +1182,7 @@ export class RoomManager {
             
             // Get the first song (most upvoted)
             const nextSong = sortedQueue[0];
-            
-            console.log("🎵 Next song to play (most upvoted):", {
-                title: nextSong.title,
-                voteCount: await this.getSongVoteCount(spaceId, nextSong.id),
-                addedAt: new Date(nextSong.addedAt).toISOString()
-            });
-            
+        
             // Remove this song from the queue
             await this.removeSongFromRedisQueue(spaceId, nextSong.id);
             
@@ -1433,8 +1425,7 @@ export class RoomManager {
             });
             return;
         }
-
-        // Get track details using the unified interface
+        // Here we are getting the youtube url
         const trackDetails = await this.musicSourceManager.getTrackDetails(url);
         if (!trackDetails) {
             currentUser?.ws.forEach((ws) => {
@@ -1445,22 +1436,21 @@ export class RoomManager {
             });
             return;
         }
-
-        // Create queue song object
-        // Priority: Use Spotify album image from trackData if available, fallback to music source manager images
+       console.log("Track Details 😭😭", trackDetails)
         const primaryImage = trackData?.image || trackDetails.smallImg;
         const secondaryImage = trackData?.image || trackDetails.bigImg;
-        
+        console.log("Artists 😎😎" , trackData.artist)
         const queueSong: QueueSong = {
             id: crypto.randomUUID(),
-            title: trackDetails.title,
-            artist: trackDetails.artist,
+            title: trackData.title,
+            artist: trackData.artist,
             album: trackDetails.album,
             url: trackDetails.url,
             extractedId: trackDetails.extractedId,
             source: trackDetails.source as 'Youtube' | 'Spotify',
             smallImg: primaryImage,
             bigImg: secondaryImage,
+            addedByUser :  trackData.addedByUser,
             userId: userId,
             addedAt: Date.now(),
             duration: trackDetails.duration,
@@ -1516,7 +1506,8 @@ export class RoomManager {
 
         // Get the next song from Redis queue
         const nextSong = await this.getNextSongFromRedisQueue(spaceId);
-        
+
+        console.log("playNext Song 🤣🤣🤣", nextSong)        
         if (!nextSong) {
             // Clear current playing song
             await this.redisClient.del(`current:${spaceId}`);
@@ -1566,13 +1557,12 @@ export class RoomManager {
 
         const voteCount = await this.getSongVoteCount(spaceId, nextSong.id);
 
-        // Broadcast the new current song to all users
         const songData = {
             ...nextSong,
             voteCount: voteCount,
             addedByUser: {
                 id: nextSong.userId,
-                username: 'User' // We might need to get this from database or Redis
+                username: nextSong.addedByUser // We might need to get this from database or Redis
             }
         };
 

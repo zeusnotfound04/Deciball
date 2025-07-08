@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
     } else {
       results = await searchTracks(query, limit, offset);
     }
-    console.log("Response Tracks",results.body.tracks.items)
 
     return NextResponse.json(results);
   } catch (error: any) {

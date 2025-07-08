@@ -9,7 +9,14 @@
   import { useUserStore } from "./userStore";
   import { useSocket } from "@/context/socket-context";
 
-  // Define the store state interface
+  interface Artist {
+    external_urls : string[];
+    href : string;
+    id : string;
+    name : string;
+    type : string;
+    uri : string
+}
   interface AudioState {
     
     isPlaying: boolean;
@@ -1029,6 +1036,8 @@
     // Queue management functions
     const addToQueue = (song: searchResults) => {
       console.log("🎵 Adding song to queue:", song);
+      const artistName = song.artistes?.primary?.[0]?.name || 'Unknown Artist';
+      console.log("🎵 Adding song to queue:Artist name:", artistName);
       
       if (ws && ws.readyState === WebSocket.OPEN) {
         // Extract YouTube video ID if it's a YouTube URL
@@ -1338,31 +1347,27 @@
         console.log("🎶 [AudioStore] Current song update event received:", event.detail);
         const songData = event.detail.song;
         console.log("🎶 [AudioStore] Raw song data:", songData);
+        const artistes : string[] = songData.artists.map((artist: Artist) => artist.name);
+        console.log("Artistes 🐽🐽🐽" , artistes)
         
         if (songData) {
-          console.log("🎶 [AudioStore] Processing song data...");
-          console.log("🎶 [AudioStore] Song ID:", songData.id);
-          console.log("🎶 [AudioStore] Song title:", songData.title || songData.name);
-          console.log("🎶 [AudioStore] Song artist:", songData.artist);
-          console.log("🎶 [AudioStore] Song extractedId:", songData.extractedId);
-          console.log("🎶 [AudioStore] Song source:", songData.source);
-          console.log("🎶 [AudioStore] Song bigImg:", songData.bigImg);
-          console.log("🎶 [AudioStore] Song smallImg:", songData.smallImg);
+
           
           // Format the song for audio store
-          const formattedSong: searchResults = {
+          const formattedSong: any = {
             id: songData.id,
             name: songData.title || songData.name,
-            artistes: {
-              primary: [{
-                id: 'unknown',
-                name: songData.artist || 'Unknown Artist',
-                role: 'primary_artist',
-                image: [] as [],
-                type: 'artist' as const,
-                url: ''
-              }]
-            },
+            artistes : artistes,
+            // artistes: {
+            //   primary: [{
+            //     id: 'unknown',
+            //     name: artistes || 'Unknown Artist',
+            //     role: 'primary_artist',
+            //     image: [] as [],
+            //     type: 'artist' as const,
+            //     url: ''
+            //   }]
+            // },
             image: [
               { quality: 'high', url: songData.bigImg || songData.smallImg || '' },
               { quality: 'medium', url: songData.smallImg || songData.bigImg || '' }
@@ -1379,10 +1384,7 @@
           };
           
           console.log("🎶 [AudioStore] Formatted song for audio store:", formattedSong);
-          console.log("🎶 [AudioStore] Formatted song name:", formattedSong.name);
-          console.log("🎶 [AudioStore] Formatted song downloadUrl:", formattedSong.downloadUrl);
-          console.log("🎶 [AudioStore] Current song before update:", currentSong?.name);
-          
+
           // Set as current song and start playing
           console.log("🎶 [AudioStore] Setting current song in store...");
           setCurrentSong(formattedSong);

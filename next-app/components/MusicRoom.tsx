@@ -1,24 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
 import { useAudio } from '@/store/audioStore';
-import { SpotifyPlayer } from './SpotifyPlayer';
 import { QueueManager } from './QueueManager';
 import { Player } from './Player';
-import { DebugBatchQueue } from './DebugBatchQueue';
 import SearchSongPopup from '@/app/components/Search';
-import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { Users, Music, Settings, VolumeX, Volume2, Play, Pause } from 'lucide-react';
 import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
 
-import { searchResults } from '@/types';
 
 interface MusicRoomProps {
   spaceId: string;
@@ -47,7 +42,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const [showSearch, setShowSearch] = useState(false);
   const [showQueue, setShowQueue] = useState(true);
   const [showPlayer, setShowPlayer] = useState(true);
-  const [showDebug, setShowDebug] = useState(false);
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [spaceInfo, setSpaceInfo] = useState<{ spaceName: string; hostId: string } | null>(null);
 
@@ -254,31 +248,34 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   }
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-        <ListenerSidebar 
-          listeners={userDetails.length > 0 ? userDetails : [
-          
-            ...Array.from({ length: connectedUsers }, (_, i) => ({
-              userId: `user-${i}`,
-              isCreator: i === 0,
-              name: i === 0 ? 'Room Creator' : `Listener ${i}`,
-              imageUrl: ''
-            }))
-          ]} 
-        />
-        <main className="flex-1 p-4 overflow-y-auto">
-          {/* Include Spotify Player (invisible component) */}
-          <SpotifyPlayer />
-          
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Room Header */}
-            <Card className="bg-gray-800 border-gray-700">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-2xl text-white">{roomName}</CardTitle>
-                    <div className="flex items-center gap-4 mt-2">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+      {/* Left Sidebar */}
+      <div className="flex-shrink-0">
+        <SidebarProvider>
+          <ListenerSidebar 
+            listeners={userDetails.length > 0 ? userDetails : [
+              ...Array.from({ length: connectedUsers }, (_, i) => ({
+                userId: `user-${i}`,
+                isCreator: i === 0,
+                name: i === 0 ? 'Room Creator' : `Listener ${i}`,
+                imageUrl: ''
+              }))
+            ]} 
+          />
+        </SidebarProvider>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+          {/* Top Header with Search */}
+          <div className="w-full p-4 border-b border-gray-700">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-col gap-4">
+                {/* Room Info and Search Bar */}
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <h1 className="text-2xl font-bold text-white">{roomName}</h1>
+                    <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1 text-gray-400">
                         <Users className="w-4 h-4" />
                         <span className="text-sm">{connectedUsers} connected</span>
@@ -286,7 +283,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       <Badge variant={isAdmin ? 'default' : 'secondary'} className={isAdmin ? "bg-purple-600" : "bg-gray-700"}>
                         {isAdmin ? 'Admin' : 'Listener'}
                       </Badge>
-                      {/* Connection Status Badge */}
                       <Badge 
                         variant={
                           loading ? 'secondary' :
@@ -309,143 +305,103 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowSearch(!showSearch)}
-                      className="bg-gray-700 border-gray-600 hover:bg-gray-600"
-                    >
-                      <Music className="w-4 h-4 mr-2" />
-                      {showSearch ? 'Hide Search' : 'Add Music'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowQueue(!showQueue)}
-                      className="bg-gray-700 border-gray-600 hover:bg-gray-600"
-                    >
-                      Queue ({showQueue ? 'Hide' : 'Show'})
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowPlayer(!showPlayer)}
-                      className="bg-gray-700 border-gray-600 hover:bg-gray-600"
-                    >
-                      Player ({showPlayer ? 'Hide' : 'Show'})
-                    </Button>
-                    {isAdmin && (
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowDebug(!showDebug)}
-                        className="border-orange-500 text-orange-500 hover:bg-orange-900/50"
-                      >
-                        Debug ({showDebug ? 'Hide' : 'Show'})
-                      </Button>
-                    )}
+                  {/* Search Bar */}
+                  <div className="flex-1 max-w-xl">
+                    <SearchSongPopup 
+                      onSelect={(track) => {
+                        console.log('Song selected:', track.name);
+                      }}
+                      onBatchSelect={handleBatchAddToQueue}
+                      buttonClassName="w-full bg-gray-700 hover:bg-gray-600 border-gray-600"
+                      maxResults={12}
+                      isAdmin={true}
+                      enableBatchSelection={true}
+                      spaceId={spaceId}
+                    />
                   </div>
                 </div>
-              </CardHeader>
-            </Card>
 
-            {/* Unified Player Component */}
-            {showPlayer && (
-              <Player 
-                spaceId={spaceId}
-                isAdmin={isAdmin}
-                userCount={connectedUsers}
-                userDetails={userDetails}
-                className="w-full"
-              />
-            )}
+               
+              </div>
+            </div>
+          </div>
 
-            {/* Debug Section (Admin Only) */}
-            {showDebug && isAdmin && (
-              <DebugBatchQueue spaceId={spaceId} />
-            )}
+          {/* Main Content Grid */}
+          <div className="flex-1 p-4">
+            <div className="max-w-7xl mx-auto h-full">
+              {/* Grid Layout - 2 columns */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Music Search */}
-              {showSearch && (
-                <Card className="bg-gray-800 border-gray-700">
-                  <CardHeader>
-                    <CardTitle className="text-white">Add Music</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col space-y-4">
-                      <p className="text-sm text-gray-400">
-                        {isAdmin ? 'Search and select multiple songs to add to the queue' : 'Search and add songs to the queue'}
-                      </p>
-                      <SearchSongPopup 
-                        onSelect={(track) => {
-                          console.log('Song selected:', track.name);
-                          // The Search component handles adding to queue internally
-                        }}
-                        onBatchSelect={handleBatchAddToQueue}
-                        buttonClassName="w-full bg-gray-700 hover:bg-gray-600 border-gray-600"
-                        maxResults={12}
-                        isAdmin={true}
-                        enableBatchSelection={true}
+                {/* Left Column - Player and Recommendation - Now Vertically Centered */}
+                <div className="flex flex-col justify-center space-y-6">
+                  {showPlayer && (
+                    <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 p-6">
+                      <Player 
                         spaceId={spaceId}
+                        isAdmin={isAdmin}
+                        userCount={connectedUsers}
+                        userDetails={userDetails}
+                        className="w-full"
                       />
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  )}
 
-              {/* Queue Manager */}
-              {showQueue && (
-                <Card className={`${showSearch ? '' : 'lg:col-span-2'} bg-gray-800 border-gray-700`}>
-                  <CardHeader>
-                    <CardTitle className="text-white">Music Queue</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <QueueManager 
-                      spaceId={spaceId} 
-                      isAdmin={isAdmin}
-                    />
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            {/* Connected Users (Admin View) */}
-            {isAdmin && userDetails.length > 0 && (
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2 text-white">
-                    <Users className="w-5 h-5" />
-                    Connected Users ({connectedUsers})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {userDetails.map((userDetail, index) => (
-                      <div key={userDetail.userId} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                  {/* Recommendation Section */}
+                  <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 p-6">
+                    <h3 className="text-lg font-semibold text-green-400 mb-4">Recommended for you</h3>
+                    <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-600/30 rounded-xl p-4">
+                      <div className="flex flex-col gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                            {userDetail.userId.slice(0, 2).toUpperCase()}
+                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
+                            <Music className="w-6 h-6 text-gray-400" />
                           </div>
-                          <div>
-                            <p className="font-medium text-white">User {userDetail.userId.slice(0, 8)}</p>
-                            <p className="text-sm text-gray-400">
-                              {userDetail.isCreator ? 'Room Creator' : 'Listener'}
-                            </p>
+                          <div className="flex-1">
+                            <p className="font-medium text-white">Song Title</p>
+                            <p className="text-sm text-gray-400">Artist Name</p>
                           </div>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                            <Play className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {userDetail.isCreator && (
-                            <Badge variant="default" className="bg-purple-600">Creator</Badge>
-                          )}
-                          <div className="w-2 h-2 bg-green-500 rounded-full" title="Online"></div>
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
+                            <Music className="w-6 h-6 text-gray-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-white">Another Song</p>
+                            <p className="text-sm text-gray-400">Another Artist</p>
+                          </div>
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                            <Play className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+
+                {/* Right Column - Queue */}
+                <div className="space-y-6">
+                  {showQueue && (
+                    <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 h-full">
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h2 className="text-xl font-bold text-white">Music Queue</h2>
+                        </div>
+                        <QueueManager 
+                          spaceId={spaceId} 
+                          isAdmin={isAdmin}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </main>
+        </div>
+
       </div>
-    </SidebarProvider>
+  
   );
 };
