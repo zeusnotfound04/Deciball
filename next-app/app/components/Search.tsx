@@ -75,6 +75,7 @@ export default function SearchSongPopup({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false); // Track if user has searched
   const inputRef = useRef<HTMLInputElement>(null);
   
   // Get socket and user context for WebSocket communication
@@ -98,6 +99,11 @@ export default function SearchSongPopup({
     const timer = setTimeout(() => {
       if (query) {
         handleSearch();
+      } else {
+        // Reset search state when query is empty
+        setHasSearched(false);
+        setResults([]);
+        setError(null);
       }
     }, 300);
     
@@ -120,6 +126,7 @@ export default function SearchSongPopup({
       setResults([]);
       setSelectedTracks([]);
       setError(null);
+      setHasSearched(false); // Reset search state
     }
   }, [open]);
 
@@ -127,11 +134,13 @@ export default function SearchSongPopup({
     if (!query) {
       setResults([]);
       setError(null);
+      setHasSearched(false);
       return;
     }
     
     setLoading(true);
     setError(null);
+    setHasSearched(true); // Mark that user has searched
     
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
@@ -425,7 +434,15 @@ export default function SearchSongPopup({
             <span className="text-xs">⌘</span>K
           </kbd>
         </Button>
-      </DialogTrigger>        <DialogContent hideCloseButton={true} className="w-[90vw] max-w-2xl p-0 gap-0 border-zinc-800 bg-zinc-900 shadow-2xl rounded-lg overflow-hidden h-[600px] flex flex-col">
+      </DialogTrigger>
+      <DialogContent 
+        hideCloseButton={true} 
+        className={cn(
+          "w-[90vw] max-w-2xl p-0 gap-0 border-zinc-800 bg-zinc-900 shadow-2xl rounded-lg overflow-hidden flex flex-col",
+          // Dynamic height based on whether results should be shown
+          hasSearched ? "h-[600px]" : "h-auto"
+        )}
+      >
         <DialogHeader className="p-0 m-0 h-0">
           <VisuallyHidden>
             <DialogTitle>Search Songs</DialogTitle>
@@ -452,8 +469,8 @@ export default function SearchSongPopup({
               </div>
             </div>
             
-            {/* Batch Selection Controls */}
-            {enableBatchSelection && isAdmin && results.length > 0 && (
+            {/* Batch Selection Controls - Only show if user has searched and there are results */}
+            {enableBatchSelection && isAdmin && hasSearched && results.length > 0 && (
               <div className="mt-2 flex items-center justify-between bg-zinc-800 rounded-lg p-3">
                 <div className="flex items-center gap-3">
                   <Button
@@ -482,119 +499,110 @@ export default function SearchSongPopup({
             )}
           </div>
           
-          {/* Results container - Fixed height with scrolling */}
-          <div className="flex-1 bg-zinc-900 border-t border-zinc-800 shadow-xl overflow-hidden flex flex-col min-h-0">
-            {/* Show loading indicator when searching */}
-            {loading && (
-              <div className="flex items-center justify-center py-6 flex-1">
-                <Loader2 className="h-5 w-5 animate-spin mr-2 text-zinc-400" />
-                <span className="text-sm text-zinc-400">Searching...</span>
-              </div>
-            )}
-            
-            {/* Show results when available */}
-            {!loading && results.length > 0 && (
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <ul className="py-1">
-                  {results.map((track, index) => (
-                    <li
-                      key={track.id || index}
-                      className={cn(
-                        "flex items-center gap-3 p-3 cursor-pointer border-b border-zinc-800/50 last:border-b-0 transition-colors",
-                        enableBatchSelection && isAdmin 
-                          ? "hover:bg-zinc-800/60" 
-                          : "hover:bg-zinc-800/80",
-                        isTrackSelected(track) && "bg-blue-900/30 border-blue-700/50"
-                      )}
-                      onClick={() => handleTrackSelect(track)}
-                    >
-                      {/* Selection checkbox for admins */}
-                      {enableBatchSelection && isAdmin && (
-                        <div className="flex-shrink-0">
-                          <div className={cn(
-                            "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
-                            isTrackSelected(track) 
-                              ? "bg-blue-600 border-blue-600" 
-                              : "border-zinc-600 hover:border-zinc-500"
-                          )}>
+          {/* Results container - Only show if user has searched */}
+          {hasSearched && (
+            <div className="flex-1 bg-zinc-900 border-t border-zinc-800 shadow-xl overflow-hidden flex flex-col min-h-0">
+              {/* Show loading indicator when searching */}
+              {loading && (
+                <div className="flex items-center justify-center py-6 flex-1">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-zinc-400" />
+                  <span className="text-sm text-zinc-400">Searching...</span>
+                </div>
+              )}
+              
+              {/* Show results when available */}
+              {!loading && results.length > 0 && (
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  <ul className="py-1">
+                    {results.map((track, index) => (
+                      <li
+                        key={track.id || index}
+                        className={cn(
+                          "flex items-center gap-3 p-3 cursor-pointer border-b border-zinc-800/50 last:border-b-0 transition-colors",
+                          enableBatchSelection && isAdmin 
+                            ? "hover:bg-zinc-800/60" 
+                            : "hover:bg-zinc-800/80",
+                          isTrackSelected(track) && "bg-blue-900/30 border-blue-700/50"
+                        )}
+                        onClick={() => handleTrackSelect(track)}
+                      >
+                        {/* Selection checkbox for admins */}
+                        {enableBatchSelection && isAdmin && (
+                          <div className="flex-shrink-0">
+                            <div className={cn(
+                              "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                              isTrackSelected(track) 
+                                ? "bg-blue-600 border-blue-600" 
+                                : "border-zinc-600 hover:border-zinc-500"
+                            )}>
+                              {isTrackSelected(track) && (
+                                <Check className="w-3 h-3 text-white" />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="w-12 h-12 overflow-hidden rounded-md flex-shrink-0 border border-zinc-800/50 shadow-md bg-zinc-800">
+                          {track.album?.images && track.album.images[0]?.url ? (
+                            <img
+                              src={track.album.images[0].url}
+                              alt={track.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder.svg';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">
+                              <Music className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-zinc-200">{track.name}</p>
+                          <p className="text-xs text-zinc-400 truncate mt-0.5">
+                            {track.artists?.map(artist => artist.name).join(', ') || 'Unknown Artist'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="flex items-center text-[10px] text-zinc-500 bg-zinc-800/80 px-1.5 py-0.5 rounded-full">
+                              <Music className="w-2.5 h-2.5 mr-1 text-zinc-400" />
+                              {track.preview_url ? 'PREVIEW' : 'TRACK'}
+                            </span>
+                            {track.preview_url && (
+                              <span className="text-[10px] text-emerald-400 bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
+                                ▶ PLAYABLE
+                              </span>
+                            )}
                             {isTrackSelected(track) && (
-                              <Check className="w-3 h-3 text-white" />
+                              <span className="text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded-full">
+                                ✓ SELECTED
+                              </span>
                             )}
                           </div>
                         </div>
-                      )}
-                      
-                      <div className="w-12 h-12 overflow-hidden rounded-md flex-shrink-0 border border-zinc-800/50 shadow-md bg-zinc-800">
-                        {track.album?.images && track.album.images[0]?.url ? (
-                          <img
-                            src={track.album.images[0].url}
-                            alt={track.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/placeholder.svg';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">
-                            <Music className="w-6 h-6" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate text-zinc-200">{track.name}</p>
-                        <p className="text-xs text-zinc-400 truncate mt-0.5">
-                          {track.artists?.map(artist => artist.name).join(', ') || 'Unknown Artist'}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="flex items-center text-[10px] text-zinc-500 bg-zinc-800/80 px-1.5 py-0.5 rounded-full">
-                            <Music className="w-2.5 h-2.5 mr-1 text-zinc-400" />
-                            {track.preview_url ? 'PREVIEW' : 'TRACK'}
-                          </span>
-                          {track.preview_url && (
-                            <span className="text-[10px] text-emerald-400 bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
-                              ▶ PLAYABLE
-                            </span>
-                          )}
-                          {isTrackSelected(track) && (
-                            <span className="text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded-full">
-                              ✓ SELECTED
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            {/* Show error state when search returns no results */}
-            {!loading && query && results.length === 0 && (
-              <div className="py-6 text-center flex-1 flex items-center justify-center">
-                <div>
-                  <p className="text-zinc-400 font-medium">
-                    {error ? 'Error searching' : 'No results found'}
-                  </p>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    {error 
-                      ? `${error}. Please try again.` 
-                      : 'Try a different search term'}
-                  </p>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
-            )}
-            
-            {/* Show empty state when no query */}
-            {!loading && !query && (
-              <div className="py-6 text-center flex-1 flex items-center justify-center">
-                <div>
-                  <p className="text-zinc-400 font-medium">Start typing to search</p>
-                  <p className="text-xs text-zinc-500 mt-1">Find your favorite songs and play them instantly</p>
-                  <p className="text-xs text-zinc-600 mt-2">Press ⌘K to open search anytime</p>
+              )}
+              
+              {/* Show error state when search returns no results */}
+              {!loading && results.length === 0 && (
+                <div className="py-6 text-center flex-1 flex items-center justify-center">
+                  <div>
+                    <p className="text-zinc-400 font-medium">
+                      {error ? 'Error searching' : 'No results found'}
+                    </p>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      {error 
+                        ? `${error}. Please try again.` 
+                        : 'Try a different search term'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -82,7 +82,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       try {
         const response = await fetch(`/api/spaces?spaceId=${spaceId}`);
         const data = await response.json();
-        
+        console.log("Space Data ::", data)
         if (data.success) {
           setSpaceInfo({
             spaceName: data.spaceName || `Room ${spaceId.slice(0, 8)}`,
