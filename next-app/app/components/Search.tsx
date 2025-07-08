@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, ReactNode, MouseEventHandler, UIEvent } from 'react';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Search as SearchIcon, Loader2, Music, Plus, Check, X } from 'lucide-react';
@@ -11,11 +11,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/app/components/ui/dialog";
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'; 
 import { cn } from "@/app/lib/utils";
 import axios from 'axios';
-import { searchResults } from '@/types';
+// Assuming searchResults type is not directly used for the Track type, but if it is, ensure it's compatible.
+// import { searchResults } from '@/types'; 
 import { useSocket } from '@/context/socket-context';
+import { motion, useInView } from "framer-motion";
 
 // Track type to match Spotify API structure
 type Track = {
@@ -59,6 +61,189 @@ interface SearchSongPopupProps {
   enableBatchSelection?: boolean;
   spaceId?: string; // Add spaceId as a prop
 }
+
+// --- AnimatedItem Component ---
+interface AnimatedItemProps {
+  children: ReactNode;
+  delay?: number;
+  index: number;
+  onMouseEnter?: MouseEventHandler<HTMLDivElement>;
+  onClick?: MouseEventHandler<HTMLDivElement>;
+  className?: string; // Add className prop for flexibility
+}
+
+const AnimatedItem: React.FC<AnimatedItemProps> = ({
+  children,
+  delay = 0,
+  index,
+  onMouseEnter,
+  onClick,
+  className,
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { amount: 0.5, once: false }); // Changed once to false for continuous animation if needed
+  return (
+    <motion.div
+      ref={ref}
+      data-index={index}
+      onMouseEnter={onMouseEnter}
+      onClick={onClick}
+      initial={{ scale: 0.9, opacity: 0 }} // Slightly adjusted initial scale for smoother entry
+      animate={inView ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }}
+      transition={{ duration: 0.3, delay: delay + index * 0.05 }} // Added index-based delay for staggered effect
+      className={cn("mb-2 cursor-pointer", className)} // Adjusted margin and added cn for class merging
+    >
+      {children}
+    </motion.div>
+  );
+};
+
+// --- AnimatedList Component ---
+interface AnimatedListProps<T> {
+  items: T[];
+  renderItem: (item: T, index: number, isSelected: boolean) => ReactNode;
+  onItemSelect?: (item: T, index: number) => void;
+  showGradients?: boolean;
+  enableArrowNavigation?: boolean;
+  className?: string;
+  itemClassName?: string;
+  displayScrollbar?: boolean;
+  initialSelectedIndex?: number;
+  selectedItemIds?: string[]; // New prop to track selected items by ID
+}
+
+const AnimatedList = <T extends { id: string } | string>({ // Generic type T, requires 'id' if object
+  items = [],
+  renderItem,
+  onItemSelect,
+  showGradients = true,
+  enableArrowNavigation = true,
+  className = "",
+  itemClassName = "",
+  displayScrollbar = true,
+  initialSelectedIndex = -1,
+  selectedItemIds = [], // Default to empty array
+}: AnimatedListProps<T>) => {
+  const listRef = useRef<HTMLDivElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(initialSelectedIndex);
+  const [keyboardNav, setKeyboardNav] = useState<boolean>(false);
+  const [topGradientOpacity, setTopGradientOpacity] = useState<number>(0);
+  const [bottomGradientOpacity, setBottomGradientOpacity] = useState<number>(1);
+
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target as HTMLDivElement;
+    setTopGradientOpacity(Math.min(scrollTop / 50, 1));
+    const bottomDistance = scrollHeight - (scrollTop + clientHeight);
+    setBottomGradientOpacity(
+      scrollHeight <= clientHeight ? 0 : Math.min(bottomDistance / 50, 1)
+    );
+  };
+
+  useEffect(() => {
+    if (!enableArrowNavigation) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
+        e.preventDefault();
+        setKeyboardNav(true);
+        setSelectedIndex((prev) => Math.min(prev + 1, items.length - 1));
+      } else if (e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
+        e.preventDefault();
+        setKeyboardNav(true);
+        setSelectedIndex((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === "Enter") {
+        if (selectedIndex >= 0 && selectedIndex < items.length) {
+          e.preventDefault();
+          if (onItemSelect) {
+            onItemSelect(items[selectedIndex], selectedIndex);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [items, selectedIndex, onItemSelect, enableArrowNavigation]);
+
+  useEffect(() => {
+    if (!keyboardNav || selectedIndex < 0 || !listRef.current) return;
+    const container = listRef.current;
+    const selectedItem = container.querySelector(
+      `[data-index="${selectedIndex}"]`
+    ) as HTMLElement | null;
+    if (selectedItem) {
+      const extraMargin = 50;
+      const containerScrollTop = container.scrollTop;
+      const containerHeight = container.clientHeight;
+      const itemTop = selectedItem.offsetTop;
+      const itemBottom = itemTop + selectedItem.offsetHeight;
+      if (itemTop < containerScrollTop + extraMargin) {
+        container.scrollTo({ top: itemTop - extraMargin, behavior: "smooth" });
+      } else if (
+        itemBottom >
+        containerScrollTop + containerHeight - extraMargin
+      ) {
+        container.scrollTo({
+          top: itemBottom - containerHeight + extraMargin,
+          behavior: "smooth",
+        });
+      }
+    }
+    setKeyboardNav(false);
+  }, [selectedIndex, keyboardNav]);
+
+  return (
+    <div className={`relative w-full h-full ${className}`}> {/* Changed width to full height to full */}
+      <div
+        ref={listRef}
+        className={`h-full overflow-y-auto p-2 ${ // Changed max-h to h-full, adjusted padding
+          displayScrollbar
+            ? "[&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-[#060010] [&::-webkit-scrollbar-thumb]:bg-[#222] [&::-webkit-scrollbar-thumb]:rounded-[4px]"
+            : "scrollbar-hide"
+        }`}
+        onScroll={handleScroll}
+        style={{
+          scrollbarWidth: displayScrollbar ? "thin" : "none",
+          scrollbarColor: "#222 #060010",
+        }}
+      >
+        {items.map((item, index) => {
+          const itemId = typeof item === 'string' ? item : item.id;
+          const isSelected = selectedItemIds.includes(itemId);
+          return (
+            <AnimatedItem
+              key={itemId} // Use item.id as key if available, otherwise index
+              delay={0.05} // Small delay for staggered animation
+              index={index}
+              onMouseEnter={() => setSelectedIndex(index)}
+              onClick={() => {
+                setSelectedIndex(index);
+                if (onItemSelect) {
+                  onItemSelect(item, index);
+                }
+              }}
+              className={cn(itemClassName, selectedIndex === index && "bg-zinc-800/60 rounded-lg")} // Apply selected style here
+            >
+              {renderItem(item, index, isSelected)}
+            </AnimatedItem>
+          );
+        })}
+      </div>
+      {showGradients && (
+        <>
+          <div
+            className="absolute top-0 left-0 right-0 h-[50px] bg-gradient-to-b from-zinc-900 to-transparent pointer-events-none transition-opacity duration-300 ease" // Adjusted gradient color
+            style={{ opacity: topGradientOpacity }}
+          ></div>
+          <div
+            className="absolute bottom-0 left-0 right-0 h-[50px] bg-gradient-to-t from-zinc-900 to-transparent pointer-events-none transition-opacity duration-300 ease" // Adjusted gradient color and height
+            style={{ opacity: bottomGradientOpacity }}
+          ></div>
+        </>
+      )}
+    </div>
+  );
+};
+
 
 export default function SearchSongPopup({
   onSelect,
@@ -233,18 +418,14 @@ export default function SearchSongPopup({
     };
   };
 
-  // Helper function to try multiple YouTube search results until one works
+  // Helper function to try multiple Youtube results until one works
   const tryMultipleResults = async (searchResults: any[], track: any, spaceId: string, autoPlay: boolean = false): Promise<boolean> => {
     for (let i = 0; i < searchResults.length; i++) {
-      // const result = searchResults[i];
-      // const videoId = result.downloadUrl[0].url;
       const { downloadUrl: [{ url: videoId }] } = searchResults[i];
       // Validate video ID format
       if (!videoId || videoId.length !== 11 || !/^[a-zA-Z0-9_-]+$/.test(videoId)) {
         continue;
       }
-      
-      
       
       const title : string = track.name.replace(/\s*\(.*?\)\s*/g, '').trim();
       
@@ -291,7 +472,7 @@ export default function SearchSongPopup({
   };
 
   const handleTrackSelect = async (track: Track) => {
- 
+   
     if (enableBatchSelection && isAdmin) {
       const isSelected = selectedTracks.some(t => t.id === track.id);
       if (isSelected) {
@@ -510,80 +691,84 @@ export default function SearchSongPopup({
                 </div>
               )}
               
-              {/* Show results when available */}
+              {/* Show results when available using AnimatedList */}
               {!loading && results.length > 0 && (
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
-                  <ul className="py-1">
-                    {results.map((track, index) => (
-                      <li
-                        key={track.id || index}
-                        className={cn(
-                          "flex items-center gap-3 p-3 cursor-pointer border-b border-zinc-800/50 last:border-b-0 transition-colors",
-                          enableBatchSelection && isAdmin 
-                            ? "hover:bg-zinc-800/60" 
-                            : "hover:bg-zinc-800/80",
-                          isTrackSelected(track) && "bg-blue-900/30 border-blue-700/50"
-                        )}
-                        onClick={() => handleTrackSelect(track)}
-                      >
-                        {/* Selection checkbox for admins */}
-                        {enableBatchSelection && isAdmin && (
-                          <div className="flex-shrink-0">
-                            <div className={cn(
-                              "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
-                              isTrackSelected(track) 
-                                ? "bg-blue-600 border-blue-600" 
-                                : "border-zinc-600 hover:border-zinc-500"
-                            )}>
-                              {isTrackSelected(track) && (
-                                <Check className="w-3 h-3 text-white" />
-                              )}
-                            </div>
+                <AnimatedList<Track>
+                  items={results}
+                  onItemSelect={handleTrackSelect}
+                  selectedItemIds={selectedTracks.map(t => t.id)}
+                  className="flex-1" // Ensure AnimatedList takes full height
+                  displayScrollbar={true}
+                  renderItem={(track, index, isSelected) => (
+                    <div
+                      className={cn(
+                        "flex items-center gap-3 p-3 border-b border-zinc-800/50 last:border-b-0 transition-colors",
+                        enableBatchSelection && isAdmin 
+                          ? "hover:bg-zinc-800/60" 
+                          : "hover:bg-zinc-800/80",
+                        // The isSelected prop is handled by the AnimatedList itemClassName and AnimatedItem already
+                        // No need for a separate conditional class here, unless it's for something *inside* the item.
+                        // isSelected && "bg-blue-900/30 border-blue-700/50" 
+                      )}
+                    >
+                      {/* Selection checkbox for admins */}
+                      {enableBatchSelection && isAdmin && (
+                        <div className="flex-shrink-0">
+                          <div className={cn(
+                            "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                            isSelected 
+                              ? "bg-blue-600 border-blue-600" 
+                              : "border-zinc-600 hover:border-zinc-500"
+                          )}>
+                            {isSelected && (
+                              <Check className="w-3 h-3 text-white" />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="w-12 h-12 overflow-hidden rounded-md flex-shrink-0 border border-zinc-800/50 shadow-md bg-zinc-800">
+                        {track.album?.images && track.album.images[0]?.url ? (
+                          <img
+                            src={track.album.images[0].url}
+                            alt={track.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/placeholder.svg';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">
+                            <Music className="w-6 h-6" />
                           </div>
                         )}
-                        
-                        <div className="w-12 h-12 overflow-hidden rounded-md flex-shrink-0 border border-zinc-800/50 shadow-md bg-zinc-800">
-                          {track.album?.images && track.album.images[0]?.url ? (
-                            <img
-                              src={track.album.images[0].url}
-                              alt={track.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/placeholder.svg';
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">
-                              <Music className="w-6 h-6" />
-                            </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-zinc-200">{track.name}</p>
+                        <p className="text-xs text-zinc-400 truncate mt-0.5">
+                          {track.artists?.map(artist => artist.name).join(', ') || 'Unknown Artist'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="flex items-center text-[10px] text-zinc-500 bg-zinc-800/80 px-1.5 py-0.5 rounded-full">
+                            <Music className="w-2.5 h-2.5 mr-1 text-zinc-400" />
+                            {track.preview_url ? 'PREVIEW' : 'TRACK'}
+                          </span>
+                          {track.preview_url && (
+                            <span className="text-[10px] text-emerald-400 bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
+                              ▶ PLAYABLE
+                            </span>
+                          )}
+                          {/* We can still show SELECTED badge here if desired */}
+                          {isSelected && (
+                            <span className="text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded-full">
+                              ✓ SELECTED
+                            </span>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate text-zinc-200">{track.name}</p>
-                          <p className="text-xs text-zinc-400 truncate mt-0.5">
-                            {track.artists?.map(artist => artist.name).join(', ') || 'Unknown Artist'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="flex items-center text-[10px] text-zinc-500 bg-zinc-800/80 px-1.5 py-0.5 rounded-full">
-                              <Music className="w-2.5 h-2.5 mr-1 text-zinc-400" />
-                              {track.preview_url ? 'PREVIEW' : 'TRACK'}
-                            </span>
-                            {track.preview_url && (
-                              <span className="text-[10px] text-emerald-400 bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
-                                ▶ PLAYABLE
-                              </span>
-                            )}
-                            {isTrackSelected(track) && (
-                              <span className="text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded-full">
-                                ✓ SELECTED
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                      </div>
+                    </div>
+                  )}
+                />
               )}
               
               {/* Show error state when search returns no results */}
