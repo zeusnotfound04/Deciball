@@ -21,14 +21,14 @@ const getWebSocketToken = async (): Promise<string | null> => {
 
 type SocketContextType = {
   socket: WebSocket | null;
-  user: { id: string; token?: string; email?: string; username?: string } | null;
+  user: { id: string; token?: string; email?: string; username?: string; name?: string } | null;
   connectionError: boolean;
-  setUser: Dispatch<SetStateAction<{ id: string; token?: string; email?: string; username?: string } | null>>;
+  setUser: Dispatch<SetStateAction<{ id: string; token?: string; email?: string; username?: string; name?: string } | null>>;
   loading: boolean;
   sendMessage: (type: string, data: { [key: string]: any }) => boolean;
 };
 
-const SocketContext = createContext<SocketContextType>({
+export const SocketContext = createContext<SocketContextType>({
   socket: null,
   user: null,
   connectionError: false,
@@ -177,6 +177,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
             id: session.data.user.id,
             email: session.data.user.email,
             username: session.data.user.username,
+            name: session.data.user.name,
             token: wsToken,
           };
           

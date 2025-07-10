@@ -9,7 +9,7 @@ export async function POST(req: Request): Promise<Response> {
     
     const files = formData.getAll("files") as File[];
     
-    const imageType = formData.get("imageType") as string || "hostel";
+    const imageType = formData.get("imageType") as string ;
     
     if (files.length === 0) {
       return NextResponse.json({ success: true, fileUrls: [] });

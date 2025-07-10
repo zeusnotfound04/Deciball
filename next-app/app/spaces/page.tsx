@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -11,9 +11,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/app/components/ui/dropdown-menu";
 import { Loader2, Plus, Users, Music, Trash2, ExternalLink, User, LogOut, Settings } from "lucide-react";
 import useRedirect from "@/hooks/useRedirect";
-import BeamsBackground from "@/components/Background";
+import BackgroundAnimation from "@/components/Background";
 import ChromaGrid, { ChromaItem } from "@/app/components/ui/ChromaGrid";
 import axios from "axios";
+import { SocketContext } from "@/context/socket-context";
 
 interface Space {
   id: string;
@@ -30,6 +31,7 @@ interface Space {
     bigImg: string;
     artist?: string;
   }>;
+  currentImage?: string; // Added to track current song image
 }
 
 export default function SpacesPage() {
@@ -38,11 +40,66 @@ export default function SpacesPage() {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string>('');
+  const [spaceImages, setSpaceImages] = useState<Record<string, string>>({});
+  const [imageUpdated, setImageUpdated] = useState<string | null>(null);
+  
+  // Use the socket context
+  const { socket, sendMessage, user } = useContext(SocketContext);
   
   // Remove the redirect logic - users will only reach this page if they have spaces
   const { isLoading: redirectLoading, isAuthenticated } = useRedirect({
     redirectTo: 'manual'
   });
+
+  // Request and handle space images via WebSocket
+  useEffect(() => {
+    if (!socket || !user || !spaces.length) return;
+
+    // Handle WebSocket messages for space images
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        const { type, data } = JSON.parse(event.data);
+        
+        // Handle space image response message
+        if (type === 'space-image-response' && data.spaceId && data.imageUrl) {
+          console.log(`🖼️ Received space image for ${data.spaceId}:`, data.imageUrl);
+          setSpaceImages(prev => ({
+            ...prev,
+            [data.spaceId]: data.imageUrl
+          }));
+        }
+        
+        // Handle space image update message (when songs change)
+        else if (type === 'space-image-update' && data.spaceId && data.imageUrl) {
+          console.log(`🖼️ Received space image update for ${data.spaceId}:`, data.imageUrl);
+          setSpaceImages(prev => ({
+            ...prev,
+            [data.spaceId]: data.imageUrl
+          }));
+          setImageUpdated(data.spaceId); // Set the updated image ID
+          setTimeout(() => setImageUpdated(null), 3000); // Clear the indicator after 3 seconds
+        }
+      } catch (error) {
+        console.error('Error handling WebSocket message:', error);
+      }
+    };
+
+    // Add event listener for messages
+    socket.addEventListener('message', handleMessage);
+
+    // Request images for each space
+    spaces.forEach(space => {
+      if (socket.readyState === WebSocket.OPEN && user) {
+        console.log(`🖼️ Requesting image for space: ${space.id}`);
+        sendMessage('get-space-image', { spaceId: space.id });
+      }
+    });
+
+    // Clean up
+    return () => {
+      socket.removeEventListener('message', handleMessage);
+    };
+  }, [socket, user, spaces, sendMessage]);
 
   const fetchSpaces = async () => {
     try {
@@ -59,10 +116,11 @@ export default function SpacesPage() {
   // Convert spaces to ChromaGrid items
   const convertSpacesToChromaItems = (spaces: Space[]): ChromaItem[] => {
     return spaces.map((space, index) => {
-      // Get the first track's image if available from Redis data
-      const firstTrackImage = space.streams?.[0]?.bigImg || 
-                             space.streams?.[0]?.smallImg || 
-                             `https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=entropy&auto=format&q=80&random=${index}`;
+      // Use the space image from WebSocket if available, otherwise fallback to API data or default
+      const spaceImage = spaceImages[space.id] ||
+                         space.streams?.[0]?.bigImg || 
+                         space.streams?.[0]?.smallImg || 
+                         `https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=entropy&auto=format&q=80&random=${index}`;
       
       // Generate gradient colors based on space activity
       const gradientColors = space.isActive 
@@ -72,13 +130,15 @@ export default function SpacesPage() {
       const borderColor = space.isActive ? "#10B981" : "#6B7280";
       
       return {
-        image: firstTrackImage,
+        image: spaceImage,
         title: space.name,
         subtitle: `${space._count?.streams || 0} tracks`,
         handle: space.isActive ? "Active" : "Inactive",
-        location: "Hosted by you",
-        borderColor: borderColor,
-        gradient: `linear-gradient(145deg, ${gradientColors[0]}, ${gradientColors[1]})`,
+        location: imageUpdated === space.id ? "🎵 Now playing updated!" : "Hosted by you",
+        borderColor: imageUpdated === space.id ? "#3b82f6" : borderColor, // Highlight border when updated
+        gradient: imageUpdated === space.id 
+          ? `linear-gradient(145deg, #3b82f6, #000)` // Blue gradient for updated image
+          : `linear-gradient(145deg, ${gradientColors[0]}, ${gradientColors[1]})`,
         url: `/space/${space.id}`, // Link to join the space
       };
     });
@@ -150,27 +210,27 @@ export default function SpacesPage() {
 
   if (status === 'loading' || redirectLoading || loading) {
     return (
-      <BeamsBackground intensity="medium">
+      <BackgroundAnimation >
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
             <p className="text-zinc-400 text-lg">Loading your spaces...</p>
           </div>
         </div>
-      </BeamsBackground>
+      </BackgroundAnimation>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <BeamsBackground intensity="medium">
+      <BackgroundAnimation>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-white mb-4">Please Sign In</h1>
             <p className="text-zinc-400">You need to be signed in to view your spaces.</p>
           </div>
         </div>
-      </BeamsBackground>
+      </BackgroundAnimation>
     );
   }
 
@@ -178,7 +238,7 @@ export default function SpacesPage() {
     <div className="min-h-screen relative">
       {/* Fixed background that doesn't scroll */}
       <div className="fixed inset-0 z-0">
-        <BeamsBackground intensity="medium" />
+        <BackgroundAnimation  />
       </div>
       
       {/* User Avatar in Top Right */}
@@ -189,7 +249,7 @@ export default function SpacesPage() {
               <Avatar className="h-10 w-10 ring-2 ring-cyan-400/20 hover:ring-cyan-400/40 transition-all duration-300">
                 <AvatarImage 
                   src={getProfilePicture() || undefined} 
-                  alt={session?.user?.name || 'User'} 
+                  alt={'User'} 
                   className="object-cover"
                 />
                 <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-teal-500 text-white font-semibold">

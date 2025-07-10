@@ -1,4 +1,3 @@
-
 import jwt from 'jsonwebtoken';
 import { createClient, RedisClientType } from "redis";
 import { WebSocket } from "ws";
@@ -19,6 +18,11 @@ const connection = {
     port: parseInt(process.env.REDIS_PORT || "") || 6379,
 };
 
+interface UserTokenInfo {
+    username?: string;
+    email?: string;
+    name?: string;
+}
 // Type definitions
 type PlaybackState = {
     currentSong: {
@@ -70,6 +74,7 @@ type User = {
     token: string;
     username?: string;
     email?: string;
+    name ?: string; 
 };
 
 type Space = {
@@ -187,15 +192,18 @@ export class RoomManager {
     async addUser(userId: string, ws: WebSocket, token: string) {
         let user = this.users.get(userId);
         
-        
-        const userTokenInfo = this.decodeUserToken(token);
-        
+        console.log("Adding user to room 🐉🐉🐉", token);
+        const userTokenInfo : UserTokenInfo | null = this.decodeUserToken(token);
+       
         if (!user) {
           
           if (userTokenInfo) {
+             console.log("User Token Info 🥶🥶🥶", userTokenInfo);
             await this.storeUserInfo(userId, {
               username: userTokenInfo.username,
-              email: userTokenInfo.email
+              email: userTokenInfo.email,
+              name : userTokenInfo.name
+        
             });
           }
           
@@ -204,7 +212,8 @@ export class RoomManager {
             ws: [ws],
             token,
             username: userTokenInfo?.username,
-            email: userTokenInfo?.email
+            email: userTokenInfo?.email,
+            name: userTokenInfo?.name
           });
         } else {
           if (!user.ws.some((existingWs : any ) => existingWs === ws)) {
@@ -454,6 +463,9 @@ export class RoomManager {
                 }
             });
         });
+
+        // Broadcast image update for the space when song changes
+        await this.broadcastImageUpdate(spaceId);
 
         // Start timestamp broadcasting for synchronized playback
         this.startTimestampBroadcast(spaceId);
@@ -966,19 +978,21 @@ export class RoomManager {
         // Get space name from Redis cache
         const spaceName = await this.getSpaceName(spaceId);
         
+        
         // Get user details with real names from Redis cache
         const userDetails = await Promise.all(
             userList.map(async (userId) => {
                 const userInfo = await this.getUserInfo(userId);
+                console.log("User Infoooo 🥶🥶🥶🥶", userInfo);
                 return {
                     userId,
-                    name: userInfo?.username || `User ${userId.slice(0, 8)}`,
+                    name: userInfo?.name || `User ${userId.slice(0, 8)}`,
                     imageUrl: '',
                     isCreator: userId === space.creatorId
                 };
             })
         );
-        
+        console.log("User Infoooo 🥠🥠🥠", userDetails);
         space.users.forEach((user, userId) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -1040,7 +1054,7 @@ export class RoomManager {
                     voteCount: await this.getSongVoteCount(spaceId, currentSong.id),
                     addedByUser: {
                         id: currentSong.userId,
-                        username: currentSong.addedByUser
+                        name: currentSong.addedByUser
                     }
                 };
                 
@@ -1281,6 +1295,31 @@ export class RoomManager {
         }
     }
 
+    // Get current space image (from current playing song or first in queue)
+    async getCurrentSpaceImage(spaceId: string): Promise<string | null> {
+        try {
+            // First try to get the currently playing song's image
+            const currentSong = await this.getCurrentPlayingSong(spaceId);
+            
+            if (currentSong && (currentSong.bigImg || currentSong.smallImg)) {
+                // Return the bigger image if available, otherwise the small one
+                return currentSong.bigImg || currentSong.smallImg;
+            }
+            
+            // If no current song or no image, get the first song from queue
+            const queue = await this.getRedisQueue(spaceId);
+            if (queue.length > 0 && (queue[0].bigImg || queue[0].smallImg)) {
+                return queue[0].bigImg || queue[0].smallImg;
+            }
+            
+            // No images found
+            return null;
+        } catch (error) {
+            console.error('Error getting current space image:', error);
+            return null;
+        }
+    }
+
     // Vote management for songs (using Redis sorted sets)
     async voteOnSongRedis(spaceId: string, songId: string, userId: string, voteType: 'upvote' | 'downvote'): Promise<number> {
         try {
@@ -1469,7 +1508,7 @@ export class RoomManager {
                 voteCount: 0,
                 addedByUser: {
                     id: userId,
-                    username: currentUser.userId // We might need to get this from database
+                    name: currentUser.name 
                 }
             };
 
@@ -1532,6 +1571,9 @@ export class RoomManager {
                     }
                 });
             });
+            
+            // Broadcast image update (will be null) when queue becomes empty
+            await this.broadcastImageUpdate(spaceId);
             return;
         }
 
@@ -1562,7 +1604,7 @@ export class RoomManager {
             voteCount: voteCount,
             addedByUser: {
                 id: nextSong.userId,
-                username: nextSong.addedByUser // We might need to get this from database or Redis
+                name: nextSong.addedByUser // We might need to get this from database or Redis
             }
         };
 
@@ -1576,6 +1618,9 @@ export class RoomManager {
                 }
             });
         });
+
+        // Broadcast image update for the space when song changes
+        await this.broadcastImageUpdate(spaceId);
 
         // Start timestamp broadcasting for synchronized playback
         this.startTimestampBroadcast(spaceId);
@@ -1612,6 +1657,72 @@ export class RoomManager {
         }
     }
 
+    // Broadcast image update to all users in a space
+    async broadcastImageUpdate(spaceId: string): Promise<void> {
+        try {
+            const imageUrl = await this.getCurrentSpaceImage(spaceId);
+            
+            // Get all users in the space
+            const space = this.spaces.get(spaceId);
+            if (!space) {
+                return;
+            }
+            
+            // Send update to all users in the space
+            space.users.forEach((user, userId) => {
+                user.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "space-image-update",
+                            data: {
+                                spaceId,
+                                imageUrl
+                            }
+                        }));
+                    }
+                });
+            });
+            
+            console.log(`🖼️ Broadcasted image update for space ${spaceId}: ${imageUrl || "No image"}`);
+        } catch (error) {
+            console.error('Error broadcasting image update:', error);
+        }
+    }
+    
+    // ========================================
+    // Discord Activity Functions
+    // ========================================
+  
+    async broadcastDiscordActivity(spaceId: string, songData: any) {
+      const space = this.spaces.get(spaceId);
+      if (!space) {
+        console.warn(`Cannot broadcast Discord activity: Space ${spaceId} not found`);
+        return;
+      }
+
+      // Broadcast to all users in the space
+      space.users.forEach((user) => {
+        user.ws.forEach((ws) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'discord-activity-update',
+              data: {
+                title: songData.title,
+                artist: songData.artist,
+                albumArt: songData.image,
+                duration: songData.duration,
+                startTime: songData.startTime || Date.now(),
+                spaceId: spaceId,
+                spaceName: songData.spaceName
+              }
+            }));
+          }
+        });
+      });
+      
+      console.log(`Discord activity broadcast for ${songData.title} by ${songData.artist} in space ${spaceId}`);
+    }
+    
     // Helper method to set space name in Redis cache
     async setSpaceName(spaceId: string, spaceName: string): Promise<void> {
         try {
@@ -1642,13 +1753,15 @@ export class RoomManager {
     }
 
     // Helper method to decode JWT token and extract user info
-    private decodeUserToken(token: string): { userId: string; username?: string; email?: string } | null {
+    private decodeUserToken(token: string): { userId: string; username?: string; email?: string; name?: string } | null {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
             return {
+                
                 userId: decoded.userId,
                 username: decoded.username,
-                email: decoded.email
+                email: decoded.email,
+                name: decoded.name
             };
         } catch (error) {
             console.error('Error decoding JWT token:', error);
@@ -1657,8 +1770,9 @@ export class RoomManager {
     }
 
     // Helper method to store user info in Redis
-    async storeUserInfo(userId: string, userInfo: { username?: string; email?: string }): Promise<void> {
+    async storeUserInfo(userId: string, userInfo: { username?: string; email?: string; name?: string }): Promise<void> {
         try {
+            console.log("Storing user info in Redis cache...🤣🤣🤣", userInfo);
             await this.redisClient.set(
                 `user-info-${userId}`,
                 JSON.stringify(userInfo),
@@ -1670,17 +1784,19 @@ export class RoomManager {
     }
 
     // Helper method to get user info from Redis
-    async getUserInfo(userId: string): Promise<{ username?: string; email?: string } | null> {
+    async getUserInfo(userId: string): Promise<{ username?: string; email?: string; name?: string } | null> {
         try {
             const userInfo = await this.redisClient.get(`user-info-${userId}`);
             if (userInfo) {
+                console.log("Getting user info from Redis cache...🤣🤣🤣", userInfo);
                 return JSON.parse(userInfo);
+                
             }
+            
         } catch (error) {
             console.error(`Error getting user info for ${userId}:`, error);
         }
         return null;
     }
 
-    // ========================================
 }

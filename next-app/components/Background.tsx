@@ -1,198 +1,84 @@
 "use client"
 
-import type React from "react"
+import { useEffect, useRef, type ReactNode } from "react"
 
-import { useEffect, useRef, useCallback } from "react"
-import { motion } from "framer-motion"
-// Utility function to combine class names
-function cn(...classes: (string | undefined)[]): string {
-  return classes.filter(Boolean).join(' ')
+interface HalftoneWavesBackgroundProps {
+  children?: ReactNode
 }
 
-interface AnimatedGradientBackgroundProps {
-  className?: string
-  children?: React.ReactNode
-  intensity?: "subtle" | "medium" | "strong"
-}
-
-interface Beam {
-  x: number
-  y: number
-  width: number
-  length: number
-  angle: number
-  speed: number
-  opacity: number
-  hue: number
-  pulse: number
-  pulseSpeed: number
-}
-
-function createBeam(width: number, height: number): Beam {
-  const angle = -35 + Math.random() * 10
-  return {
-    x: Math.random() * width * 1.5 - width * 0.25,
-    y: Math.random() * height * 1.5 - height * 0.25,
-    width: 30 + Math.random() * 60,
-    length: height * 2.5,
-    angle: angle,
-    speed: 0.6 + Math.random() * 1.2,
-    opacity: 0.12 + Math.random() * 0.16,
-    hue: 190 + Math.random() * 70,
-    pulse: Math.random() * Math.PI * 2,
-    pulseSpeed: 0.02 + Math.random() * 0.03,
-  }
-}
-
-export default function BeamsBackground({ className, children, intensity = "strong" }: AnimatedGradientBackgroundProps) {
+export default function HalftoneWavesBackground({ children }: HalftoneWavesBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const beamsRef = useRef<Beam[]>([])
-  const animationFrameRef = useRef<number>(0)
-  const MINIMUM_BEAMS = 20
-
-  const opacityMap = {
-    subtle: 0.7,
-    medium: 0.85,
-    strong: 1,
-  }
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const updateCanvasSize = () => {
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = window.innerWidth * dpr
-      canvas.height = window.innerHeight * dpr
-      canvas.style.width = `${window.innerWidth}px`
-      canvas.style.height = `${window.innerHeight}px`
-      ctx.scale(dpr, dpr)
+    let animationFrameId: number
+    let time = 0
 
-      const totalBeams = MINIMUM_BEAMS * 1.5
-      beamsRef.current = Array.from({ length: totalBeams }, () => createBeam(canvas.width, canvas.height))
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
     }
 
-    updateCanvasSize()
-    window.addEventListener("resize", updateCanvasSize)
+    const drawHalftoneWave = () => {
+      const gridSize = 18
+      const rows = Math.ceil(canvas.height / gridSize)
+      const cols = Math.ceil(canvas.width / gridSize)
 
-    function resetBeam(beam: Beam, index: number, totalBeams: number) {
-      if (!canvas) return beam
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const centerX = x * gridSize
+          const centerY = y * gridSize
+          const distanceFromCenter = Math.sqrt(
+            Math.pow(centerX - canvas.width / 2, 2) + Math.pow(centerY - canvas.height / 2, 2),
+          )
+          const maxDistance = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2))
+          const normalizedDistance = distanceFromCenter / maxDistance
 
-      const column = index % 3
-      const spacing = canvas.width / 3
+          // Simple, smooth wave pattern
+          const wave = Math.sin(normalizedDistance * 5 - time) * 0.5 + 0.5
+          const smoothWave = wave * wave * (3 - 2 * wave) // smooth step easing
+          const size = gridSize * smoothWave * 0.7
 
-      beam.y = canvas.height + 100
-      beam.x = column * spacing + spacing / 2 + (Math.random() - 0.5) * spacing * 0.5
-      beam.width = 100 + Math.random() * 100
-      beam.speed = 0.5 + Math.random() * 0.4
-      beam.hue = 190 + (index * 70) / totalBeams
-      beam.opacity = 0.2 + Math.random() * 0.1
-      return beam
-    }
-
-    function drawBeam(ctx: CanvasRenderingContext2D, beam: Beam) {
-      ctx.save()
-      ctx.translate(beam.x, beam.y)
-      ctx.rotate((beam.angle * Math.PI) / 180)
-
-      // Calculate pulsing opacity
-      const pulsingOpacity = beam.opacity * (0.8 + Math.sin(beam.pulse) * 0.2) * opacityMap[intensity]
-
-      const gradient = ctx.createLinearGradient(0, 0, 0, beam.length)
-
-      // Enhanced gradient with multiple color stops
-      gradient.addColorStop(0, `hsla(${beam.hue}, 85%, 65%, 0)`)
-      gradient.addColorStop(0.1, `hsla(${beam.hue}, 85%, 65%, ${pulsingOpacity * 0.5})`)
-      gradient.addColorStop(0.4, `hsla(${beam.hue}, 85%, 65%, ${pulsingOpacity})`)
-      gradient.addColorStop(0.6, `hsla(${beam.hue}, 85%, 65%, ${pulsingOpacity})`)
-      gradient.addColorStop(0.9, `hsla(${beam.hue}, 85%, 65%, ${pulsingOpacity * 0.5})`)
-      gradient.addColorStop(1, `hsla(${beam.hue}, 85%, 65%, 0)`)
-
-      ctx.fillStyle = gradient
-      ctx.fillRect(-beam.width / 2, 0, beam.width, beam.length)
-      ctx.restore()
-    }
-
-    function animate() {
-      if (!canvas || !ctx) return
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.filter = "blur(35px)"
-
-      const totalBeams = beamsRef.current.length
-      beamsRef.current.forEach((beam, index) => {
-        beam.y -= beam.speed
-        beam.pulse += beam.pulseSpeed
-
-        // Reset beam when it goes off screen
-        if (beam.y + beam.length < -100) {
-          resetBeam(beam, index, totalBeams)
+          ctx.beginPath()
+          ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(128, 128, 128, ${smoothWave * 0.6})`
+          ctx.fill()
         }
-
-        drawBeam(ctx, beam)
-      })
-
-      animationFrameRef.current = requestAnimationFrame(animate)
+      }
     }
+
+    const animate = () => {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.08)"
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      drawHalftoneWave()
+
+      time += 0.015
+      animationFrameId = requestAnimationFrame(animate)
+    }
+
+    resizeCanvas()
+    window.addEventListener("resize", resizeCanvas)
 
     animate()
 
     return () => {
-      window.removeEventListener("resize", updateCanvasSize)
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
+      cancelAnimationFrame(animationFrameId)
+      window.removeEventListener("resize", resizeCanvas)
     }
-  }, [intensity])
+  }, [])
 
   return (
-    <div className={cn("relative min-h-screen w-full overflow-hidden bg-neutral-950", className)}>
-      <canvas ref={canvasRef} className="absolute inset-0" style={{ filter: "blur(15px)" }} />
+    <div className="relative min-h-screen">
+      {/* Fixed background canvas */}
+      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full bg-black -z-10 pointer-events-none" />
 
-      {/* Simplified dark glass overlay */}
-      <div className="absolute inset-0 pointer-events-none">
-        {/* Main dark glass layer */}
-        <div 
-          className="w-full h-full relative"
-          style={{
-            background: `
-              linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%),
-              radial-gradient(circle at 30% 40%, rgba(255,255,255,0.03) 0%, transparent 50%)
-            `,
-            backdropFilter: 'blur(1px)',
-            WebkitBackdropFilter: 'blur(1px)',
-          }}
-        >
-          {/* Subtle texture */}
-          <div 
-            className="absolute inset-0 opacity-20"
-            style={{
-              background: `
-                repeating-linear-gradient(
-                  45deg,
-                  transparent,
-                  transparent 2px,
-                  rgba(255,255,255,0.01) 2px,
-                  rgba(255,255,255,0.01) 4px
-                )
-              `
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Subtle background overlay - no animation */}
-      <div className="absolute inset-0 bg-neutral-950/10" />
-
-      {/* Children content */}
-      {children && (
-        <div className="relative z-10">
-          {children}
-        </div>
-      )}
+      {/* Content layer */}
+      <div className="relative z-10">{children}</div>
     </div>
   )
 }

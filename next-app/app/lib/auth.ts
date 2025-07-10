@@ -2,12 +2,12 @@ import { NextAuthOptions, Session } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./db";
 import { compare } from "bcrypt";
-import { User } from "next-auth"
+import { User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { JWT } from "next-auth/jwt";
 import { Provider } from "@prisma/client";
-
+import jwt from "jsonwebtoken";
 
 
 type JWTCallbackParams = {
@@ -71,7 +71,9 @@ export const authOptions: NextAuthOptions = {
       },
 
       async authorize(credentials): Promise<User | null> {
+        console.log('[NextAuth] Credentials authorize called with:', credentials);
         if (!credentials?.email || !credentials.password) {
+          console.error('[NextAuth] Missing email or password');
           throw new Error('Email and password are required');
         }
 
@@ -89,21 +91,22 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
+          console.error('[NextAuth] No user found for email:', credentials.email);
           throw new Error('No user found with the provided email');
         }
 
         const isPasswordValid = await compare(credentials.password, user.password!);
         if (!isPasswordValid) {
+          console.error('[NextAuth] Incorrect password for user:', user.email);
           throw new Error('Incorrect password');
         }
-
-        // Return user object that matches NextAuth User type
+        console.log('[NextAuth] User authorized:', user.email);
         return {
           id: user.id,
           email: user.email,
           name: user.name || null,
           image: user.image || user.pfpUrl || null,
-          username: user.username || '', // Convert null to empty string
+          username: user.username || '',
           pfpUrl: user.pfpUrl || null,
         } as User;
       },
@@ -113,13 +116,13 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
+        console.log('[NextAuth] signIn callback called:', { user, account, profile });
         // Only handle Google provider
-        if (account?.provider === 'google') {
+        if (account?.provider === 'Google') {
           const googleProfile = profile as GoogleProfile;
-          
           // Get the profile image URL from Google (prefer 'picture' over 'image')
           const profileImageUrl = googleProfile.picture || user.image || null;
-          
+          console.log('[NextAuth] Google profile image URL: 🤣🥠🤣', profileImageUrl);
           // Check if user already exists in database
           const existingUser = await prisma.user.findUnique({
             where: { email: user.email! },
@@ -127,13 +130,12 @@ export const authOptions: NextAuthOptions = {
               accounts: true
             }
           });
-
+          console.log('[NextAuth] Existing user found:', existingUser);
           if (existingUser) {
             // User exists, check if they have a Google account linked
             const existingGoogleAccount = existingUser.accounts.find(
-              acc => acc.provider === 'google'
+              acc => acc.provider === 'Google'
             );
-
             if (!existingGoogleAccount) {
               // Link Google account to existing user
               await prisma.account.create({
@@ -150,8 +152,8 @@ export const authOptions: NextAuthOptions = {
                   refresh_token: account.refresh_token,
                 },
               });
+              console.log('[NextAuth] Linked Google account to existing user:', existingUser.id);
             }
-
             // Update user info including profile image
             await prisma.user.update({
               where: { id: existingUser.id },
@@ -164,7 +166,7 @@ export const authOptions: NextAuthOptions = {
                 provider: Provider.Google, // Update provider to Google
               },
             });
-
+            console.log('[NextAuth] Updated user info for:', existingUser.id);
             return true;
           } else {
             // New user - create user with Google profile image
@@ -179,7 +181,7 @@ export const authOptions: NextAuthOptions = {
                 // password is optional for Google users
               },
             });
-
+            console.log('[NextAuth] Created new user:', newUser.id);
             // Create the account record
             await prisma.account.create({
               data: {
@@ -195,11 +197,10 @@ export const authOptions: NextAuthOptions = {
                 refresh_token: account.refresh_token,
               },
             });
-
+            console.log('[NextAuth] Created account for new user:', newUser.id);
             return true;
           }
         }
-
         // For other providers (credentials), let the default behavior handle it
         return true;
       } catch (error) {
@@ -213,13 +214,26 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.email = user.email;
         token.username = user.username;
-        token.pfpUrl = user.pfpUrl || null;
-        token.name = user.name || null;
+        token.pfpUrl = user.image || null;
+        token.name = user.name ;
       }
+      console.log('[NextAuth] jwt callback token:', token);
       return token;
     },
-    
+
     async session({ session, token }) {
+    //       const customJwt = jwt.sign(
+    //   {
+    //     userId: token.id,
+    //     email: token.email,
+    //     creatorId: token.id, // or any other logic
+    //     username: token.username || null,
+    //     pfpUrl: token.pfpUrl || null,
+    //     name: token.name || null,
+    //   },
+    //   process.env.JWT_SECRET!,
+    //   { expiresIn: "1d" }
+    // );
       session.user = {
         id: token.id,
         email: token.email,
@@ -227,7 +241,8 @@ export const authOptions: NextAuthOptions = {
         pfpUrl: token.pfpUrl,
         name: token.name,
       }
+      console.log('[NextAuth] session callback session:', session);
       return session;
     }
   }
-}
+};

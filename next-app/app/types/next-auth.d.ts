@@ -7,7 +7,7 @@ declare module "next-auth" {
             id: string;
             username : string ;
             email: string;
-            name?: string   | null;
+            name?: String;
             pfpUrl?: string | null;
         };
     }
@@ -17,7 +17,7 @@ declare module "next-auth" {
         email: string;
         username : string ;
         pfpUrl?: string | null;
-        name ?: string | null;
+        name ?: string ;
 
     }
 }
@@ -29,6 +29,6 @@ declare module "next-auth/jwt" {
       email: string;
       username : string ;
       pfpUrl?: string | null;
-      name ?: string | null;
+      name ?: string ;
     }
   }

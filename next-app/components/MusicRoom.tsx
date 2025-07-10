@@ -13,7 +13,8 @@ import { Badge } from '@/app/components/ui/badge';
 import { Users, Music, Settings, VolumeX, Volume2, Play, Pause } from 'lucide-react';
 import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
-
+import { DiscordPresence } from './DiscordPresence';
+import { ElectronDetector } from './ElectronDetector';
 
 interface MusicRoomProps {
   spaceId: string;
@@ -22,18 +23,7 @@ interface MusicRoomProps {
 export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const { data: session } = useSession();
   const { user, setUser } = useUserStore();
-  const { 
-    isPlaying, 
-    currentSong, 
-    isMuted, 
-    volume,
-    togglePlayPause, 
-    mute, 
-    unmute, 
-    setVolume,
-    setupSpotifyPlayer,
-    setCurrentSpaceId  // Add spaceId setter to the audio store
-  } = useAudio();
+  const { setVolume,  setCurrentSpaceId } = useAudio();
   const { sendMessage, socket, loading, connectionError } = useSocket();
   
   const [isAdmin, setIsAdmin] = useState(false);
@@ -158,6 +148,9 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             sendMessage('get-room-users', { spaceId });
           }
           break;
+
+      
+
         case 'queue-update':
           console.log('Queue update received in MusicRoom:', data);
           // The queue will be handled by QueueManager component
@@ -235,7 +228,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume, true);
   };
-
+  
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -249,6 +242,12 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+      {/* Discord Presence (invisible component) */}
+      <DiscordPresence />
+      
+      {/* Electron Detector for debugging */}
+      <ElectronDetector />
+      
       {/* Left Sidebar */}
       <div className="flex-shrink-0">
         <SidebarProvider>

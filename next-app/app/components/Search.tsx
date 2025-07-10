@@ -433,7 +433,7 @@ export default function SearchSongPopup({
         // ✅ Send WebSocket message with Spotify album image (not YouTube thumbnail)
         const success = sendMessage("add-to-queue", {
           spaceId: spaceId,
-          addedByUser : socketUser?.username || "",
+          addedByUser : socketUser?.name || "",
           userId: socketUser?.id || '',
           url: `https://www.youtube.com/watch?v=${videoId}`,
           autoPlay: autoPlay,
@@ -446,7 +446,7 @@ export default function SearchSongPopup({
             youtubeId: videoId,
             addedByUser: {
               id: socketUser?.id || '',
-              username: socketUser?.username || 'Unknown'
+              name: socketUser?.name || 'Unknown'
             }
           },
           // Legacy fields for backward compatibility - ALSO USE SPOTIFY IMAGE

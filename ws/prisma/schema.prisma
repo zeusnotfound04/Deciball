@@ -17,6 +17,7 @@ datasource db {
 model User {
   id            String      @id @default(uuid())
   email         String      @unique
+  emailVerified DateTime?   @default(now())
   username      String?     @unique 
   name          String?     @default("")
   pfpUrl        String?     @default("")

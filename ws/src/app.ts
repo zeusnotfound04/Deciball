@@ -38,6 +38,7 @@ type Data = {
     position? : number;
     timestamp? : number;
     isPlaying? : boolean;
+    slang? : string;
     // General fields
     title? : string;
     artist? : string;
@@ -215,6 +216,7 @@ async function  processUserAction(type: string , data : Data ) {
             }
             break;
 
+
         // Playback control cases (TODO: Implement Redis-based handlers)
         case "pause-playback":
             console.log("⏸️ Pause playback - TODO: Implement Redis-based handler");
@@ -306,7 +308,31 @@ async function  processUserAction(type: string , data : Data ) {
                 await RoomManager.getInstance().sendCurrentPlayingSongToUser(data.spaceId, data.userId);
             }
             break;
-  
+        
+        // Get current space image
+        case "get-space-image":
+            console.log("🖼️ Get space image request for space:", data.spaceId);
+            const requestingImageUser = RoomManager.getInstance().users.get(data.userId);
+            if (requestingImageUser) {
+                const imageUrl = await RoomManager.getInstance().getCurrentSpaceImage(data.spaceId);
+                requestingImageUser.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "space-image-response",
+                            data: { 
+                                spaceId: data.spaceId,
+                                imageUrl: imageUrl
+                            }
+                        }));
+                    }
+                });
+                console.log(`🖼️ Sent space image for ${data.spaceId}: ${imageUrl || "No image found"}`);
+            } else {
+                console.error(`❌ User not found when requesting space image. UserId: ${data.userId}, SpaceId: ${data.spaceId}`);
+                // Cannot send error to client as we don't have access to the WebSocket here
+                // This is a server-side logging only case
+            }
+            break;
     
         default:
             console.warn("Unknown message type:" , type);
@@ -335,6 +361,10 @@ async function handleConnection(ws:WebSocket) {
         switch (type){
             case "join-room":
                 await handleJoinRoom(ws , data);
+                break;
+            case "discord-activity-update":
+                // Broadcast Discord activity update to all clients in the space
+                await RoomManager.getInstance().broadcastDiscordActivity(data.spaceId, data);
                 break;
             default:
                 await handleUserAction(ws , type , data)
