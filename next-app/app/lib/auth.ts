@@ -52,10 +52,17 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
   },
   providers: [
-     SpotifyProvider({
-    clientId: process.env.SPOTIFY_CLIENT_ID || "",
-    clientSecret: process.env.SPOTIFY_CLIENT_SECRET || ""
-  }),
+SpotifyProvider({
+  clientId: process.env.SPOTIFY_CLIENT_ID!,
+  clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
+  authorization: {
+    url: "https://accounts.spotify.com/authorize",
+    params: {
+      scope: "user-library-read user-read-email user-read-private playlist-read-private",
+    },
+  },
+}),
+
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
@@ -118,75 +125,72 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    async signIn({ user, account, profile }) {
+      async signIn({ user, account, profile }) {
       try {
-        console.log('[NextAuth] signIn callback called:', { user, account, profile });
-        // Only handle Google provider
-        if (account?.provider === 'Google') {
-          const googleProfile = profile as GoogleProfile;
-          // Get the profile image URL from Google (prefer 'picture' over 'image')
-          const profileImageUrl = googleProfile.picture || user.image || null;
-          console.log('[NextAuth] Google profile image URL: 🤣🥠🤣', profileImageUrl);
-          // Check if user already exists in database
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email! },
-            include: {
-              accounts: true
-            }
-          });
-          console.log('[NextAuth] Existing user found:', existingUser);
-          if (existingUser) {
-            // User exists, check if they have a Google account linked
-            const existingGoogleAccount = existingUser.accounts.find(
-              acc => acc.provider === 'Google'
-            );
-            if (!existingGoogleAccount) {
-              // Link Google account to existing user
-              await prisma.account.create({
-                data: {
-                  userId: existingUser.id,
-                  type: account.type,
-                  provider: account.provider,
-                  providerAccountId: account.providerAccountId,
-                  access_token: account.access_token,
-                  expires_at: account.expires_at,
-                  token_type: account.token_type,
-                  scope: account.scope,
-                  id_token: account.id_token,
-                  refresh_token: account.refresh_token,
-                },
-              });
-              console.log('[NextAuth] Linked Google account to existing user:', existingUser.id);
-            }
-            // Update user info including profile image
+        const provider = account?.provider;
+
+        if (!user.email || !account) return false;
+
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email },
+          include: { accounts: true },
+        });
+
+        // Link OAuth accounts (Google or Spotify)
+        if (["google", "spotify"].includes(provider!)) {
+          const alreadyLinked = existingUser?.accounts.some(
+            (acc) => acc.provider === provider
+          );
+
+          if (!alreadyLinked && existingUser) {
+            await prisma.account.create({
+              data: {
+                userId: existingUser.id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token,
+                refresh_token: account.refresh_token,
+              },
+            });
+
+            // Update user profile image if not set
+            const profileImage =
+              (profile as GoogleProfile)?.picture || user.image || null;
+
             await prisma.user.update({
               where: { id: existingUser.id },
               data: {
                 name: user.name || existingUser.name,
-                image: profileImageUrl, // NextAuth standard field
-                pfpUrl: profileImageUrl, // Your custom field
-                // Update username if it's null and we have a name
-                username: existingUser.username || user.name?.toLowerCase().replace(/\s+/g, '') || null,
-                provider: Provider.Google, // Update provider to Google
+                image: profileImage,
+                pfpUrl: profileImage,
+                username:
+                  existingUser.username ||
+                  user.name?.toLowerCase().replace(/\s+/g, "") ||
+                  null,
+                provider: provider as Provider,
               },
             });
-            console.log('[NextAuth] Updated user info for:', existingUser.id);
-            return true;
-          } else {
-            // New user - create user with Google profile image
+          }
+
+          // Create new user if not found
+          if (!existingUser) {
             const newUser = await prisma.user.create({
               data: {
-                email: user.email!,
+                email: user.email,
                 name: user.name,
-                image: profileImageUrl, // NextAuth standard field
-                pfpUrl: profileImageUrl, // Your custom field
-                username: user.name?.toLowerCase().replace(/\s+/g, '') || null,
-                provider: Provider.Google,
-                // password is optional for Google users
+                image: (profile as GoogleProfile)?.picture || user.image,
+                pfpUrl: (profile as GoogleProfile)?.picture || user.image,
+                username:
+                  user.name?.toLowerCase().replace(/\s+/g, "") || null,
+                provider: provider as Provider,
               },
             });
-            console.log('[NextAuth] Created new user:', newUser.id);
-            // Create the account record
+
             await prisma.account.create({
               data: {
                 userId: newUser.id,
@@ -201,15 +205,13 @@ export const authOptions: NextAuthOptions = {
                 refresh_token: account.refresh_token,
               },
             });
-            console.log('[NextAuth] Created account for new user:', newUser.id);
-            return true;
           }
         }
-        // For other providers (credentials), let the default behavior handle it
+
         return true;
-      } catch (error) {
-        console.error('Error in signIn callback:', error);
-        return false; // This will prevent the sign-in
+      } catch (err) {
+        console.error("❌ signIn error:", err);
+        return false;
       }
     },
     
