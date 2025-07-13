@@ -12,6 +12,6 @@ export function Providers({children}: {
 
         <SocketContextProvider> 
             <AudioProvider>{children}</AudioProvider> </SocketContextProvider>
-        
+         
     </SessionProvider>
 }

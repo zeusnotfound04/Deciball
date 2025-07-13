@@ -1,3 +1,4 @@
+require('dotenv').config();
 const RPC = require('discord-rpc');
 
 // Discord application client ID

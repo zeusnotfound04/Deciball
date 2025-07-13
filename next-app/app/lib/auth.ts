@@ -9,7 +9,7 @@ import { JWT } from "next-auth/jwt";
 import { Provider } from "@prisma/client";
 import jwt from "jsonwebtoken";
 
-
+import SpotifyProvider from "next-auth/providers/spotify";
 type JWTCallbackParams = {
   token: JWT;
   user: User | undefined;
@@ -52,6 +52,7 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
   },
   providers: [
+ 
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",

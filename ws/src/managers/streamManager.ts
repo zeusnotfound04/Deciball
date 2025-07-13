@@ -3,6 +3,7 @@ import { createClient, RedisClientType } from "redis";
 import { WebSocket } from "ws";
 import crypto from "crypto";
 import { MusicSourceManager } from "../handlers/index";
+import { QueueBase } from 'bullmq';
 
 const redisUrl = process.env.REDIS_URL
 
@@ -1140,6 +1141,44 @@ export class RoomManager {
             throw error;
         }
     }
+     
+async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
+  try {
+    const queueKey = `queue:${spaceId}`;
+    const songDataList = await this.redisClient.lRange(queueKey, 0, -1);
+
+    let targetSongRaw: string | null = null;
+    const songs: QueueSong[] = [];
+
+    for (const songData of songDataList) {
+      try {
+        const song = JSON.parse(songData) as QueueSong;
+        songs.push(song);
+
+        if (song.id === songId) {
+          targetSongRaw = songData; // Save raw JSON string for LREM
+        }
+      } catch (parseError) {
+        console.error('Error parsing song data from Redis:', parseError);
+      }
+    }
+
+    if (!targetSongRaw) {
+      return null; // song not found
+    }
+
+    // Remove the song from Redis queue using LREM
+    await this.redisClient.lRem(queueKey, 1, targetSongRaw);
+
+    const deletedSong = JSON.parse(targetSongRaw) as QueueSong;
+    return deletedSong;
+
+  } catch (err: any) {
+    console.error("Error getting or deleting the song from Redis:", err);
+    return null;
+  }
+}
+
 
     // Get all songs in queue
     async getRedisQueue(spaceId: string): Promise<QueueSong[]> {
@@ -1184,10 +1223,10 @@ export class RoomManager {
     // Get next song from queue (highest voted first)
     async getNextSongFromRedisQueue(spaceId: string): Promise<QueueSong | null> {
         try {
-            const queueKey = `queue:${spaceId}`;
             
             // Get the sorted queue (most upvoted songs first)
             const sortedQueue = await this.getRedisQueue(spaceId);
+            console.log("Sorted Queue 🐉🐉 :::::", sortedQueue);
             
             if (sortedQueue.length === 0) {
                 console.log("📭 Queue is empty, no songs to play");
@@ -1535,6 +1574,70 @@ export class RoomManager {
         }
     }
 
+    async playSong(spaceId : string , songId : string | undefined){
+
+        try{
+
+                   const space = this.spaces.get(spaceId);
+                 if (!space || !songId) {
+            return;
+        }
+            const song = await this.getSongById(spaceId , songId)
+            if(!song){
+                console.log(`No Song Found by this ${songId} `)
+
+                return null
+            }
+               await this.setCurrentPlayingSong(spaceId, song);
+
+        // Update in-memory playback state
+        const now = Date.now();
+        space.playbackState = {
+            currentSong: {
+                id: song.id,
+                title: song.title,
+                artist: song.artist,
+                url: song.url,
+                duration: song.duration,
+                extractedId: song.extractedId
+            },
+            startedAt: 0, // Will be set when admin starts playback
+            pausedAt: null,
+            isPlaying: false, // Always start paused
+            lastUpdated: now
+        };
+
+        const voteCount = await this.getSongVoteCount(spaceId, song.id);
+
+        const songData = {
+            ...song,
+            voteCount: voteCount,
+            addedByUser: {
+                id: song.userId,
+                name: song.addedByUser // We might need to get this from database or Redis
+            }
+        };
+
+        space.users.forEach((user) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "current-song-update",
+                        data: { song: songData }
+                    }));
+                }
+            });
+        });
+
+        // Broadcast image update for the space when song changes
+        await this.broadcastImageUpdate(spaceId);
+
+        // Start timestamp broadcasting for synchronized playback
+        this.startTimestampBroadcast(spaceId);
+        } catch(err ) {
+            console.error("Error playing the song",err)
+        }
+    }
     // Updated adminPlayNext method using Redis
     async playNextFromRedisQueue(spaceId: string, userId: string): Promise<void> {        
         const space = this.spaces.get(spaceId);

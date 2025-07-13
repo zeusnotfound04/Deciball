@@ -26,6 +26,7 @@ if ( cluster.isPrimary) {
     main()
 }
 type Data = {
+    songId? : string
     userId : string ;
     spaceId : string ;
     spaceName? : string ;
@@ -149,6 +150,12 @@ async function  processUserAction(type: string , data : Data ) {
             }
             break;
 
+        case "play-instant" :
+            try {
+                await RoomManager.getInstance().playSong(data.spaceId , data.songId!)
+            } catch (err) {
+                console.error("Error while playing websocket server::",  err)
+            }
         case "remove-song":
             const removed = await RoomManager.getInstance().removeSongFromRedisQueue(data.spaceId, data.streamId);
             if (removed) {

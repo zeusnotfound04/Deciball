@@ -450,6 +450,11 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const handleVote = (streamId: string, vote: 'upvote' | 'downvote') => {
     voteOnSong(streamId, vote);
   };
+  const handlePlayInstant = (songId: string) => {
+
+     sendMessage("play-instant", {spaceId , songId} )
+     
+  }
 
   const handlePlayNext = () => {
     if (!isAdmin) {
@@ -560,8 +565,14 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             </CardContent>
           </Card>
         ) : (
-          queue.map((item, index) => (
-            <Card key={item.id} className="transition-all hover:shadow-md">
+  queue.map((item, index) => (
+    <Card
+      key={item.id}
+      onClick={() => handlePlayInstant(item.id)}
+      className="cursor-pointer transition-all hover:shadow-md"
+      role="button"
+      tabIndex={0}
+    >
               <CardContent className="p-4">
                 <div className="flex items-center space-x-4">
                   <div className="text-lg font-bold text-gray-400 w-8">
@@ -597,41 +608,31 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                     </div>
                     
                     {/* Vote Buttons */}
-                    {!isAdmin && (
-                      <div className="flex space-x-1">
-                        <Button
-                          size="sm"
-                          variant={hasUserVoted(item) ? "default" : "outline"}
-                          onClick={() => handleVote(item.id, 'upvote')}
-                          disabled={hasUserVoted(item)}
-                          className="px-2"
-                        >
-                          <ThumbsUp className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleVote(item.id, 'downvote')}
-                          className="px-2"
-                        >
-                          <ThumbsDown className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    )}
-                    
-                    {/* Admin Controls */}
-                    {isAdmin && (
-                      <div className="flex space-x-1">
-                        <Button
-                          size="sm"
-                          onClick={() => handleRemoveSong(item.id)}
-                          variant="destructive"
-                          className="px-2"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    )}
+                    <Button
+  size="sm"
+  variant="outline"
+  onClick={(e) => {
+    e.stopPropagation();
+    handleVote(item.id, 'downvote');
+  }}
+  className="px-2"
+>
+  <ThumbsDown className="w-3 h-3" />
+</Button>
+
+{isAdmin && (
+  <Button
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleRemoveSong(item.id);
+    }}
+    variant="destructive"
+    className="px-2"
+  >
+    <Trash2 className="w-3 h-3" />
+  </Button>
+)}
                   </div>
                 </div>
               </CardContent>
