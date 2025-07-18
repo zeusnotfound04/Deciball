@@ -137,4 +137,5 @@ enum Provider {
   Discord
   Credentials
   Google 
+  Spotify
 }

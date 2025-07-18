@@ -44,28 +44,55 @@ interface OAuthAccount {
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === 'development',
+  useSecureCookies: false, // Disable secure cookies for development
   pages: {
     signIn: '/signin',
     signOut: '/signout',
+  },
+  
+  cookies: {
+    state: {
+      name: "next-auth.state",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: false,
+        maxAge: 900,
+      },
+    },
+    pkceCodeVerifier: {
+      name: "next-auth.pkce.code_verifier", 
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: false,
+        maxAge: 900,
+      },
+    },
   },
   session: {
     strategy: 'jwt',
   },
   providers: [
-SpotifyProvider({
-  clientId: process.env.SPOTIFY_CLIENT_ID!,
-  clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
-  authorization: {
-    url: "https://accounts.spotify.com/authorize",
-    params: {
-      scope: "user-library-read user-read-email user-read-private playlist-read-private",
-    },
-  },
-}),
-
+  SpotifyProvider({
+      clientId: process.env.SPOTIFY_CLIENT_ID!,
+      clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
+      authorization: {
+        url: "https://accounts.spotify.com/authorize",
+        params: {
+          scope: "user-read-email user-read-private user-top-read playlist-read-private",
+          show_dialog: "true"
+        }
+      },
+      checks: process.env.NODE_ENV === 'development' ? [] : ['state'],
+    }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      checks: process.env.NODE_ENV === 'development' ? [] : ['state'],
     }),
     CredentialsProvider({
       name: 'Sign in',
@@ -125,97 +152,132 @@ SpotifyProvider({
   ],
 
   callbacks: {
-      async signIn({ user, account, profile }) {
-      try {
-        const provider = account?.provider;
-
-        if (!user.email || !account) return false;
-
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
-          include: { accounts: true },
-        });
-
-        // Link OAuth accounts (Google or Spotify)
-        if (["google", "spotify"].includes(provider!)) {
-          const alreadyLinked = existingUser?.accounts.some(
-            (acc) => acc.provider === provider
-          );
-
-          if (!alreadyLinked && existingUser) {
-            await prisma.account.create({
-              data: {
-                userId: existingUser.id,
-                type: account.type,
-                provider: account.provider,
-                providerAccountId: account.providerAccountId,
-                access_token: account.access_token,
-                expires_at: account.expires_at,
-                token_type: account.token_type,
-                scope: account.scope,
-                id_token: account.id_token,
-                refresh_token: account.refresh_token,
-              },
-            });
-
-            // Update user profile image if not set
-            const profileImage =
-              (profile as GoogleProfile)?.picture || user.image || null;
-
-            await prisma.user.update({
-              where: { id: existingUser.id },
-              data: {
-                name: user.name || existingUser.name,
-                image: profileImage,
-                pfpUrl: profileImage,
-                username:
-                  existingUser.username ||
-                  user.name?.toLowerCase().replace(/\s+/g, "") ||
-                  null,
-                provider: provider as Provider,
-              },
-            });
-          }
-
-          // Create new user if not found
-          if (!existingUser) {
-            const newUser = await prisma.user.create({
-              data: {
-                email: user.email,
-                name: user.name,
-                image: (profile as GoogleProfile)?.picture || user.image,
-                pfpUrl: (profile as GoogleProfile)?.picture || user.image,
-                username:
-                  user.name?.toLowerCase().replace(/\s+/g, "") || null,
-                provider: provider as Provider,
-              },
-            });
-
-            await prisma.account.create({
-              data: {
-                userId: newUser.id,
-                type: account.type,
-                provider: account.provider,
-                providerAccountId: account.providerAccountId,
-                access_token: account.access_token,
-                expires_at: account.expires_at,
-                token_type: account.token_type,
-                scope: account.scope,
-                id_token: account.id_token,
-                refresh_token: account.refresh_token,
-              },
-            });
-          }
-        }
-
-        return true;
-      } catch (err) {
-        console.error("❌ signIn error:", err);
-        return false;
-      }
-    },
+    async signIn({ user, account, profile }) {
+  try {
+    console.log('[NextAuth] 🎗️⚡😍 signIn called with user:', user, 'account:', account, 'profile:', profile);
     
+    // Basic validation
+    if (!user.email || !account) {
+      console.error('[NextAuth] Missing user email or account');
+      return false;
+    }
+
+    const provider = account.provider;
+    console.log('Provider:', provider);
+    console.log('Getting existing user with email:', user.email);
+
+    // Handle OAuth providers (Google, Spotify)
+    if (["google", "spotify"].includes(provider)) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: user.email },
+        include: { accounts: true },
+      });
+
+      if (existingUser) {
+        console.log('Found existing user:', existingUser.email);
+        
+        // Check if this provider account is already linked
+        const alreadyLinked = existingUser.accounts.some(
+          (acc) => acc.provider === provider && acc.providerAccountId === account.providerAccountId
+        );
+
+        if (!alreadyLinked) {
+          console.log("Linking new account for existing user:", existingUser.email);
+          
+          // Create new account link
+          const newAccount = await prisma.account.create({
+            data: {
+              userId: existingUser.id,
+              type: account.type,
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              access_token: account.access_token || null,
+              expires_at: account.expires_at || null,
+              token_type: account.token_type || null,
+              scope: account.scope || null,
+              id_token: account.id_token || null,
+              refresh_token: account.refresh_token || null,
+            },
+          });
+          console.log("Account created:", newAccount.id);
+
+          // Update user profile if needed
+          const profileImage = (profile as any)?.picture || user.image || null;
+          
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: {
+              name: user.name || existingUser.name,
+              image: profileImage || existingUser.image,
+              pfpUrl: profileImage || existingUser.pfpUrl,
+              username: existingUser.username || 
+                       user.name?.toLowerCase().replace(/\s+/g, "") || 
+                       null,
+              provider: provider as Provider,
+            },
+          });
+        } else {
+          console.log("Account already linked for user:", existingUser.email);
+        }
+      } else {
+        console.log("Creating new user for email:", user.email);
+        
+        // Create new user
+        const profileImage = (profile as any)?.picture || user.image || null;
+        console.log("Profile data:", {
+           email: user.email,
+            name: user.name || null,
+            image: profileImage,
+            pfpUrl: profileImage,
+            username: user.name?.toLowerCase().replace(/\s+/g, "") || null,
+            provider: provider as Provider,
+        });
+        const newUser = await prisma.user.create({
+          data: {
+            email: user.email,
+            name: user.name || null,
+            image: profileImage,
+            pfpUrl: profileImage,
+            username: user.name?.toLowerCase().replace(/\s+/g, "") || null,
+            provider: provider as Provider,
+          },
+        });
+        console.log("New user created:", newUser.id);
+
+        // Create account for new user
+        const newAccount = await prisma.account.create({
+          data: {
+            userId: newUser.id,
+            type: account.type,
+            provider: account.provider,
+            providerAccountId: account.providerAccountId,
+            access_token: account.access_token || null,
+            expires_at: account.expires_at || null,
+            token_type: account.token_type || null,
+            scope: account.scope || null,
+            id_token: account.id_token || null,
+            refresh_token: account.refresh_token || null,
+          },
+        });
+        console.log("Account created for new user:", newAccount.id);
+      }
+    }
+
+    console.log('[NextAuth] signIn callback completed successfully');
+    return true;
+    
+  } catch (err) {
+    console.error("❌ signIn error:", err);
+    // Log the full error for debugging
+    if (err instanceof Error) {
+      console.error("Error message:", err.message);
+      console.error("Error stack:", err.stack);
+    }
+    return false;
+  }
+},
     async jwt({ token, user }) {
+      console.log('[NextAuth] jwt callback called with user:', user , token);
       if (user) {
         token.id = user.id;
         token.email = user.email;
@@ -228,6 +290,7 @@ SpotifyProvider({
     },
 
     async session({ session, token }) {
+      console.log('[NextAuth] session callback called with session:_______>', session, 'token:', token);
     //       const customJwt = jwt.sign(
     //   {
     //     userId: token.id,
