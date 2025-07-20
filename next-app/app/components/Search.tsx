@@ -717,7 +717,7 @@ export default function SearchSongPopup({
                           <div className={cn(
                             "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
                             isSelected 
-                              ? "bg-blue-600 border-blue-600" 
+                              ? "bg-gray-600 border-gray-600" 
                               : "border-zinc-600 hover:border-zinc-500"
                           )}>
                             {isSelected && (
@@ -760,7 +760,7 @@ export default function SearchSongPopup({
                           )}
                           {/* We can still show SELECTED badge here if desired */}
                           {isSelected && (
-                            <span className="text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded-full">
+                            <span className="text-[10px] text-gray-400 bg-gray-800/60 px-1.5 py-0.5 rounded-full">
                               ✓ SELECTED
                             </span>
                           )}

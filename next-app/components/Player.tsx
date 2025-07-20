@@ -145,11 +145,11 @@ export const Player: React.FC<PlayerProps> = ({
 
   if (!currentSong) {
     return (
-      <Card className={`w-full ${className}`}>
+      <Card className={`w-full bg-[#1C1E1F] border-[#424244] ${className}`}>
         <CardContent className="p-6">
           <div className="text-center py-8">
-            <Music className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">No music playing</h3>
+            <Music className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-300 mb-2">No music playing</h3>
             <p className="text-gray-500">Add some songs to the queue to get started!</p>
           </div>
         </CardContent>
@@ -165,22 +165,22 @@ export const Player: React.FC<PlayerProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: 'easeOut' }}
     >
-      {/* Main Player Card - Dark Animated Theme */}
+      {/* Main Player Card - Fixed Gray Background */}
       <motion.div
-        className="w-full overflow-hidden bg-gradient-to-br from-[#181c2b] via-[#23263a] to-[#181c2b] shadow-2xl rounded-2xl border border-[#23263a]"
+        className="w-full overflow-hidden bg-[#1C1E1F] shadow-2xl rounded-2xl border border-[#424244]"
         initial={{ scale: 0.98 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
       >
-        <CardContent className="p-0">
+        <CardContent className="p-0 bg-[#1C1E1F]">
           <motion.div
-            className={`transition-all duration-300 ${isExpanded ? 'min-h-[600px]' : 'min-h-[400px]'}`}
+            className={`transition-all duration-300 bg-[#1C1E1F] ${isExpanded ? 'min-h-[600px]' : 'min-h-[400px]'}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
             {/* Player Content */}
-            <div className="p-6">
+            <div className="p-4  bg-[#1C1E1F] backdrop-blur-md ">
               <div className={`grid gap-6 ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
                 {/* Left Column - Always visible */}
                 <div className="space-y-4">
@@ -190,9 +190,9 @@ export const Player: React.FC<PlayerProps> = ({
                       <motion.div
                         className="w-full max-w-sm"
                         initial={{ scale: 0.95, boxShadow: '0 0 0 0 #0000' }}
-                        animate={{ scale: 1, boxShadow: '0 8px 32px 0 #0004' }}
+                        animate={{ scale: 1, boxShadow: '0 8px 32px 0 rgba(0,0,0,0.3)' }}
                         transition={{ duration: 0.6, ease: 'easeInOut' }}
-                        whileHover={{ scale: 1.03, boxShadow: '0 12px 40px 0 #0006' }}
+                        whileHover={{ scale: 1.03, boxShadow: '0 12px 40px 0 rgba(0,0,0,0.4)' }}
                       >
                         <PLayerCover spaceId={spaceId} userId={user?.id} />
                       </motion.div>
@@ -214,7 +214,7 @@ export const Player: React.FC<PlayerProps> = ({
                         </motion.h1>
                         {currentSong.artistes?.primary?.[0]?.name && (
                           <motion.p
-                            className="text-lg text-[#b3b8d1] mb-3"
+                            className="text-lg text-gray-400 mb-3"
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.7, delay: 0.5 }}

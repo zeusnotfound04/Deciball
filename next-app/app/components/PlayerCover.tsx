@@ -219,6 +219,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
 
   return (
     <>
+      {/* Hidden YouTube Player */}
       <div className="-z-10 opacity-0 aspect-square absolute">
         <YouTube
           key={currentSong?.downloadUrl?.[0]?.url || 'no-song'} // Force remount when song changes
@@ -294,35 +295,15 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
         />
       </div>
 
+      {/* Album Cover Container with Gray Theme */}
       <div
         draggable
         onDragStart={(e) => handleDragStart(e)}
         onDragEnd={handleDragEnd}
-        className="  relative h-auto min-h-40  overflow-hidden rounded-xl "
+        className="relative h-auto min-h-40 overflow-hidden rounded-xl bg-[#1C1E1F]  shadow-lg border border-[#424244] transition-all duration-300 hover:shadow-xl hover:border-gray-600"
       >
         {!currentSong?.video ? (
-          <Image
-            draggable="false"
-            priority
-            title={
-              currentSong?.name
-                ? `${currentSong.name} - Added by ${
-                    currentSong?.addedByUser?.username !== user?.username
-                      ? `${currentSong?.addedByUser?.name} (${currentSong?.addedByUser?.username})`
-                      : "You"
-                  }`
-                : "No song available"
-            }
-            alt={currentSong?.name || ""}
-            height={300}
-            width={300}
-            className="cover aspect-square h-full object-cover  w-full"
-            src={
-              cleanImageUrl(currentSong?.image?.[currentSong.image.length - 1]?.url || '')
-            }
-          />
-        ) : (
-          <div className=" relative">
+          <div className="relative">
             <Image
               draggable="false"
               priority
@@ -338,11 +319,45 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
               alt={currentSong?.name || ""}
               height={300}
               width={300}
-              className="cover z-10  aspect-square h-full object-cover  w-full"
+              className="cover aspect-square h-full object-cover w-full rounded-xl transition-transform duration-300 hover:scale-105"
+              src={
+                cleanImageUrl(currentSong?.image?.[currentSong.image.length - 1]?.url || '')
+              }
+            />
+            {/* Subtle overlay for better text contrast */}
+            <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-300 rounded-xl" />
+          </div>
+        ) : (
+          <div className="relative">
+            <Image
+              draggable="false"
+              priority
+              title={
+                currentSong?.name
+                  ? `${currentSong.name} - Added by ${
+                      currentSong?.addedByUser?.username !== user?.username
+                        ? `${currentSong?.addedByUser?.name} (${currentSong?.addedByUser?.username})`
+                        : "You"
+                    }`
+                  : "No song available"
+              }
+              alt={currentSong?.name || ""}
+              height={300}
+              width={300}
+              className="cover z-10 aspect-square h-full object-cover w-full rounded-xl transition-transform duration-300 hover:scale-105"
               src={
                 cleanImageUrl(currentSong?.image?.[0]?.url || '')
               }
             />
+            {/* Subtle overlay for video thumbnails */}
+            <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-300 rounded-xl z-20" />
+          </div>
+        )}
+
+        {/* Optional: Add a subtle loading state background */}
+        {!currentSong && (
+          <div className="absolute inset-0 bg-[#1C1E1F] animate-pulse rounded-xl flex items-center justify-center">
+            <div className="text-gray-500 text-sm">Loading...</div>
           </div>
         )}
 

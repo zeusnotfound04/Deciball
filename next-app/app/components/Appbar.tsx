@@ -10,8 +10,8 @@ export function Appbar( {showThemeSwitch = true , isSpectator = false}){
             </div>
             <div className=" items-center gap-x-2">
                 {isSpectator}
-                {session.data?.user && <button className="m-2 p-2 bg-blue-400" onClick={()=> signOut()}>Logout</button>}
-                {!session.data?.user && <button className="m-2 p-2 bg-blue-400" onClick={()=> signIn()}>Sign In</button>}
+                {session.data?.user && <button className="m-2 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded" onClick={()=> signOut()}>Logout</button>}
+                {!session.data?.user && <button className="m-2 p-2 bg-gray-700 hover:bg-gray-600 text-white rounded" onClick={()=> signIn()}>Sign In</button>}
 
             </div>
         </div>

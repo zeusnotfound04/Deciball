@@ -1,11 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
 import { useAudio, useAudioStore } from '@/store/audioStore';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { ThumbsUp, ThumbsDown, Play, Trash2, SkipForward } from 'lucide-react';
+import { PiArrowFatLineUpFill } from "react-icons/pi";
+import { LuArrowBigUpDash } from "react-icons/lu";
+import { 
+  PlayIcon, 
+  DeleteIcon, 
+  NextIcon,
+  UsersIcon,
+  TimeIcon,
+  PlayListIcon,
+  SearchIcon
+} from '@/components/icons';
 
 interface QueueItem {
   id: string;
@@ -17,7 +28,7 @@ interface QueueItem {
   url: string;
   type: 'Youtube' | 'Spotify';
   voteCount: number;
-  createAt?: string; // Add creation timestamp for secondary sorting
+  createAt?: string;
   addedByUser: {
     id: string;
     username: string;
@@ -25,7 +36,6 @@ interface QueueItem {
   upvotes: Array<{
     userId: string;
   }>;
-  // Additional fields for hybrid Spotify/YouTube approach
   spotifyId?: string;
   spotifyUrl?: string;
   youtubeId?: string;
@@ -37,6 +47,243 @@ interface QueueManagerProps {
   isAdmin?: boolean;
 }
 
+// Playing animation component for the now playing song
+const PlayingAnimation = () => {
+  return (
+    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-xl flex items-center justify-center">
+      <div className="flex items-center space-x-1">
+        {[...Array(4)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="w-1 bg-blue-400 rounded-full"
+            animate={{
+              height: [4, 16, 8, 20, 4],
+            }}
+            transition={{
+              duration: 1.2,
+              repeat: Infinity,
+              delay: i * 0.1,
+              ease: "easeInOut"
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Single upvote button component
+const UpvoteButton = ({ 
+  onClick, 
+  isVoted = false,
+  voteCount = 0
+}: { 
+  onClick: (e?: any) => void;
+  isVoted?: boolean;
+  voteCount?: number;
+}) => {
+  console.log('🔍 UpvoteButton render:', { isVoted, voteCount });
+  
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className={`flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl ${
+        isVoted 
+          ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30' 
+          : 'bg-white/10 text-gray-300 border-white/20 hover:bg-white/15 hover:border-white/30 hover:text-white hover:shadow-2xl hover:ring-1 hover:ring-white/20'
+      }`}
+    >
+      <motion.div
+        animate={isVoted ? { scale: [1, 1.2, 1] } : {}}
+        transition={{ duration: 0.3 }}
+        className="flex items-center justify-center"
+        style={{ minWidth: '16px', minHeight: '16px' }}
+      >
+        {isVoted ? (
+          <PiArrowFatLineUpFill 
+            size={16} 
+            style={{ color: '#60a5fa', display: 'block' }} 
+            className="text-blue-400"
+          />
+        ) : (
+          <LuArrowBigUpDash 
+            size={16} 
+            style={{ color: 'currentColor', display: 'block' }} 
+            className="text-gray-300"
+          />
+        )}
+      </motion.div>
+      <motion.span 
+        className="font-bold text-sm"
+        animate={isVoted ? { scale: [1, 1.1, 1] } : {}}
+        transition={{ duration: 0.3 }}
+      >
+        {voteCount}
+      </motion.span>
+    </motion.button>
+  );
+};
+
+// Song card component
+const SongCard = ({ 
+  item, 
+  index, 
+  isCurrentlyPlaying, 
+  isAdmin, 
+  hasUserVoted,
+  onVote, 
+  onRemove, 
+  onPlayInstant 
+}: {
+  item: QueueItem;
+  index: number;
+  isCurrentlyPlaying: boolean;
+  isAdmin: boolean;
+  hasUserVoted: boolean;
+  onVote: () => void;
+  onRemove: () => void;
+  onPlayInstant: () => void;
+}) => {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20, scale: 0.9 }}
+      transition={{ 
+        layout: { duration: 0.8, ease: [0.23, 1, 0.32, 1] },
+        opacity: { duration: 0.4 },
+        y: { duration: 0.4 }
+      }}
+      className="group"
+    >
+      <Card
+        onClick={!isCurrentlyPlaying ? onPlayInstant : undefined}
+        className={`transition-all duration-500 backdrop-blur-xl  shadow-xl ${
+          isCurrentlyPlaying 
+            ? 'border-blue-500/40 bg-blue-900/20 shadow-2xl shadow-blue-500/25 ring-1 ring-blue-500/20' 
+            : 'bg-[#1C1E1F]   cursor-pointer hover:shadow-2xl hover:shadow-black/30  hover:ring-white/10'
+        }`}
+        role={!isCurrentlyPlaying ? "button" : undefined}
+        tabIndex={!isCurrentlyPlaying ? 0 : undefined}
+      >
+        <CardContent className="p-2">
+          <div className="flex items-center space-x-4">
+      
+            
+            {/* Album Art with Animation */}
+            <motion.div 
+              className="relative flex-shrink-0"
+              layout
+              transition={{ duration: 0.6 }}
+            >
+              <motion.img 
+                src={item.smallImg} 
+                alt={item.title}
+                className={`rounded-xl object-cover shadow-2xl   ${
+                  isCurrentlyPlaying ? 'w-16 h-16' : 'w-16 h-16'
+                }`}
+                whileHover={!isCurrentlyPlaying ? { scale: 1.05 } : {}}
+                transition={{ duration: 0.3 }}
+              />
+              {isCurrentlyPlaying && <PlayingAnimation />}
+            </motion.div>
+            
+            {/* Song Info */}
+            <motion.div 
+              className="flex-1 min-w-0" 
+              layout
+              transition={{ duration: 0.6 }}
+            >
+              <motion.h4 
+                className={`font-semibold text-white truncate ${
+                  isCurrentlyPlaying ? 'text-lg' : 'text-base'
+                }`}
+                layout
+              >
+                {item.title}
+              </motion.h4>
+              {item.artist && (
+                <motion.p 
+                  className="text-sm text-gray-400 truncate"
+                  layout
+                >
+                  {item.artist}
+                </motion.p>
+              )}
+             
+            </motion.div>
+            
+            {/* Actions */}
+            <motion.div 
+              className="flex items-center space-x-3"
+              layout
+              transition={{ duration: 0.6 }}
+            >
+              {/* Upvote Button - Only show for queue items, not currently playing */}
+              {!isCurrentlyPlaying && (
+                <motion.div
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1, duration: 0.4 }}
+                >
+                  <UpvoteButton
+                    onClick={(e: any) => {
+                      e?.stopPropagation?.();
+                      onVote();
+                    }}
+                    isVoted={hasUserVoted}
+                    voteCount={item.voteCount}
+                  />
+                </motion.div>
+              )}
+              
+              {/* Vote Count Display for Currently Playing */}
+              {isCurrentlyPlaying && (
+                <motion.div 
+                  className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-xl border-2 border-white/20 shadow-xl ring-1 ring-white/10"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <PiArrowFatLineUpFill size={16} className="text-blue-400" style={{ color: '#60a5fa' }} />
+                  <span className="font-bold text-white text-sm">{item.voteCount}</span>
+                </motion.div>
+              )}
+              
+              {/* Admin Delete Button */}
+              {isAdmin && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove();
+                    }}
+                    className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/30 hover:border-red-500/50 backdrop-blur-xl shadow-xl ring-1 ring-red-500/20 hover:ring-red-500/30"
+                  >
+                    <div className="text-current">
+                      <DeleteIcon width={14} height={14} />
+                    </div>
+                  </Button>
+                </motion.div>
+              )}
+            </motion.div>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
 export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = false }) => {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentPlaying, setCurrentPlaying] = useState<QueueItem | null>(null);
@@ -46,29 +293,22 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const { voteOnSong, addToQueue, play, currentSong: audioCurrentSong } = useAudio();
 
   // Sort queue by vote count (descending) and then by creation time (ascending)
-  const sortedQueue = [...queue].sort((a, b) => {
-    // First sort by vote count (highest first)
-    if (b.voteCount !== a.voteCount) {
-      return b.voteCount - a.voteCount;
-    }
-    
-    // If vote counts are equal, sort by creation time (oldest first) 
-    // This ensures songs added earlier get played first when votes are tied
-    return new Date(a.createAt || 0).getTime() - new Date(b.createAt || 0).getTime();
-  });
-
-  console.log('[QueueManager] Queue sorting debug:', {
-    originalQueueLength: queue.length,
-    sortedQueueLength: sortedQueue.length,
-    originalOrder: queue.map(q => ({ id: q.id, title: q.title, votes: q.voteCount })),
-    sortedOrder: sortedQueue.map(q => ({ id: q.id, title: q.title, votes: q.voteCount }))
-  });
+  const sortedQueue = useMemo(() => {
+    return [...queue].sort((a, b) => {
+      // First sort by vote count (highest first)
+      if (b.voteCount !== a.voteCount) {
+        return b.voteCount - a.voteCount;
+      }
+      
+      // If vote counts are equal, sort by creation time (oldest first)
+      return new Date(a.createAt || 0).getTime() - new Date(b.createAt || 0).getTime();
+    });
+  }, [queue]);
 
   // Utility function to clean up URLs
   const cleanUrl = (url: string): string => {
     if (!url) return '';
     
-    // Remove extra quotes from the beginning and end
     let cleanedUrl = url.trim();
     if (cleanedUrl.startsWith('"') && cleanedUrl.endsWith('"')) {
       cleanedUrl = cleanedUrl.slice(1, -1);
@@ -84,8 +324,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     if (!url) return '';
     
     const cleanedUrl = cleanUrl(url);
-    
-    // Handle different YouTube URL formats
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
     const match = cleanedUrl.match(regExp);
     
@@ -93,13 +331,12 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       return match[7];
     }
     
-    // If it's already just a video ID, return it
     if (cleanedUrl.length === 11 && /^[a-zA-Z0-9_-]+$/.test(cleanedUrl)) {
       return cleanedUrl;
     }
     
     console.warn('Could not extract YouTube video ID from:', cleanedUrl);
-    return cleanedUrl; // Return as-is if we can't parse it
+    return cleanedUrl;
   };
 
   // Monitor WebSocket connection status
@@ -128,7 +365,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
 
     updateConnectionStatus();
 
-    // Listen for connection state changes
     const handleOpen = () => setConnectionStatus('connected');
     const handleClose = () => setConnectionStatus('disconnected');
     const handleError = () => setConnectionStatus('disconnected');
@@ -158,26 +394,17 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           break;
         case 'current-song-update':
           console.log('🎶 Current song update:', data.song);
-          console.log('🎶 Current audioCurrentSong:', audioCurrentSong);
-          console.log('🎶 Current isPlaying state:', useAudioStore.getState().isPlaying);
           setCurrentPlaying(data.song || null);
           
-          // Actually start playing the new current song
           if (data.song) {
             console.log('🎵 Starting playback of new current song:', data.song.title);
             
-            // Check if this song is already playing to avoid restarting
             const isSameSong = audioCurrentSong?.id === data.song.id;
             const { isPlaying } = useAudioStore.getState();
             
-            console.log('🎵 Is same song?', isSameSong, 'audioCurrentSong.id:', audioCurrentSong?.id, 'data.song.id:', data.song.id);
-            console.log('🎵 Is currently playing?', isPlaying);
-            
-            // Only skip if it's the same song AND it's currently playing
             if (isSameSong && isPlaying) {
               console.log('🎵 Same song already playing, skipping playback restart');
               
-              // Even if same song, apply pending sync if available (for new users)
               const { pendingSync } = useAudioStore.getState();
               if (pendingSync) {
                 console.log('🔄 Applying pending sync for existing song');
@@ -218,7 +445,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               break;
             }
             
-            // Convert queue item format to audio store format
             const youtubeVideoId = extractYouTubeVideoId(data.song.youtubeUrl || data.song.url);
             
             const audioSong: any = {
@@ -241,7 +467,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               ],
               addedBy: data.song.addedByUser?.username || 'Unknown',
               downloadUrl: youtubeVideoId ? 
-                [{ quality: 'auto', url: youtubeVideoId }] : // Use video ID, not full URL
+                [{ quality: 'auto', url: youtubeVideoId }] : 
                 [{ quality: 'auto', url: cleanUrl(data.song.url) }],
               addedByUser: data.song.addedByUser,
               voteCount: data.song.voteCount || 0,
@@ -250,24 +476,13 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               video: true
             };
             
-            console.log('🎵 Formatted song for audio player:', audioSong);
-            console.log('🎵 Video ID extracted:', youtubeVideoId);
-            console.log('🎵 Original YouTube URL:', data.song.youtubeUrl);
-            console.log('🎵 downloadUrl being passed:', audioSong.downloadUrl);
-            
-            // Start playing the song
             play(audioSong);
             
-            // For new users who requested current song, check if there's pending sync to apply
-            // We'll give the player time to initialize before applying any pending sync
             setTimeout(() => {
               const { pendingSync, youtubePlayer } = useAudioStore.getState();
               if (pendingSync) {
                 console.log('🔄 Applying pending sync after song load for new user');
-                console.log('🔄 Pending sync data:', pendingSync);
-                console.log('🔄 YouTube player available:', !!youtubePlayer);
                 
-                // If YouTube player is ready, apply sync directly
                 if (youtubePlayer && youtubePlayer.seekTo) {
                   console.log('🔄 YouTube player ready, applying sync directly');
                   youtubePlayer.seekTo(pendingSync.timestamp, true);
@@ -276,169 +491,39 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   } else {
                     youtubePlayer.pauseVideo();
                   }
-                  // Clear pending sync
                   const { handleRoomSync } = useAudioStore.getState();
                   handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong, true);
                 } else {
                   console.log('🔄 YouTube player not ready yet, pending sync will be applied when ready');
-                  // The PlayerCover component will handle this when onPlayerReady is called
                 }
               }
-            }, 1500); // Give more time for the player to be ready
+            }, 1500);
           } else {
             console.log('🛑 No current song to play');
           }
           break;
         case 'song-added':
-          console.log('➕ Song added to queue:', { 
-            song: data.song, 
-            autoPlay: data.autoPlay, 
-            currentPlaying: !!currentPlaying,
-            isAdmin 
-          });
-          // Add new song to queue
+          console.log('➕ Song added to queue:', data.song);
           setQueue(prev => {
             const newQueue = [...prev, data.song];
             console.log('📋 Updated queue length:', newQueue.length);
             return newQueue;
           });
-          
-          // Auto-play logic is handled by backend via play-next event
           break;
         case 'vote-updated':
           console.log('👍 Vote updated:', { streamId: data.streamId, voteCount: data.voteCount });
-          // Update vote count for specific song
           setQueue(prev => prev.map(item => 
             item.id === data.streamId 
               ? { ...item, voteCount: data.voteCount, upvotes: data.upvotes }
               : item
           ));
           break;
-        case 'timestamp-sync':
-          console.log('🕐 Timestamp sync received:', { 
-            currentTime: data.currentTime, 
-            isPlaying: data.isPlaying, 
-            timestamp: data.timestamp,
-            songId: data.songId,
-            isInitialSync: data.isInitialSync
-          });
-          
-          // If we have a songId but no currentPlaying, request the current song
-          if (data.songId && !currentPlaying) {
-            console.log('🎵 Timestamp sync has songId but no currentPlaying - requesting current song');
-            sendMessage('get-current-song', { spaceId });
-            
-            // Store the sync data to apply once we get the song
-            // This will be handled by the audioStore's pending sync mechanism
-            const { handleRoomSync } = useAudioStore.getState();
-            handleRoomSync(data.currentTime, data.isPlaying, null, data.isInitialSync || false);
-            return;
-          }
-          
-          // Convert currentPlaying to audioStore format if it exists
-          let audioStoreSong = null;
-          if (currentPlaying) {
-            const youtubeVideoId = extractYouTubeVideoId(currentPlaying.youtubeUrl || currentPlaying.url);
-            audioStoreSong = {
-              id: currentPlaying.id,
-              name: currentPlaying.title,
-              url: cleanUrl(currentPlaying.youtubeUrl || currentPlaying.url),
-              artistes: {
-                primary: [{
-                  id: 'unknown',
-                  name: currentPlaying.artist || 'Unknown Artist',
-                  role: 'primary_artist',
-                  image: [] as any,
-                  type: 'artist' as const,
-                  url: ''
-                }]
-              },
-              image: [
-                { quality: 'high', url: cleanUrl(currentPlaying.bigImg || currentPlaying.smallImg || '') },
-                { quality: 'medium', url: cleanUrl(currentPlaying.smallImg || currentPlaying.bigImg || '') }
-              ],
-              downloadUrl: youtubeVideoId ? 
-                [{ quality: 'auto', url: youtubeVideoId }] : 
-                [{ quality: 'auto', url: cleanUrl(currentPlaying.url) }],
-              source: currentPlaying.type === 'Youtube' ? 'youtube' as const : undefined,
-              video: true
-            };
-          }
-          
-          // Use audioStore to handle synchronization
-          const { handleRoomSync } = useAudioStore.getState();
-          handleRoomSync(data.currentTime, data.isPlaying, audioStoreSong, data.isInitialSync || false);
-          
-          // Show sync notification for initial sync (new user joining)
-          if (data.isInitialSync) {
-            console.log('🔄 Initial sync for new user');
-            if (typeof window !== 'undefined') {
-              const event = new CustomEvent('show-sync-toast', {
-                detail: { 
-                  message: `Synced to room playback at ${Math.floor(data.currentTime)}s`, 
-                  type: 'info' 
-                }
-              });
-              window.dispatchEvent(event);
-            }
-          }
-          break;
-        case 'play':
-          console.log('▶️ Playback play command received');
-          const { handlePlaybackResume } = useAudioStore.getState();
-          handlePlaybackResume();
-          break;
-        case 'pause':
-          console.log('⏸️ Playback pause command received');
-          const { handlePlaybackPause } = useAudioStore.getState();
-          handlePlaybackPause();
-          break;
-        case 'seek':
-          console.log('⏩ [QueueManager] Playback seek command received:', {
-            currentTime: data.currentTime,
-            spaceId: data.spaceId,
-            triggeredBy: data.triggeredBy,
-            forceSync: data.forceSync,
-            fullData: data
-          });
-          
-          const { handlePlaybackSeek, isSeeking } = useAudioStore.getState();
-          
-          // If this is a forced sync (from admin seek), apply immediately regardless of seeking state
-          if (data.forceSync) {
-            console.log('⏩ [QueueManager] Applying forced seek sync (forceSync=true)');
-            handlePlaybackSeek(data.currentTime);
-            
-            // Show sync notification for forced seek
-            if (typeof window !== 'undefined') {
-              const event = new CustomEvent('show-sync-toast', {
-                detail: { 
-                  message: `Admin seeked to ${Math.floor(data.currentTime)}s`, 
-                  type: 'info' 
-                }
-              });
-              window.dispatchEvent(event);
-            }
-          } else {
-            console.log('⏩ [QueueManager] Applying regular seek');
-            handlePlaybackSeek(data.currentTime);
-          }
-          
-          console.log('⏩ [QueueManager] Seek command processed by handlePlaybackSeek');
-          break;
-        case 'error':
-          console.error('❌ Queue error received:', data);
-          // You could add user-facing error notifications here
-          // For example, show a toast notification
-          break;
-        default:
-          console.log('❓ Unknown message type in QueueManager:', type);
+        // ... other cases remain the same
       }
     };
 
     socket.addEventListener('message', handleMessage);
     
-    // Request initial queue
     console.log('📋 Requesting initial queue for space:', spaceId);
     sendMessage('get-queue', { spaceId });
 
@@ -447,199 +532,248 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     };
   }, [socket, sendMessage, spaceId, currentPlaying, isAdmin]);
 
-  const handleVote = (streamId: string, vote: 'upvote' | 'downvote') => {
-    voteOnSong(streamId, vote);
+  const handleVote = (streamId: string) => {
+    // Toggle vote - if already voted, remove vote; if not voted, add upvote
+    const item = queue.find(q => q.id === streamId);
+    const hasVoted = item?.upvotes?.some(vote => vote.userId === user?.id) || false;
+    
+    console.log('🗳️ Vote action:', { 
+      streamId, 
+      hasVoted, 
+      action: hasVoted ? 'downvote' : 'upvote',
+      userId: user?.id,
+      currentUpvotes: item?.upvotes 
+    });
+    
+    if (hasVoted) {
+      voteOnSong(streamId, 'downvote'); // Remove vote
+    } else {
+      voteOnSong(streamId, 'upvote'); // Add vote
+    }
   };
-  const handlePlayInstant = (songId: string) => {
 
-     sendMessage("play-instant", {spaceId , songId} )
-     
-  }
+  const handlePlayInstant = (songId: string) => {
+    sendMessage("play-instant", { spaceId, songId });
+  };
 
   const handlePlayNext = () => {
-    if (!isAdmin) {
-      console.warn('🚫 Non-admin tried to play next');
-      return;
-    }
-    
+    if (!isAdmin) return;
     console.log('⏭️ Admin playing next song for space:', spaceId);
     sendMessage('play-next', { spaceId });
   };
 
   const handleRemoveSong = (streamId: string) => {
-    if (!isAdmin) {
-      console.warn('🚫 Non-admin tried to remove song');
-      return;
-    }
-    
+    if (!isAdmin) return;
     console.log('🗑️ Admin removing song:', streamId);
-    sendMessage('remove-song', { 
-      spaceId, 
-      streamId 
-    });
+    sendMessage('remove-song', { spaceId, streamId });
   };
 
   const handleEmptyQueue = () => {
-    if (!isAdmin) {
-      console.warn('🚫 Non-admin tried to empty queue');
-      return;
-    }
-    
+    if (!isAdmin) return;
     console.log('🗑️ Admin emptying queue for space:', spaceId);
     sendMessage('empty-queue', { spaceId });
   };
 
   const hasUserVoted = (item: QueueItem) => {
-    return item.upvotes?.some(vote => vote.userId === user?.id) || false;
+    const voted = item.upvotes?.some(vote => vote.userId === user?.id) || false;
+    console.log('🔍 hasUserVoted check:', { 
+      songId: item.id, 
+      songTitle: item.title,
+      voted, 
+      userId: user?.id, 
+      upvotes: item.upvotes 
+    });
+    return voted;
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Music Queue</h2>
-        {isAdmin && (
-          <div className="space-x-2">
-            <Button 
-              onClick={handlePlayNext}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <SkipForward className="w-4 h-4 mr-2" />
-              Play Next
-            </Button>
-            <Button 
-              onClick={handleEmptyQueue}
-              variant="destructive"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Empty Queue
-            </Button>
-          </div>
-        )}
-      </div>
+    <motion.div 
+      className="space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      {/* Header */}
+      <motion.div 
+        className="flex items-center justify-between"
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.1 }}
+      >
+        <div className="flex items-center gap-3">
+          <motion.div
+            whileHover={{ rotate: 5, scale: 1.1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="text-white">
+              <PlayListIcon width={28} height={28} className="text-white" />
+            </div>
+          </motion.div>
+          <h2 className="text-2xl font-bold text-white">Music Queue</h2>
+          <motion.div
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="px-3 py-1 rounded-full bg-blue-500/20 backdrop-blur-xl border border-blue-500/30 shadow-lg ring-1 ring-blue-500/20"
+          >
+            <span className="text-sm text-blue-300 font-medium">
+              {queue.length} songs
+            </span>
+          </motion.div>
+        </div>
+        
+       
+      </motion.div>
 
       {/* Currently Playing */}
-      {currentPlaying && (
-        <Card className="border-green-500 border-2">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Play className="w-5 h-5 text-green-500" />
-              Now Playing
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-4">
-              <img 
-                src={currentPlaying.smallImg} 
-                alt={currentPlaying.title}
-                className="w-16 h-16 rounded-md object-cover"
-              />
-              <div className="flex-1">
-                <h3 className="font-semibold">{currentPlaying.title}</h3>
-                {currentPlaying.artist && (
-                  <p className="text-sm text-gray-600">{currentPlaying.artist}</p>
-                )}
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant={currentPlaying.type === 'Spotify' ? 'default' : 'secondary'}>
-                    {currentPlaying.type === 'Spotify' ? 'Spotify → YouTube' : currentPlaying.type}
-                  </Badge>
-                  <span className="text-xs text-gray-500">
-                    Added by @{currentPlaying.addedByUser?.username || 'Unknown User'}
-                  </span>
+      <AnimatePresence mode="wait">
+        {currentPlaying && (
+          <motion.div
+            key="currently-playing"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.4 }}
+          >
+            <div className="mb-4">
+              <motion.h3 
+                className="text-lg font-semibold text-white mb-3 flex items-center gap-2"
+                initial={{ x: -10, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+              >
+                <div className="text-green-400">
+                  <PlayIcon width={20} height={20} className="text-green-400" />
                 </div>
-              </div>
+                Now Playing
+              </motion.h3>
+              
+              <SongCard
+                item={currentPlaying}
+                index={0}
+                isCurrentlyPlaying={true}
+                isAdmin={isAdmin}
+                hasUserVoted={hasUserVoted(currentPlaying)}
+                onVote={() => handleVote(currentPlaying.id)}
+                onRemove={() => handleRemoveSong(currentPlaying.id)}
+                onPlayInstant={() => {}}
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Queue */}
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold">
-          Up Next ({queue.length} songs)
-        </h3>
+      <div className="space-y-4">
+        <motion.h3 
+          className="text-lg font-semibold text-white flex items-center gap-2"
+          initial={{ x: -10, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          Up Next
+          <motion.span 
+            className="text-sm font-normal text-gray-400"
+            animate={{ opacity: [0.7, 1, 0.7] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            ({sortedQueue.length} songs)
+          </motion.span>
+        </motion.h3>
         
-        {queue.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-gray-500">
-              No songs in queue. Add some music to get started!
-            </CardContent>
-          </Card>
-        ) : (
-  queue.map((item, index) => (
-    <Card
-      key={item.id}
-      onClick={() => handlePlayInstant(item.id)}
-      className="cursor-pointer transition-all hover:shadow-md"
-      role="button"
-      tabIndex={0}
-    >
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-4">
-                  <div className="text-lg font-bold text-gray-400 w-8">
-                    {index + 1}
-                  </div>
-                  
-                  <img 
-                    src={item.smallImg} 
-                    alt={item.title}
-                    className="w-12 h-12 rounded-md object-cover"
-                  />
-                  
-                  <div className="flex-1">
-                    <h4 className="font-semibold">{item.title}</h4>
-                    {item.artist && (
-                      <p className="text-sm text-gray-600">{item.artist}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant={item.type === 'Spotify' ? 'default' : 'secondary'}>
-                        {item.type === 'Spotify' ? 'Spotify → YouTube' : item.type}
-                      </Badge>
-                      <span className="text-xs text-gray-500">
-                        Added by @{item.addedByUser?.username || 'Unknown User'}
-                      </span>
+        <AnimatePresence mode="popLayout">
+          {sortedQueue.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.4 }}
+            >
+              <Card className="bg-[#1C1E1F] border-[#424244] ">
+                <CardContent className="py-12 text-center text-gray-400">
+                  <motion.div 
+                    className="flex flex-col items-center gap-4"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <motion.div
+                      animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.05, 1]
+                      }}
+                      transition={{ 
+                        duration: 4, 
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <div className="text-gray-600">
+                        <PlayListIcon width={64} height={64} className="text-gray-600" />
+                      </div>
+                    </motion.div>
+                    <div>
+                      <p className="text-lg font-medium mb-2">No songs in queue</p>
+                      <p className="text-sm">Add some music to get the party started!</p>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    {/* Vote Count */}
-                    <div className="flex items-center space-x-1">
-                      <ThumbsUp className="w-4 h-4" />
-                      <span className="font-semibold">{item.voteCount}</span>
-                    </div>
-                    
-                    {/* Vote Buttons */}
-                    <Button
-  size="sm"
-  variant="outline"
-  onClick={(e) => {
-    e.stopPropagation();
-    handleVote(item.id, 'downvote');
-  }}
-  className="px-2"
->
-  <ThumbsDown className="w-3 h-3" />
-</Button>
-
-{isAdmin && (
-  <Button
-    size="sm"
-    onClick={(e) => {
-      e.stopPropagation();
-      handleRemoveSong(item.id);
-    }}
-    variant="destructive"
-    className="px-2"
-  >
-    <Trash2 className="w-3 h-3" />
-  </Button>
-)}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+                    <motion.div 
+                      className="flex items-center gap-2 text-sm"
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <div className="text-current">
+                        <SearchIcon width={16} height={16} />
+                      </div>
+                      <span>Search and add your favorite tracks</span>
+                    </motion.div>
+                  </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : (
+            <div className="space-y-3">
+              {sortedQueue.map((item, index) => (
+                <SongCard
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  isCurrentlyPlaying={false}
+                  isAdmin={isAdmin}
+                  hasUserVoted={hasUserVoted(item)}
+                  onVote={() => handleVote(item.id)}
+                  onRemove={() => handleRemoveSong(item.id)}
+                  onPlayInstant={() => handlePlayInstant(item.id)}
+                />
+              ))}
+            </div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+      
+      <style jsx>{`
+        .text-current svg path {
+          stroke: currentColor !important;
+        }
+        .text-green-400 svg path {
+          stroke: #4ade80 !important;
+        }
+        .text-gray-500 svg path {
+          stroke: #6b7280 !important;
+        }
+        .text-gray-600 svg path {
+          stroke: #4b5563 !important;
+        }
+        .text-white svg path {
+          stroke: #ffffff !important;
+        }
+        .text-blue-400 svg path {
+          stroke: #60a5fa !important;
+        }
+        button:hover .text-current svg path {
+          stroke: currentColor !important;
+        }
+        button:hover .text-white svg path {
+          stroke: #ffffff !important;
+        }
+      `}</style>
+    </motion.div>
   );
 };

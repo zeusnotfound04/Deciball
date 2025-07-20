@@ -107,7 +107,7 @@ export const Listener: React.FC<ListenerProps> = ({
   const getStatusColor = (user: ConnectedUser) => {
     if (user.isCreator) return 'bg-yellow-500';
     if (user.isListening) return 'bg-green-500';
-    return 'bg-blue-500';
+    return 'bg-gray-500';
   };
 
   const getStatusText = (user: ConnectedUser) => {
@@ -235,7 +235,7 @@ export const Listener: React.FC<ListenerProps> = ({
               <div className="border-t pt-3 mt-4">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className="text-2xl font-bold text-gray-300">
                       {listeners.length}
                     </p>
                     <p className="text-xs text-gray-500">Total Users</p>

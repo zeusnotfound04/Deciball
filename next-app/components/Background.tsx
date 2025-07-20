@@ -77,6 +77,22 @@ export default function HalftoneWavesBackground({ children }: HalftoneWavesBackg
       {/* Fixed background canvas */}
       <canvas ref={canvasRef} className="fixed inset-0 w-full h-full bg-black -z-10 pointer-events-none" />
 
+      {/* Enhanced glass overlay with dark texture and increased opacity */}
+      <div 
+        className="fixed inset-0 -z-5 pointer-events-none"
+        style={{
+          background: `
+            linear-gradient(135deg, rgba(30, 30, 30, 0.15) 0%, rgba(10, 10, 10, 0.25) 100%),
+            radial-gradient(circle at 25% 25%, rgba(60, 60, 60, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 75% 75%, rgba(40, 40, 40, 0.08) 0%, transparent 50%),
+            linear-gradient(45deg, rgba(20, 20, 20, 0.1) 25%, transparent 25%, transparent 50%, rgba(20, 20, 20, 0.1) 50%, rgba(20, 20, 20, 0.1) 75%, transparent 75%)
+          `,
+          backgroundSize: '100% 100%, 200px 200px, 150px 150px, 20px 20px',
+          backdropFilter: 'blur(3px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(3px) saturate(150%)',
+        }}
+      />
+
       {/* Content layer */}
       <div className="relative z-10">{children}</div>
     </div>

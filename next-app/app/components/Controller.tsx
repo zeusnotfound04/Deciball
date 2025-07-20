@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Play, 
-  Pause, 
-  SkipBack, 
-  SkipForward, 
-  Volume2, 
-  VolumeX, 
-  Volume1,
-  Shuffle,
-  Repeat,
   Heart,
   MoreHorizontal
 } from 'lucide-react';
+import { 
+  PlayIcon, 
+  PauseIcon, 
+  PreviousIcon, 
+  NextIcon, 
+  ForwardTenSecondIcon,
+  BackTenSecondIcon,
+  MuteIcon,
+  MoreVolumeIcon,
+  LessVolumeIcon
+} from '@/components/icons';
 import { useAudio } from '@/store/audioStore';
+import VolumeBar from '@/components/VolumeBar';
 
 interface AudioControllerProps {
   customTogglePlayPause?: () => void;
@@ -59,7 +62,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   const [isDragging, setIsDragging] = useState(false);
   const [tempProgress, setTempProgress] = useState(0);
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
   const [repeatMode, setRepeatMode] = useState(0); // 0: off, 1: all, 2: one
@@ -146,15 +148,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
     }
   };
 
-  // Handle volume control
-  const handleVolumeChange = (e : any) => {
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
-    if (newVolume > 0 && isMuted) {
-      unmute();
-    }
-  };
-
+  // Handle volume control - now handled by VolumeBar component
   const toggleMute = () => {
     if (isMuted) {
       unmute();
@@ -162,14 +156,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
       mute();
     }
   };
-
-  const getVolumeIcon = () => {
-    if (isMuted || volume === 0) return VolumeX;
-    if (volume < 0.5) return Volume1;
-    return Volume2;
-  };
-
-  const VolumeIcon = getVolumeIcon();
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -245,7 +231,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   if (!currentSong) {
     return (
-      <div className="bg-gray-900 border-t border-gray-800 p-4">
+      <div className="bg-[#1C1E1F] border-t border-[#424244] p-4">
         <div className="text-center text-gray-500">No song playing</div>
       </div>
     );
@@ -254,7 +240,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const progressPercent = isDragging ? tempProgress : (progress / duration) * 100;
 
   return (
-    <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-t border-gray-700 p-4 shadow-2xl">
+    <div className="bg-gradient-to-r from-[#1C1E1F] via-[#1C1E1F] to-[#1C1E1F] border-t border-[#424244] rounded-xl p-4 shadow-2xl">
       <div className="max-w-6xl mx-auto">
         {/* Progress Bar */}
         <div className="mb-4">
@@ -265,7 +251,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
               className={`flex-1 bg-gray-600 rounded-full h-1 relative group transition-all duration-200 ${
                 isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
               } ${
-                isSeeking ? 'ring-2 ring-blue-400 ring-opacity-50' : ''
+                isSeeking ? 'ring-2 ring-gray-400 ring-opacity-50' : ''
               }`}
               onMouseDown={handleProgressMouseDown}
               onClick={handleProgressClick}
@@ -275,7 +261,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
               }
             >
               <div 
-                className={`bg-gradient-to-r from-blue-500 to-purple-500 h-1 rounded-full transition-all duration-200 relative ${
+                className={`bg-gradient-to-r from-gray-400 to-gray-500 h-1 rounded-full transition-all duration-200 relative ${
                   isDragging ? 'transition-none' : ''
                 } ${
                   isSeeking ? 'animate-pulse' : ''
@@ -285,7 +271,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 <div className={`absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg transition-all duration-200 -mr-1.5 ${
                   isDragging || isSeeking || (isAdmin && progressPercent > 0) ? 'opacity-100 scale-110' : 'opacity-0 group-hover:opacity-100'
                 } ${
-                  isSeeking ? 'ring-2 ring-blue-400 ring-opacity-50' : ''
+                  isSeeking ? 'ring-2 ring-gray-400 ring-opacity-50' : ''
                 }`} />
               </div>
             </div>
@@ -303,117 +289,92 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 isLiked ? 'text-red-500 hover:text-red-400' : 'text-gray-400 hover:text-white'
               }`}
             >
-              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+              <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
             </button>
           </div>
 
           {/* Main Controls */}
-          <div className="flex items-center gap-2 mx-6">
-            <button
-              onClick={() => setIsShuffled(!isShuffled)}
-              className={`p-2 rounded-full transition-colors ${
-                isShuffled ? 'text-green-500 hover:text-green-400' : 'text-gray-400 hover:text-white'
-              }`}
-              title="Shuffle"
-            >
-              <Shuffle className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-2 mx-6 justify-center">
+          
 
             <button
               onClick={playPrev}
               className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700"
               title="Previous (Ctrl + ←)"
-              // className={`p-2 transition-colors rounded-full ${
-              //   isAdmin 
-              //     ? 'text-gray-300 hover:text-white hover:bg-gray-700 cursor-pointer' 
-              //     : 'text-gray-500 cursor-not-allowed opacity-50'
-              // }`}
-              // title={isAdmin ? "Previous (Ctrl + ←)" : "Previous song not available"}
-              // disabled={!isAdmin}
             >
-              <SkipBack className="w-5 h-5" />
+              <div className="text-current">
+                <PreviousIcon width={20} height={20} />
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                const newTime = Math.max(0, progress - 10);
+                seek(newTime);
+              }}
+              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+              title="Back 10 seconds"
+            >
+              <div className="text-">
+                <BackTenSecondIcon width={16} height={16} />
+              </div>
             </button>
 
             <button
               onClick={handleTogglePlayPause}
-              className="bg-white text-black p-3 rounded-full hover:scale-105 transition-transform shadow-lg"
+              className=" text-black p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px]"
               title={isPlaying ? "Pause (Space)" : "Play (Space)"}
             >
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+              {isPlaying ? (
+                <div className="text-black">
+                  <PauseIcon width={40} className='w-10' height={40} />
+                </div>
+              ) : (
+                <div className="text-black">
+                  <PlayIcon width={40} className='w-10' height={40} />
+                </div>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                const newTime = Math.min(duration, progress + 10);
+                seek(newTime);
+              }}
+              className="p-1 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
+              title="Forward 10 seconds"
+            >
+              <div className="text-current">
+                <ForwardTenSecondIcon width={16} height={16} />
+              </div>
             </button>
 
             <button
               onClick={playNext}
               className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700"
               title="Next (Ctrl + →)"
-              // className={`p-2 transition-colors rounded-full ${
-              //   isAdmin 
-              //     ? 'text-gray-300 hover:text-white hover:bg-gray-700 cursor-pointer' 
-              //     : 'text-gray-500 cursor-not-allowed opacity-50'
-              // }`}
-              // title={isAdmin ? "Next (Ctrl + →)" : "Only admin can skip to next song"}
-              // disabled={!isAdmin}
             >
-              <SkipForward className="w-5 h-5" />
+              <div className="text-current">
+                <NextIcon width={20} height={20} />
+              </div>
             </button>
 
-            <button
-              onClick={() => setRepeatMode((repeatMode + 1) % 3)}
-              className={`p-2 rounded-full transition-colors ${
-                repeatMode > 0 ? 'text-green-500 hover:text-green-400' : 'text-gray-400 hover:text-white'
-              }`}
-              title={repeatMode === 0 ? 'Repeat Off' : repeatMode === 1 ? 'Repeat All' : 'Repeat One'}
-            >
-              <Repeat className={`w-4 h-4 ${repeatMode === 2 ? 'text-green-400' : ''}`} />
-              {repeatMode === 2 && (
-                <span className="absolute -mt-6 -ml-2 text-xs font-bold">1</span>
-              )}
-            </button>
+    
+           
           </div>
 
           {/* Volume Control */}
-          <div className="flex items-center gap-2 flex-1 justify-end">
-            <div className="relative">
-              <button
-                onClick={toggleMute}
-                onMouseEnter={() => setShowVolumeSlider(true)}
-                className="p-2 text-gray-300 hover:text-white transition-colors rounded-full hover:bg-gray-700"
-                title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
-              >
-                <VolumeIcon className="w-5 h-5" />
-              </button>
-              
-              {showVolumeSlider && (
-                <div 
-                  className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-lg p-3 shadow-xl border border-gray-700"
-                  onMouseEnter={() => setShowVolumeSlider(true)}
-                  onMouseLeave={() => setShowVolumeSlider(false)}
-                >
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={isMuted ? 0 : volume}
-                    onChange={handleVolumeChange}
-                    className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer slider"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(isMuted ? 0 : volume) * 100}%, #4b5563 ${(isMuted ? 0 : volume) * 100}%, #4b5563 100%)`
-                    }}
-                  />
-                  <div className="text-xs text-gray-400 text-center mt-1">
-                    {Math.round((isMuted ? 0 : volume) * 100)}%
-                  </div>
-                </div>
-              )}
+          <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+            <div className="w-32 max-w-32 ">
+              <VolumeBar
+                defaultValue={volume * 100}
+                startingValue={0}
+                maxValue={100}
+                className="w-full"
+              />
             </div>
 
-            <button
-              className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700"
-              title="More options"
-            >
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
+           
           </div>
         </div>
       </div>
@@ -436,6 +397,21 @@ const AudioController: React.FC<AudioControllerProps> = ({
           cursor: pointer;
           border: none;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Force icon stroke colors to inherit from text color */
+        .text-black svg path {
+          stroke: #000000 !important;
+        }
+        .text-current svg path {
+          stroke: currentColor !important;
+        }
+        .text-gray-300 svg path,
+        .text-gray-400 svg path {
+          stroke: currentColor !important;
+        }
+        button:hover .text-current svg path {
+          stroke: currentColor !important;
         }
       `}</style>
     </div>

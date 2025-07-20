@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
 import { useAudio } from '@/store/audioStore';
@@ -10,11 +11,15 @@ import { Player } from './Player';
 import SearchSongPopup from '@/app/components/Search';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { Users, Music, Settings, VolumeX, Volume2, Play, Pause } from 'lucide-react';
+import { Users, Music, Settings, VolumeX, Volume2, Play, Pause, LogOut, User } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
 import { DiscordPresence } from './DiscordPresence';
 import { ElectronDetector } from './ElectronDetector';
+import HalftoneWavesBackground from './Background';
+import BlurText, { BlurComponent } from './ui/BlurEffects';
 
 interface MusicRoomProps {
   spaceId: string;
@@ -25,6 +30,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const { user, setUser } = useUserStore();
   const { setVolume,  setCurrentSpaceId } = useAudio();
   const { sendMessage, socket, loading, connectionError } = useSocket();
+  const router = useRouter();
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [connectedUsers, setConnectedUsers] = useState(0);
@@ -34,6 +40,24 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const [showPlayer, setShowPlayer] = useState(true);
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [spaceInfo, setSpaceInfo] = useState<{ spaceName: string; hostId: string } | null>(null);
+
+  // Helper functions for profile
+  const getProfilePicture = () => {
+    return user?.imageUrl || (session?.user as any)?.image || session?.user?.pfpUrl || null;
+  };
+
+  const getUserInitials = () => {
+    const name =session?.user?.name|| "User Not Found";
+    return name.charAt(0).toUpperCase();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut({ callbackUrl: '/signin' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   // Debug effect to track userDetails changes
   useEffect(() => {
@@ -237,176 +261,239 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   
   if (loading || !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-lg">Connecting to music room...</p>
+      <HalftoneWavesBackground>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin w-12 h-12 border-4 border-gray-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-lg text-gray-200">Connecting to music room...</p>
+          </div>
         </div>
-      </div>
+      </HalftoneWavesBackground>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-      {/* Discord Presence (invisible component) */}
-      <DiscordPresence />
-      
-      {/* Electron Detector for debugging */}
-      <ElectronDetector />
-      
-      {/* Left Sidebar */}
-      <div className="flex-shrink-0">
-        <SidebarProvider>
-          <ListenerSidebar 
-            listeners={userDetails.length > 0 ? userDetails : [
-              ...Array.from({ length: connectedUsers }, (_, i) => ({
-                userId: `user-${i}`,
-                isCreator: i === 0,
-                name: i === 0 ? 'Room Creator' : `Listener ${i}`,
-                imageUrl: ''
-              }))
-            ]} 
-          />
-        </SidebarProvider>
-      </div>
+    <HalftoneWavesBackground>
+      <div className="flex min-h-screen text-white">
+        {/* Discord Presence (invisible component) */}
+        <DiscordPresence />
+        
+        {/* Electron Detector for debugging */}
+        <ElectronDetector />
+        
+        {/* Left Sidebar */}
+        <div className="flex-shrink-0">
+          <SidebarProvider>
+            <ListenerSidebar 
+              listeners={userDetails.length > 0 ? userDetails : [
+                ...Array.from({ length: connectedUsers }, (_, i) => ({
+                  userId: `user-${i}`,
+                  isCreator: i === 0,
+                  name: i === 0 ? 'Room Creator' : `Listener ${i}`,
+                  imageUrl: ''
+                }))
+              ]} 
+            />
+          </SidebarProvider>
+        </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-          {/* Top Header with Search */}
-          <div className="w-full p-4 border-b border-gray-700">
-            <div className="max-w-7xl mx-auto">
-              <div className="flex flex-col gap-4">
-                {/* Room Info and Search Bar */}
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <h1 className="text-2xl font-bold text-white">{roomName}</h1>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 text-gray-400">
-                        <Users className="w-4 h-4" />
-                        <span className="text-sm">{connectedUsers} connected</span>
-                      </div>
-                      <Badge variant={isAdmin ? 'default' : 'secondary'} className={isAdmin ? "bg-purple-600" : "bg-gray-700"}>
-                        {isAdmin ? 'Admin' : 'Listener'}
-                      </Badge>
-                      <Badge 
-                        variant={
-                          loading ? 'secondary' :
-                          connectionError ? 'destructive' :
-                          socket?.readyState === WebSocket.OPEN ? 'default' : 'secondary'
-                        }
-                        className="flex items-center gap-1 bg-gray-700 border-gray-600"
-                      >
-                        <div 
-                          className={`w-2 h-2 rounded-full ${
-                            loading ? 'bg-yellow-500 animate-pulse' :
-                            connectionError ? 'bg-red-500' :
-                            socket?.readyState === WebSocket.OPEN ? 'bg-green-500' : 'bg-gray-500'
-                          }`}
-                        />
-                        {loading ? 'Connecting...' :
-                         connectionError ? 'Connection Error' :
-                         socket?.readyState === WebSocket.OPEN ? 'Connected' : 'Disconnected'}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  {/* Search Bar */}
-                  <div className="flex-1 max-w-xl">
-                    <SearchSongPopup 
-                      onSelect={(track) => {
-                        console.log('Song selected:', track.name);
-                      }}
-                      onBatchSelect={handleBatchAddToQueue}
-                      buttonClassName="w-full bg-gray-700 hover:bg-gray-600 border-gray-600"
-                      maxResults={12}
-                      isAdmin={true}
-                      enableBatchSelection={true}
-                      spaceId={spaceId}
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Premium Minimalistic Header */}
+          <div className="flex items-center justify-center p-6">
+            <div className="flex items-center gap-8 bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl px-12 py-4 shadow-2xl min-w-[900px] max-w-5xl w-full">
+              
+              {/* Room Name - Left Side */}
+              <div className="flex items-center gap-3">
+                <BlurText 
+                  text={roomName} 
+                  animateBy="words"
+                  className="text-xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent"
+                  delay={150}
+                  direction="top"
+                />
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant={
+                      loading ? 'secondary' :
+                      connectionError ? 'destructive' :
+                      socket?.readyState === WebSocket.OPEN ? 'default' : 'secondary'
+                    }
+                    className="flex items-center gap-1.5 bg-black/30 border-white/20 text-gray-200 px-2 py-1"
+                  >
+                    <div 
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        loading ? 'bg-yellow-400 animate-pulse' :
+                        connectionError ? 'bg-red-400' :
+                        socket?.readyState === WebSocket.OPEN ? 'bg-emerald-400' : 'bg-gray-400'
+                      }`}
                     />
-                  </div>
+                    {loading ? 'Connecting' :
+                     connectionError ? 'Error' :
+                     socket?.readyState === WebSocket.OPEN ? 'Live' : 'Offline'}
+                  </Badge>
                 </div>
+              </div>
 
-               
+              {/* Search Bar - Center */}
+              <div className="flex-1 max-w-xl mx-12">
+                <SearchSongPopup 
+                  onSelect={(track) => {
+                    console.log('Song selected:', track.name);
+                  }}
+                  onBatchSelect={handleBatchAddToQueue}
+                  buttonClassName="w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-6 py-2.5 backdrop-blur-sm transition-all duration-300"
+                  maxResults={12}
+                  isAdmin={true}
+                  enableBatchSelection={true}
+                  spaceId={spaceId}
+                />
+              </div>
+
+              {/* Profile Section - Right Side */}
+              <div className="flex items-center gap-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300">
+                      <Avatar className="h-10 w-10 ring-2 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
+                        <AvatarImage 
+                          src={getProfilePicture() || undefined} 
+                          alt={String(session?.user?.name || session?.user?.username || 'User')} 
+                          className="object-cover"
+                        />
+                        <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold">
+                          {getUserInitials()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none text-white">
+                          {session?.user?.name || session?.user?.username || 'User'}
+                        </p>
+                        <p className="text-xs leading-none text-gray-400">
+                          {session?.user?.email}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant={isAdmin ? 'default' : 'secondary'} className="text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0">
+                            {isAdmin ? 'Admin' : 'Listener'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-white/20" />
+                    <DropdownMenuItem 
+                      className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                      onClick={() => router.push('/profile')}
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      className="text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                      onClick={() => router.push('/settings')}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-white/20" />
+                    <DropdownMenuItem 
+                      className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
 
-          {/* Main Content Grid */}
-          <div className="flex-1 p-4">
-            <div className="max-w-7xl mx-auto h-full">
-              {/* Grid Layout - 2 columns */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+            {/* Main Content Grid */}
+            <div className="flex-1 p-4">
+              <div className="max-w-7xl mx-auto h-full">
+                {/* Grid Layout - 2 columns */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[calc(100vh-200px)]">
 
-                {/* Left Column - Player and Recommendation - Now Vertically Centered */}
-                <div className="flex flex-col justify-center space-y-6">
-                  {showPlayer && (
-                    <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 p-6">
-                      <Player 
-                        spaceId={spaceId}
-                        isAdmin={isAdmin}
-                        userCount={connectedUsers}
-                        userDetails={userDetails}
-                        className="w-full"
-                      />
-                    </div>
-                  )}
+                  {/* Left Column - Player and Recommendation with Blur Effects */}
+                  <BlurComponent 
+                    delay={500} 
+                    direction="top"
+                    className="flex flex-col justify-center space-y-6"
+                    stepDuration={0.4}
+                  >
+                    {showPlayer && (
+                      <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6">
+                        <Player 
+                          spaceId={spaceId}
+                          isAdmin={isAdmin}
+                          userCount={connectedUsers}
+                          userDetails={userDetails}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
 
-                  {/* Recommendation Section */}
-                  <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 p-6">
-                    <h3 className="text-lg font-semibold text-green-400 mb-4">Recommended for you</h3>
-                    <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-600/30 rounded-xl p-4">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
-                            <Music className="w-6 h-6 text-gray-400" />
+                    {/* Recommendation Section */}
+                    <div className="bg-[#1C1E1F] border-[#424244] backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6">
+                      <h3 className="text-lg font-semibold text-gray-200 mb-4">Recommended for you</h3>
+                      <div className="bg-gradient-to-r from-gray-700/30 to-gray-600/30 border border-gray-500/30 rounded-xl p-4">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12  bg-[#1C1E1F] border-[#424244] rounded-lg flex items-center justify-center">
+                              <Music className="w-6 h-6 text-gray-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-white">Song Title</p>
+                              <p className="text-sm text-gray-300">Artist Name</p>
+                            </div>
+                            <Button size="sm" className="bg-[#1C1E1F] border-[#424244] hover:bg-gray-700 text-white">
+                              <Play className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-white">Song Title</p>
-                            <p className="text-sm text-gray-400">Artist Name</p>
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-[#1C1E1F] rounded-lg flex items-center justify-center">
+                              <Music className="w-6 h-6 text-gray-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-white">Another Song</p>
+                              <p className="text-sm text-gray-300">Another Artist</p>
+                            </div>
+                            <Button size="sm" className="bg-[#1C1E1F] border-[#424244] hover:bg-gray-700 text-white">
+                              <Play className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                            <Play className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
-                            <Music className="w-6 h-6 text-gray-400" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-white">Another Song</p>
-                            <p className="text-sm text-gray-400">Another Artist</p>
-                          </div>
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                            <Play className="w-4 h-4" />
-                          </Button>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </BlurComponent>
 
-                {/* Right Column - Queue */}
-                <div className="space-y-6">
-                  {showQueue && (
-                    <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-700 h-full">
-                      <div className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h2 className="text-xl font-bold text-white">Music Queue</h2>
-                        </div>
+                  {/* Right Column - Queue with Blur Effects */}
+                  <BlurComponent
+                    delay={600}
+                    direction="bottom"
+                    className="h-full"
+                    stepDuration={0.4}
+                  >
+                    {showQueue && (
+                      <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-8 h-full min-h-[600px]">
                         <QueueManager 
                           spaceId={spaceId} 
                           isAdmin={isAdmin}
                         />
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </BlurComponent>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-      </div>
+        </div>
+    </HalftoneWavesBackground>
   
   );
 };
