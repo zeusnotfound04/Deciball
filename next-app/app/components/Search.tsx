@@ -192,18 +192,19 @@ const AnimatedList = <T extends { id: string } | string>({ // Generic type T, re
   }, [selectedIndex, keyboardNav]);
 
   return (
-    <div className={`relative w-full h-full ${className}`}> {/* Changed width to full height to full */}
+    <div className={`relative w-full h-full ${className}`}>
       <div
         ref={listRef}
-        className={`h-full overflow-y-auto p-2 ${ // Changed max-h to h-full, adjusted padding
+        className={`h-full overflow-y-auto p-2 ${
           displayScrollbar
-            ? "[&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-[#060010] [&::-webkit-scrollbar-thumb]:bg-[#222] [&::-webkit-scrollbar-thumb]:rounded-[4px]"
-            : "scrollbar-hide"
+            ? "[&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-zinc-800/50 [&::-webkit-scrollbar-thumb]:bg-zinc-600/50 [&::-webkit-scrollbar-thumb]:rounded-[3px] [&::-webkit-scrollbar-thumb:hover]:bg-zinc-500/70"
+            : "[&::-webkit-scrollbar]:w-0 scrollbar-width:none -ms-overflow-style:none"
         }`}
         onScroll={handleScroll}
         style={{
           scrollbarWidth: displayScrollbar ? "thin" : "none",
-          scrollbarColor: "#222 #060010",
+          scrollbarColor: displayScrollbar ? "#52525b #27272a" : "transparent",
+          msOverflowStyle: displayScrollbar ? "auto" : "none"
         }}
       >
         {items.map((item, index) => {
@@ -605,23 +606,28 @@ export default function SearchSongPopup({
         <Button 
           variant="outline"
           className={cn(
-            "flex items-center gap-2 px-4 py-2 border-zinc-800 bg-zinc-900/80 text-zinc-200 hover:bg-zinc-800 hover:text-white transition-colors shadow-lg",
+            "group relative flex items-center gap-3 px-6 py-3 border-zinc-700/50 bg-gradient-to-r from-zinc-900/90 to-zinc-800/90 text-zinc-200 hover:from-zinc-800/90 hover:to-zinc-700/90 hover:text-white transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm border",
+            "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-r before:from-cyan-500/20 before:to-purple-500/20 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-300",
             buttonClassName
           )}
         >
-          <SearchIcon className="w-4 h-4" />
-          Search Songs
-          <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-zinc-400 opacity-100">
-            <span className="text-xs">⌘</span>K
-          </kbd>
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="p-1 rounded-full bg-zinc-800/50 group-hover:bg-zinc-700/50 transition-colors duration-300">
+              <SearchIcon className="w-4 h-4 text-zinc-400 group-hover:text-cyan-400 transition-colors duration-300" />
+            </div>
+            <span className="font-medium">Search Songs</span>
+            <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 rounded-md border border-zinc-600/50 bg-zinc-800/50 px-2 font-mono text-[10px] font-medium text-zinc-400 opacity-100 group-hover:border-zinc-500/50 group-hover:bg-zinc-700/50 transition-all duration-300">
+              <span className="text-xs">⌘</span>K
+            </kbd>
+          </div>
         </Button>
       </DialogTrigger>
       <DialogContent 
         hideCloseButton={true} 
         className={cn(
-          "w-[90vw] max-w-2xl p-0 gap-0 border-zinc-800 bg-zinc-900 shadow-2xl rounded-lg overflow-hidden flex flex-col",
+          "w-[90vw] max-w-3xl p-0 gap-0 border-zinc-700/50 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-2xl rounded-xl overflow-hidden flex flex-col backdrop-blur-xl",
           // Dynamic height based on whether results should be shown
-          hasSearched ? "h-[600px]" : "h-auto"
+          hasSearched ? "h-[650px]" : "h-auto"
         )}
       >
         <DialogHeader className="p-0 m-0 h-0">
@@ -631,45 +637,59 @@ export default function SearchSongPopup({
         </DialogHeader>
         
         <div className="flex flex-col h-full">
-          {/* Search Input - Fixed height */}
-          <div className="flex-shrink-0 bg-zinc-950 p-2">
-            <div className="flex rounded-lg overflow-hidden shadow-lg">
+          {/* Enhanced Search Input - Fixed height */}
+          <div className="flex-shrink-0 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 p-4 border-b border-zinc-800/50">
+            <div className="flex rounded-xl overflow-hidden shadow-xl ring-1 ring-zinc-700/50">
               <div className="relative flex-1">
-                <div className="flex items-center bg-zinc-900 rounded-lg">
-                  <SearchIcon className="h-4 w-4 ml-3 text-zinc-400" />
+                <div className="flex items-center bg-gradient-to-r from-zinc-800/90 to-zinc-900/90 rounded-xl backdrop-blur-sm">
+                  <div className="p-3">
+                    <SearchIcon className="h-5 w-5 text-cyan-400" />
+                  </div>
                   <Input
                     ref={inputRef}
-                    placeholder="Search for songs... (⌘K)"
+                    placeholder="Search for songs, artists, albums... (⌘K)"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    className="w-full pl-2 py-6 border-0 bg-transparent text-zinc-200 text-base ring-offset-zinc-950 focus-visible:ring-0 focus:outline-none"
+                    className="w-full py-6 border-0 bg-transparent text-zinc-100 text-lg placeholder:text-zinc-400 ring-offset-zinc-950 focus-visible:ring-0 focus:outline-none font-medium"
                     autoFocus
                   />
+                  {query && (
+                    <button
+                      onClick={() => setQuery('')}
+                      className="p-2 mr-2 hover:bg-zinc-700/50 rounded-lg transition-colors"
+                    >
+                      <X className="h-4 w-4 text-zinc-400 hover:text-zinc-200" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
             
-            {/* Batch Selection Controls - Only show if user has searched and there are results */}
+            {/* Enhanced Batch Selection Controls */}
             {enableBatchSelection && isAdmin && hasSearched && results.length > 0 && (
-              <div className="mt-2 flex items-center justify-between bg-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-3">
+              <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-zinc-800/50 to-zinc-700/50 rounded-xl p-4 backdrop-blur-sm border border-zinc-600/30">
+                <div className="flex items-center gap-4">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleSelectAll}
-                    className="bg-zinc-700 border-zinc-600 text-zinc-200 hover:bg-zinc-600"
+                    className="bg-zinc-700/50 border-zinc-600/50 text-zinc-200 hover:bg-zinc-600/50 hover:border-zinc-500/50 transition-all duration-300"
                   >
+                    <Check className="w-4 h-4 mr-2" />
                     {selectedTracks.length === results.length ? 'Deselect All' : 'Select All'}
                   </Button>
-                  <span className="text-sm text-zinc-400">
-                    {selectedTracks.length} of {results.length} selected
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
+                    <span className="text-sm text-zinc-300 font-medium">
+                      {selectedTracks.length} of {results.length} selected
+                    </span>
+                  </div>
                 </div>
                 {selectedTracks.length > 0 && (
                   <Button
                     onClick={handleAddSelectedToQueue}
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
                     size="sm"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -680,109 +700,140 @@ export default function SearchSongPopup({
             )}
           </div>
           
-          {/* Results container - Only show if user has searched */}
+          {/* Enhanced Results container */}
           {hasSearched && (
-            <div className="flex-1 bg-zinc-900 border-t border-zinc-800 shadow-xl overflow-hidden flex flex-col min-h-0">
-              {/* Show loading indicator when searching */}
+            <div className="flex-1 bg-gradient-to-b from-zinc-900/50 to-zinc-950/80 border-t border-zinc-700/30 shadow-inner overflow-hidden flex flex-col min-h-0 backdrop-blur-sm">
+              {/* Enhanced loading indicator */}
               {loading && (
-                <div className="flex items-center justify-center py-6 flex-1">
-                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-zinc-400" />
-                  <span className="text-sm text-zinc-400">Searching...</span>
+                <div className="flex items-center justify-center py-12 flex-1">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative">
+                      <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                      <div className="absolute inset-0 h-8 w-8 animate-ping bg-cyan-400/20 rounded-full"></div>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-lg text-zinc-200 font-medium">Searching...</span>
+                      <p className="text-sm text-zinc-400 mt-1">Finding the perfect tracks for you</p>
+                    </div>
+                  </div>
                 </div>
               )}
               
-              {/* Show results when available using AnimatedList */}
+              {/* Enhanced results display */}
               {!loading && results.length > 0 && (
-                <AnimatedList<Track>
-                  items={results}
-                  onItemSelect={handleTrackSelect}
-                  selectedItemIds={selectedTracks.map(t => t.id)}
-                  className="flex-1" // Ensure AnimatedList takes full height
-                  displayScrollbar={true}
-                  renderItem={(track, index, isSelected) => (
-                    <div
-                      className={cn(
-                        "flex items-center gap-3 p-3 border-b border-zinc-800/50 last:border-b-0 transition-colors",
-                        enableBatchSelection && isAdmin 
-                          ? "hover:bg-zinc-800/60" 
-                          : "hover:bg-zinc-800/80",
-                        // The isSelected prop is handled by the AnimatedList itemClassName and AnimatedItem already
-                        // No need for a separate conditional class here, unless it's for something *inside* the item.
-                        // isSelected && "bg-blue-900/30 border-blue-700/50" 
-                      )}
-                    >
-                      {/* Selection checkbox for admins */}
-                      {enableBatchSelection && isAdmin && (
-                        <div className="flex-shrink-0">
-                          <div className={cn(
-                            "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
-                            isSelected 
-                              ? "bg-gray-600 border-gray-600" 
-                              : "border-zinc-600 hover:border-zinc-500"
-                          )}>
+                <div className="flex-1 relative min-h-0">
+                  <AnimatedList<Track>
+                    items={results}
+                    onItemSelect={handleTrackSelect}
+                    selectedItemIds={selectedTracks.map(t => t.id)}
+                    className="h-full"
+                    displayScrollbar={true}
+                    renderItem={(track, index, isSelected) => (
+                      <div
+                        className={cn(
+                          "group flex items-center gap-4 p-4 border-b border-zinc-800/30 last:border-b-0 transition-all duration-300 hover:bg-gradient-to-r hover:from-zinc-800/40 hover:to-zinc-700/40",
+                          enableBatchSelection && isAdmin 
+                            ? "hover:bg-zinc-800/50" 
+                            : "hover:bg-zinc-800/60 hover:scale-[1.01]",
+                          "backdrop-blur-sm"
+                        )}
+                      >
+                        {/* Enhanced selection checkbox */}
+                        {enableBatchSelection && isAdmin && (
+                          <div className="flex-shrink-0">
+                            <div className={cn(
+                              "w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-300 cursor-pointer",
+                              isSelected 
+                                ? "bg-gradient-to-r from-cyan-500 to-blue-500 border-cyan-500 shadow-lg shadow-cyan-500/25" 
+                                : "border-zinc-500/50 hover:border-zinc-400/70 hover:bg-zinc-700/30"
+                            )}>
+                              {isSelected && (
+                                <Check className="w-3 h-3 text-white drop-shadow-sm" />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Enhanced album artwork */}
+                        <div className="w-14 h-14 overflow-hidden rounded-xl flex-shrink-0 border-2 border-zinc-700/50 shadow-lg bg-gradient-to-br from-zinc-800 to-zinc-900 group-hover:border-zinc-600/50 transition-all duration-300">
+                          {track.album?.images && track.album.images[0]?.url ? (
+                            <img
+                              src={track.album.images[0].url}
+                              alt={track.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder.svg';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900 text-zinc-500">
+                              <Music className="w-7 h-7 text-zinc-400" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Enhanced track information */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate text-zinc-100 group-hover:text-white text-base leading-tight">
+                            {track.name}
+                          </h3>
+                          <p className="text-sm text-zinc-400 truncate mt-1 group-hover:text-zinc-300">
+                            {track.artists?.map(artist => artist.name).join(', ') || 'Unknown Artist'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="flex items-center text-xs text-zinc-500 bg-zinc-800/60 px-2 py-1 rounded-full border border-zinc-700/50">
+                              <Music className="w-3 h-3 mr-1 text-zinc-400" />
+                              {track.preview_url ? 'PREVIEW' : 'TRACK'}
+                            </span>
+                            {track.preview_url && (
+                              <span className="text-xs text-emerald-300 bg-emerald-900/30 px-2 py-1 rounded-full border border-emerald-700/50">
+                                ▶ PLAYABLE
+                              </span>
+                            )}
                             {isSelected && (
-                              <Check className="w-3 h-3 text-white" />
+                              <span className="text-xs text-cyan-300 bg-cyan-900/30 px-2 py-1 rounded-full border border-cyan-700/50">
+                                ✓ SELECTED
+                              </span>
                             )}
                           </div>
                         </div>
-                      )}
-                      
-                      <div className="w-12 h-12 overflow-hidden rounded-md flex-shrink-0 border border-zinc-800/50 shadow-md bg-zinc-800">
-                        {track.album?.images && track.album.images[0]?.url ? (
-                          <img
-                            src={track.album.images[0].url}
-                            alt={track.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/placeholder.svg';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">
-                            <Music className="w-6 h-6" />
+                        
+                        {/* Hover indicator */}
+                        <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <div className="p-2 rounded-full bg-zinc-700/50 text-zinc-300">
+                            <Plus className="w-4 h-4" />
                           </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate text-zinc-200">{track.name}</p>
-                        <p className="text-xs text-zinc-400 truncate mt-0.5">
-                          {track.artists?.map(artist => artist.name).join(', ') || 'Unknown Artist'}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="flex items-center text-[10px] text-zinc-500 bg-zinc-800/80 px-1.5 py-0.5 rounded-full">
-                            <Music className="w-2.5 h-2.5 mr-1 text-zinc-400" />
-                            {track.preview_url ? 'PREVIEW' : 'TRACK'}
-                          </span>
-                          {track.preview_url && (
-                            <span className="text-[10px] text-emerald-400 bg-emerald-900/20 px-1.5 py-0.5 rounded-full">
-                              ▶ PLAYABLE
-                            </span>
-                          )}
-                          {/* We can still show SELECTED badge here if desired */}
-                          {isSelected && (
-                            <span className="text-[10px] text-gray-400 bg-gray-800/60 px-1.5 py-0.5 rounded-full">
-                              ✓ SELECTED
-                            </span>
-                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
-                />
+                    )}
+                  />
+                </div>
               )}
               
-              {/* Show error state when search returns no results */}
+              {/* Enhanced empty state */}
               {!loading && results.length === 0 && (
-                <div className="py-6 text-center flex-1 flex items-center justify-center">
-                  <div>
-                    <p className="text-zinc-400 font-medium">
-                      {error ? 'Error searching' : 'No results found'}
-                    </p>
-                    <p className="text-xs text-zinc-500 mt-1">
+                <div className="py-16 text-center flex-1 flex items-center justify-center">
+                  <div className="max-w-md">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center mx-auto mb-6 border border-zinc-700/50">
+                      <SearchIcon className="w-10 h-10 text-zinc-500" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-zinc-300 mb-2">
+                      {error ? 'Search Error' : 'No Results Found'}
+                    </h3>
+                    <p className="text-sm text-zinc-500 leading-relaxed">
                       {error 
-                        ? `${error}. Please try again.` 
-                        : 'Try a different search term'}
+                        ? `${error}. Please check your connection and try again.` 
+                        : 'Try different keywords, artist names, or song titles to find what you\'re looking for.'}
                     </p>
+                    {error && (
+                      <Button
+                        variant="outline"
+                        onClick={handleSearch}
+                        className="mt-4 bg-zinc-800/50 border-zinc-600/50 text-zinc-300 hover:bg-zinc-700/50"
+                      >
+                        Try Again
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}

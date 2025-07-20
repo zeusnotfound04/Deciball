@@ -20,6 +20,7 @@ import { DiscordPresence } from './DiscordPresence';
 import { ElectronDetector } from './ElectronDetector';
 import HalftoneWavesBackground from './Background';
 import BlurText, { BlurComponent } from './ui/BlurEffects';
+import { RecommendationPanel } from './RecommendationPanel';
 
 interface MusicRoomProps {
   spaceId: string;
@@ -308,7 +309,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                 <BlurText 
                   text={roomName} 
                   animateBy="words"
-                  className="text-xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent"
+                  className="text-xl font-bold text-white"
                   delay={150}
                   direction="top"
                 />
@@ -436,44 +437,23 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                         />
                       </div>
                     )}
-
+</BlurComponent>
+<BlurComponent
+                    delay={600}
+                    direction="bottom"
+                    className="h-full"
+                    stepDuration={0.4}
+                  >
                     {/* Recommendation Section */}
-                    <div className="bg-[#1C1E1F] border-[#424244] backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6">
-                      <h3 className="text-lg font-semibold text-gray-200 mb-4">Recommended for you</h3>
-                      <div className="bg-gradient-to-r from-gray-700/30 to-gray-600/30 border border-gray-500/30 rounded-xl p-4">
-                        <div className="flex flex-col gap-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12  bg-[#1C1E1F] border-[#424244] rounded-lg flex items-center justify-center">
-                              <Music className="w-6 h-6 text-gray-400" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-white">Song Title</p>
-                              <p className="text-sm text-gray-300">Artist Name</p>
-                            </div>
-                            <Button size="sm" className="bg-[#1C1E1F] border-[#424244] hover:bg-gray-700 text-white">
-                              <Play className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-[#1C1E1F] rounded-lg flex items-center justify-center">
-                              <Music className="w-6 h-6 text-gray-400" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-white">Another Song</p>
-                              <p className="text-sm text-gray-300">Another Artist</p>
-                            </div>
-                            <Button size="sm" className="bg-[#1C1E1F] border-[#424244] hover:bg-gray-700 text-white">
-                              <Play className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <RecommendationPanel 
+                      spaceId={spaceId}
+                      isAdmin={isAdmin}
+                    />
                   </BlurComponent>
 
                   {/* Right Column - Queue with Blur Effects */}
                   <BlurComponent
-                    delay={600}
+                    delay={700}
                     direction="bottom"
                     className="h-full"
                     stepDuration={0.4}
