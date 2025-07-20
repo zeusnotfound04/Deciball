@@ -1,3 +1,4 @@
+
 import { NextAuthOptions, Session } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./db";
@@ -7,9 +8,8 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { JWT } from "next-auth/jwt";
 import { Provider } from "@prisma/client";
-import jwt from "jsonwebtoken";
-
 import SpotifyProvider from "next-auth/providers/spotify";
+
 type JWTCallbackParams = {
   token: JWT;
   user: User | undefined;
@@ -44,40 +44,15 @@ interface OAuthAccount {
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
-  useSecureCookies: false, // Disable secure cookies for development
   pages: {
     signIn: '/signin',
     signOut: '/signout',
-  },
-  
-  cookies: {
-    state: {
-      name: "next-auth.state",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: false,
-        maxAge: 900,
-      },
-    },
-    pkceCodeVerifier: {
-      name: "next-auth.pkce.code_verifier", 
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: false,
-        maxAge: 900,
-      },
-    },
   },
   session: {
     strategy: 'jwt',
   },
   providers: [
-  SpotifyProvider({
+     SpotifyProvider({
       clientId: process.env.SPOTIFY_CLIENT_ID!,
       clientSecret: process.env.SPOTIFY_CLIENT_SECRET!,
       authorization: {
@@ -92,7 +67,6 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      checks: process.env.NODE_ENV === 'development' ? [] : ['state'],
     }),
     CredentialsProvider({
       name: 'Sign in',
@@ -153,131 +127,101 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async signIn({ user, account, profile }) {
-  try {
-    console.log('[NextAuth] 🎗️⚡😍 signIn called with user:', user, 'account:', account, 'profile:', profile);
-    
-    // Basic validation
-    if (!user.email || !account) {
-      console.error('[NextAuth] Missing user email or account');
-      return false;
-    }
-
-    const provider = account.provider;
-    console.log('Provider:', provider);
-    console.log('Getting existing user with email:', user.email);
-
-    // Handle OAuth providers (Google, Spotify)
-    if (["google", "spotify"].includes(provider)) {
-      const existingUser = await prisma.user.findUnique({
-        where: { email: user.email },
-        include: { accounts: true },
-      });
-
-      if (existingUser) {
-        console.log('Found existing user:', existingUser.email);
-        
-        // Check if this provider account is already linked
-        const alreadyLinked = existingUser.accounts.some(
-          (acc) => acc.provider === provider && acc.providerAccountId === account.providerAccountId
-        );
-
-        if (!alreadyLinked) {
-          console.log("Linking new account for existing user:", existingUser.email);
-          
-          // Create new account link
-          const newAccount = await prisma.account.create({
-            data: {
-              userId: existingUser.id,
-              type: account.type,
-              provider: account.provider,
-              providerAccountId: account.providerAccountId,
-              access_token: account.access_token || null,
-              expires_at: account.expires_at || null,
-              token_type: account.token_type || null,
-              scope: account.scope || null,
-              id_token: account.id_token || null,
-              refresh_token: account.refresh_token || null,
-            },
+      try {
+        console.log('[NextAuth] signIn callback called:', { user, account, profile });
+        // Only handle Google provider
+        if (account?.provider === 'Google' || account?.provider === 'Spotify' ) {
+          const googleProfile = profile as GoogleProfile;
+          // Get the profile image URL from Google (prefer 'picture' over 'image')
+          const profileImageUrl = googleProfile.picture || user.image || null;
+          console.log('[NextAuth] Google profile image URL: 🤣🥠🤣', profileImageUrl);
+          // Check if user already exists in database
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email! },
+            include: {
+              accounts: true
+            }
           });
-          console.log("Account created:", newAccount.id);
-
-          // Update user profile if needed
-          const profileImage = (profile as any)?.picture || user.image || null;
-          
-          await prisma.user.update({
-            where: { id: existingUser.id },
-            data: {
-              name: user.name || existingUser.name,
-              image: profileImage || existingUser.image,
-              pfpUrl: profileImage || existingUser.pfpUrl,
-              username: existingUser.username || 
-                       user.name?.toLowerCase().replace(/\s+/g, "") || 
-                       null,
-              provider: provider as Provider,
-            },
-          });
-        } else {
-          console.log("Account already linked for user:", existingUser.email);
+          console.log('[NextAuth] Existing user found:', existingUser);
+          if (existingUser) {
+            // User exists, check if they have a Google account linked
+            const existingGoogleAccount = existingUser.accounts.find(
+              acc => acc.provider === 'Google'
+            );
+            if (!existingGoogleAccount) {
+              // Link Google account to existing user
+              await prisma.account.create({
+                data: {
+                  userId: existingUser.id,
+                  type: account.type,
+                  provider: account.provider,
+                  providerAccountId: account.providerAccountId,
+                  access_token: account.access_token,
+                  expires_at: account.expires_at,
+                  token_type: account.token_type,
+                  scope: account.scope,
+                  id_token: account.id_token,
+                  refresh_token: account.refresh_token,
+                },
+              });
+              console.log('[NextAuth] Linked Google account to existing user:', existingUser.id);
+            }
+            // Update user info including profile image
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: {
+                name: user.name || existingUser.name,
+                image: profileImageUrl, // NextAuth standard field
+                pfpUrl: profileImageUrl, // Your custom field
+                // Update username if it's null and we have a name
+                username: existingUser.username || user.name?.toLowerCase().replace(/\s+/g, '') || null,
+                provider: Provider.Google, // Update provider to Google
+              },
+            });
+            console.log('[NextAuth] Updated user info for:', existingUser.id);
+            return true;
+          } else {
+            // New user - create user with Google profile image
+            const newUser = await prisma.user.create({
+              data: {
+                email: user.email!,
+                name: user.name,
+                image: profileImageUrl, // NextAuth standard field
+                pfpUrl: profileImageUrl, // Your custom field
+                username: user.name?.toLowerCase().replace(/\s+/g, '') || null,
+                provider: Provider.Google,
+                // password is optional for Google users
+              },
+            });
+            console.log('[NextAuth] Created new user:', newUser.id);
+            // Create the account record
+            await prisma.account.create({
+              data: {
+                userId: newUser.id,
+                type: account.type,
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+                access_token: account.access_token,
+                expires_at: account.expires_at,
+                token_type: account.token_type,
+                scope: account.scope,
+                id_token: account.id_token,
+                refresh_token: account.refresh_token,
+              },
+            });
+            console.log('[NextAuth] Created account for new user:', newUser.id);
+            return true;
+          }
         }
-      } else {
-        console.log("Creating new user for email:", user.email);
-        
-        // Create new user
-        const profileImage = (profile as any)?.picture || user.image || null;
-        console.log("Profile data:", {
-           email: user.email,
-            name: user.name || null,
-            image: profileImage,
-            pfpUrl: profileImage,
-            username: user.name?.toLowerCase().replace(/\s+/g, "") || null,
-            provider: provider as Provider,
-        });
-        const newUser = await prisma.user.create({
-          data: {
-            email: user.email,
-            name: user.name || null,
-            image: profileImage,
-            pfpUrl: profileImage,
-            username: user.name?.toLowerCase().replace(/\s+/g, "") || null,
-            provider: provider as Provider,
-          },
-        });
-        console.log("New user created:", newUser.id);
-
-        // Create account for new user
-        const newAccount = await prisma.account.create({
-          data: {
-            userId: newUser.id,
-            type: account.type,
-            provider: account.provider,
-            providerAccountId: account.providerAccountId,
-            access_token: account.access_token || null,
-            expires_at: account.expires_at || null,
-            token_type: account.token_type || null,
-            scope: account.scope || null,
-            id_token: account.id_token || null,
-            refresh_token: account.refresh_token || null,
-          },
-        });
-        console.log("Account created for new user:", newAccount.id);
+        // For other providers (credentials), let the default behavior handle it
+        return true;
+      } catch (error) {
+        console.error('Error in signIn callback:', error);
+        return false; // This will prevent the sign-in
       }
-    }
-
-    console.log('[NextAuth] signIn callback completed successfully');
-    return true;
+    },
     
-  } catch (err) {
-    console.error("❌ signIn error:", err);
-    // Log the full error for debugging
-    if (err instanceof Error) {
-      console.error("Error message:", err.message);
-      console.error("Error stack:", err.stack);
-    }
-    return false;
-  }
-},
     async jwt({ token, user }) {
-      console.log('[NextAuth] jwt callback called with user:', user , token);
       if (user) {
         token.id = user.id;
         token.email = user.email;
@@ -285,24 +229,11 @@ export const authOptions: NextAuthOptions = {
         token.pfpUrl = user.image || null;
         token.name = user.name ;
       }
-      console.log('[NextAuth] jwt callback token:', token);
+      // console.log('[NextAuth] jwt callback token:', token);
       return token;
     },
 
     async session({ session, token }) {
-      console.log('[NextAuth] session callback called with session:_______>', session, 'token:', token);
-    //       const customJwt = jwt.sign(
-    //   {
-    //     userId: token.id,
-    //     email: token.email,
-    //     creatorId: token.id, // or any other logic
-    //     username: token.username || null,
-    //     pfpUrl: token.pfpUrl || null,
-    //     name: token.name || null,
-    //   },
-    //   process.env.JWT_SECRET!,
-    //   { expiresIn: "1d" }
-    // );
       session.user = {
         id: token.id,
         email: token.email,
@@ -310,7 +241,7 @@ export const authOptions: NextAuthOptions = {
         pfpUrl: token.pfpUrl,
         name: token.name,
       }
-      console.log('[NextAuth] session callback session:', session);
+      // console.log('[NextAuth] session callback session:', session);
       return session;
     }
   }

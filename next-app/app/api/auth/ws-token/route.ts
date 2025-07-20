@@ -14,16 +14,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Generate JWT token for WebSocket authentication
     const payload = {
       userId: session.user.id,
       email: session.user.email,
+      name : session.user.name,
+      pfpUrl: session.user.pfpUrl||"",
       username: session.user.username,
-      creatorId: session.user.id, // For backward compatibility with your WebSocket server
+      creatorId: session.user.id, 
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET as string, {
-      expiresIn: '24h',
+      expiresIn: '48h',
     });
 
     return NextResponse.json({
@@ -33,6 +34,9 @@ export async function GET(request: NextRequest) {
         id: session.user.id,
         email: session.user.email,
         username: session.user.username,
+        creatorId : session.user.id,
+        name: session.user.name,
+        pfpUrl: session.user.pfpUrl || null,
       },
     });
   } catch (error: any) {

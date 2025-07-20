@@ -43,19 +43,25 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
 
   useEffect(() => {
     if (session?.user && !user) {
+      console.log("[katana] MusicRoom session user:", session.user);
+      console.log("[katana] HostID", spaceInfo?.hostId);  
       setUser({
         id: session.user.id,
         email: session.user.email || '',
         name: (session.user as any).name || session.user.username || '',
         username: session.user.username || '',
         imageUrl: (session.user as any).image || '',
-        role: (session.user as any).role || 'listener',
+       role: session.user.id === spaceInfo?.hostId ? 'admin' : 'listener',
         token: (session.user as any).token || '',
         isBookmarked: '',
         spotifyAccessToken: (session.user as any).spotifyAccessToken,
         spotifyRefreshToken: (session.user as any).spotifyRefreshToken
       });
     }
+     setIsAdmin(session?.user.id === spaceInfo?.hostId);
+
+
+     console.log("[katana] MusicRoom session user:", user);
   }, [session, user, setUser]);
 
   // Set spaceId in audio store when component mounts
@@ -75,19 +81,19 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         console.log("Space Data ::", data)
         if (data.success) {
           setSpaceInfo({
-            spaceName: data.spaceName || `Room ${spaceId.slice(0, 8)}`,
+            spaceName: data.spaceName,
             hostId: data.hostId
           });
-          setRoomName(data.spaceName || `Room ${spaceId.slice(0, 8)}`);
+          setRoomName(data.spaceName);
         } else {
           console.error('Failed to fetch space info:', data.message);
           // Set fallback room name
-          setRoomName(`Room ${spaceId.slice(0, 8)}`);
+          setRoomName("Unknown Space");
         }
       } catch (error) {
         console.error('Error fetching space info:', error);
         // Set fallback room name
-        setRoomName(`Room ${spaceId.slice(0, 8)}`);
+        setRoomName("Unknown Space");
       }
     };
 
@@ -114,7 +120,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         case 'room-info':
           setIsAdmin(data.isAdmin || false);
           setConnectedUsers(data.userCount || 0);
-          setRoomName(data.roomName || `Room ${spaceId.slice(0, 8)}`);
+          setRoomName(data.spaceName );
           console.log('Room info updated:', { isAdmin: data.isAdmin, userCount: data.userCount });
           break;
         case 'room-joined':

@@ -23,7 +23,7 @@ model User {
   pfpUrl        String?     @default("")
   image         String?     
   password      String?     
-  provider      Provider    @default(Credentials)
+  provider      Provider    @default(credentials)
   streams       Stream[]    @relation("user")
   upvotes       Upvote[]  
   addedStreams  Stream[]    @relation("addedBy")
@@ -134,8 +134,8 @@ enum StreamType {
 }
 
 enum Provider {
-  Discord
-  Credentials
-  Google 
-  Spotify
+  discord
+  credentials
+  google
+  spotify
 }
