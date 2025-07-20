@@ -34,7 +34,6 @@ type Data = {
     url : string;
     vote : "upvote" | "downvote";
     streamId : string;
-    // Spotify-specific fields
     trackUri? : string;
     position? : number;
     timestamp? : number;
@@ -45,10 +44,9 @@ type Data = {
     artist? : string;
     image? : string;
     source? : string;
-    // New fields for enhanced queue functionality
+    userData ? : any;
     trackData? : any;
     autoPlay? : boolean;
-    // Playback control fields
     seekTime? : number;
     currentTime? : number;
 }
@@ -93,7 +91,9 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
                         creatorId,
                         userId,
                         ws,
+                        
                         data.token,
+                        // data.userData,
                         data.spaceName
                     );
                     console.log(`User ${userId} successfully joined room ${data.spaceId}${data.spaceName ? ` (${data.spaceName})` : ''}`);
@@ -316,9 +316,7 @@ async function  processUserAction(type: string , data : Data ) {
             }
             break;
         
-        // Get current space image
         case "get-space-image":
-            console.log("🖼️ Get space image request for space:", data.spaceId);
             const requestingImageUser = RoomManager.getInstance().users.get(data.userId);
             if (requestingImageUser) {
                 const imageUrl = await RoomManager.getInstance().getCurrentSpaceImage(data.spaceId);
@@ -336,8 +334,7 @@ async function  processUserAction(type: string , data : Data ) {
                 console.log(`🖼️ Sent space image for ${data.spaceId}: ${imageUrl || "No image found"}`);
             } else {
                 console.error(`❌ User not found when requesting space image. UserId: ${data.userId}, SpaceId: ${data.spaceId}`);
-                // Cannot send error to client as we don't have access to the WebSocket here
-                // This is a server-side logging only case
+
             }
             break;
     

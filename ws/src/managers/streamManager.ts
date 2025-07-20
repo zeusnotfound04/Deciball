@@ -951,7 +951,6 @@ export class RoomManager {
         
         // Get space name from Redis cache
         const spaceName = await this.getSpaceName(spaceId);
-        
         const roomInfo = {
             spaceId,
             spaceName,
@@ -1841,18 +1840,19 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
 
     // Helper method to get space name from Redis cache
     async getSpaceName(spaceId: string): Promise<string> {
-        try {
+        // try {
             const cachedSpaceDetails = await this.redisClient.get(`space-details-${spaceId}`);
             
-            if (cachedSpaceDetails) {
-                const spaceData = JSON.parse(cachedSpaceDetails);
-                return spaceData.name || `Room ${spaceId.slice(0, 8)}`;
-            }
-        } catch (error) {
-            console.error(`Error getting space name for ${spaceId}:`, error);
-        }
-        
-        return `Room ${spaceId.slice(0, 8)}`; // Default fallback
+            // if (cachedSpaceDetails) {
+                const spaceData = JSON.parse(cachedSpaceDetails!);
+                console.log("Getting space name from Redis cache. 💢💢", spaceData.name);
+                return spaceData.name ;
+            // }
+            // return spaceData.name as string; 
+        // } catch (error) {
+        //     console.error(`Error getting space name for ${spaceId}:`, error);
+        // }
+        // return "Unknown Space";
     }
 
     // Helper method to decode JWT token and extract user info
