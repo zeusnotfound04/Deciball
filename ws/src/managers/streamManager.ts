@@ -3,7 +3,6 @@ import { createClient, RedisClientType } from "redis";
 import { WebSocket } from "ws";
 import crypto from "crypto";
 import { MusicSourceManager } from "../handlers/index";
-import { QueueBase } from 'bullmq';
 
 const redisUrl = process.env.REDIS_URL
 
@@ -24,7 +23,6 @@ interface UserTokenInfo {
     email?: string;
     name?: string;
 }
-// Type definitions
 type PlaybackState = {
     currentSong: {
         id: string;
@@ -34,16 +32,16 @@ type PlaybackState = {
         duration?: number;
         extractedId: string;
     } | null;
-    startedAt: number; // Unix timestamp when song started
-    pausedAt: number | null; // Unix timestamp when paused, null if playing
+    startedAt: number; 
+    pausedAt: number | null; 
     isPlaying: boolean;
-    lastUpdated: number; // Unix timestamp of last update
+    lastUpdated: number;
 };
 
 type TimestampBroadcast = {
-    currentTime: number; // Current position in seconds
+    currentTime: number; 
     isPlaying: boolean;
-    timestamp: number; // Server timestamp when this was sent
+    timestamp: number;
     songId?: string;
     totalDuration?: number;
 };
@@ -61,8 +59,8 @@ type QueueSong = {
     source: 'Youtube' | 'Spotify';
     smallImg: string;
     bigImg: string;
-    userId: string; // Who added the song
-    addedAt: number; // Timestamp when added
+    userId: string; 
+    addedAt: number; 
     duration?: number;
     voteCount: number;
     spotifyId?: string;
@@ -178,7 +176,6 @@ export class RoomManager {
             }
           });
 
-          // Cache space name in Redis if provided
           if (spaceName) {
             await this.redisClient.set(
               `space-details-${spaceId}`,
@@ -193,13 +190,11 @@ export class RoomManager {
     async addUser(userId: string, ws: WebSocket, token: string) {
         let user = this.users.get(userId);
         
-        console.log("Adding user to room 🐉🐉🐉", token);
         const userTokenInfo : UserTokenInfo | null = this.decodeUserToken(token);
        
         if (!user) {
           
           if (userTokenInfo) {
-             console.log("User Token Info 🥶🥶🥶", userTokenInfo);
             await this.storeUserInfo(userId, {
               username: userTokenInfo.username,
               email: userTokenInfo.email,
@@ -258,7 +253,6 @@ export class RoomManager {
         this.wsToSpace.set(ws, spaceId);
     
         if (space && user) {
-          // If space has no creator, set this user as creator
           if (!space.creatorId || space.creatorId === "") {
             space.creatorId = creatorId;
           }
@@ -277,19 +271,14 @@ export class RoomManager {
             }
           });
           
-          // Send room info to the joining user first
           await this.sendRoomInfoToUser(spaceId, userId);
           
-          // Then broadcast user update to all users in the room
           await this.broadcastUserUpdate(spaceId);
           
-          // Send current queue to the newly joined user
           await this.sendCurrentQueueToUser(spaceId, userId);
           
-          // Sync the newly joined user to current playback state
           await this.syncNewUserToPlayback(spaceId, userId);
           
-          // Send current playing song to the newly joined user
           await this.sendCurrentPlayingSongToUser(spaceId, userId);
         } else {
           throw new Error("Failed to add user to space");
@@ -312,10 +301,8 @@ export class RoomManager {
     async adminEmptyQueue(spaceId: string) {
         const space = this.spaces.get(spaceId);
         if (space) {
-          // Clear Redis queue
           await this.clearRedisQueue(spaceId);
           
-          // Broadcast empty queue to all users
           await this.publisher.publish(
             spaceId,
             JSON.stringify({
@@ -349,7 +336,6 @@ export class RoomManager {
         const creatorId = this.spaces.get(spaceId)?.creatorId;
 
         if (user && userId == creatorId) {
-            // Remove from Redis queue
             const removed = await this.removeSongFromRedisQueue(spaceId, streamId);
             
             if (removed) {
@@ -402,11 +388,9 @@ export class RoomManager {
             return;
         }
 
-        // Get the next song from Redis queue
         const nextSong = await this.getNextSongFromRedisQueue(spaceId);
 
         if (!nextSong) {
-            // Notify users that queue is empty and clear playback state
             space.playbackState = {
                 currentSong: null,
                 startedAt: 0,
@@ -428,10 +412,8 @@ export class RoomManager {
             return;
         }
 
-        // Remove the song from the queue (it's now being played)
         await this.removeSongFromRedisQueue(spaceId, nextSong.id);
 
-        // Update in-memory playback state
         const now = Date.now();
         space.playbackState = {
             currentSong: {
@@ -448,7 +430,6 @@ export class RoomManager {
             lastUpdated: now
         };
 
-        // Broadcast the new current song to all users
         const songData = {
             ...nextSong,
             voteCount: nextSong.voteCount || 0
@@ -465,10 +446,8 @@ export class RoomManager {
             });
         });
 
-        // Broadcast image update for the space when song changes
         await this.broadcastImageUpdate(spaceId);
 
-        // Start timestamp broadcasting for synchronized playback
         this.startTimestampBroadcast(spaceId);
 
         // Broadcast updated queue
@@ -516,7 +495,6 @@ export class RoomManager {
         vote: string,
         spaceId: string
     ) {
-        // Store vote in Redis (temporary storage for the session)
         const voteKey = `vote:${spaceId}:${streamId}:${userId}`;
         
         if (vote === "upvote") {
@@ -545,7 +523,6 @@ export class RoomManager {
             })
         );
 
-        // Broadcast updated queue with new vote counts
         await this.broadcastRedisQueueUpdate(spaceId);
     }
 
@@ -607,7 +584,6 @@ export class RoomManager {
         }
     }
     private startTimestampBroadcast(spaceId: string) {
-        // Clear existing interval if any
         this.stopTimestampBroadcast(spaceId);
         
         const interval = setInterval(async () => {
@@ -617,7 +593,6 @@ export class RoomManager {
         this.timestampIntervals.set(spaceId, interval);
     }
 
-    // Stop timestamp broadcasting for a space
     private stopTimestampBroadcast(spaceId: string) {
         const interval = this.timestampIntervals.get(spaceId);
         if (interval) {
@@ -626,7 +601,6 @@ export class RoomManager {
         }
     }
 
-    // Broadcast current timestamp to all users in a space
     private async broadcastCurrentTimestamp(spaceId: string) {
         const space = this.spaces.get(spaceId);
         if (!space || !space.playbackState.currentSong) {
@@ -636,19 +610,16 @@ export class RoomManager {
         const now = Date.now();
         const { playbackState } = space;
         
-        // Calculate current position based on playback state
         let currentTime = 0;
         
         if (playbackState.startedAt > 0) {
             if (playbackState.isPlaying) {
-                // If playing, calculate current position from start time
                 currentTime = (now - playbackState.startedAt) / 1000;
             } else {
                 // If paused, use the time when we paused
                 if (playbackState.pausedAt) {
                     currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
                 } else {
-                    // Fallback to 0 if no pause time is set
                     currentTime = 0;
                 }
             }
@@ -662,7 +633,6 @@ export class RoomManager {
             totalDuration: playbackState.currentSong?.duration
         };
 
-        // Broadcast to all users in the space
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -682,21 +652,18 @@ export class RoomManager {
         );
     }
 
-    // Send current timestamp to a specific user (for new joiners)
     async sendCurrentTimestampToUser(spaceId: string, userId: string) {
         const user = this.users.get(userId);
         const space = this.spaces.get(spaceId);
         
         if (!user || !space) return;
 
-        // Try to get latest timestamp from Redis first
         const storedTimestamp = await this.redisClient.get(`timestamp-${spaceId}`);
         let timestampData: TimestampBroadcast;
 
         if (storedTimestamp) {
             timestampData = JSON.parse(storedTimestamp);
         } else {
-            // Calculate fresh timestamp if not in Redis
             const now = Date.now();
             const { playbackState } = space;
             
@@ -731,14 +698,12 @@ export class RoomManager {
         });
     }
 
-    // Handle playback control events and sync timestamps
     async handlePlaybackPlay(spaceId: string, userId: string) {
         const space = this.spaces.get(spaceId);
         if (!space) return;
 
         const now = Date.now();
         
-        // If resuming from pause, adjust startedAt to account for pause duration
         if (space.playbackState.pausedAt && space.playbackState.startedAt) {
             const pauseDuration = now - space.playbackState.pausedAt;
             space.playbackState.startedAt += pauseDuration;
@@ -746,12 +711,10 @@ export class RoomManager {
             space.playbackState.startedAt = now;
         }
         
-        // Update playback state AFTER calculating pause adjustment
         space.playbackState.isPlaying = true;
         space.playbackState.pausedAt = null;
         space.playbackState.lastUpdated = now;
 
-        // Send immediate play command to all users
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -763,10 +726,8 @@ export class RoomManager {
             });
         });
 
-        // Start broadcasting timestamps
         this.startTimestampBroadcast(spaceId);
 
-        // Send immediately broadcast current state
         await this.broadcastCurrentTimestamp(spaceId);
     }
 
@@ -776,12 +737,10 @@ export class RoomManager {
 
         const now = Date.now();
         
-        // Update playback state
         space.playbackState.isPlaying = false;
         space.playbackState.pausedAt = now;
         space.playbackState.lastUpdated = now;
 
-        // Send immediate pause command to all users
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -793,10 +752,8 @@ export class RoomManager {
             });
         });
 
-        // Stop broadcasting timestamps
         this.stopTimestampBroadcast(spaceId);
 
-        // Send final timestamp before pausing
         await this.broadcastCurrentTimestamp(spaceId);
     }
 
@@ -808,7 +765,6 @@ export class RoomManager {
 
         const now = Date.now();
         
-        // IMPORTANT: Stop timestamp broadcasting during seek to prevent conflicts
         this.stopTimestampBroadcast(spaceId);
         
         // Update playback state to the new seek position
@@ -817,7 +773,6 @@ export class RoomManager {
         space.playbackState.isPlaying = true; // Ensure playing state
         space.playbackState.lastUpdated = now;
 
-        // Broadcast seek command to all users in the space
         space.users.forEach((user, userIdInSpace) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -834,16 +789,13 @@ export class RoomManager {
             });
         });
 
-        // Wait a moment for seek to settle, then restart timestamp broadcasting
         setTimeout(async () => {
             this.startTimestampBroadcast(spaceId);
             
-            // Send one immediate timestamp to confirm the new position
             await this.broadcastCurrentTimestamp(spaceId);
         }, 2000); // Wait 2 seconds before resuming broadcasts - longer than frontend seeking duration
     }
 
-    // Sync new user to current playback state including timestamp
     async syncNewUserToPlayback(spaceId: string, userId: string) {
         try {
             // Small delay to ensure current song is sent first
@@ -854,14 +806,10 @@ export class RoomManager {
             console.error(`Error syncing user ${userId} to playback:`, error);
         }
     }
-
-    // Clean up space and stop timestamp broadcasting
     destroySpace(spaceId: string) {
         try {
-            // Stop timestamp broadcasting
             this.stopTimestampBroadcast(spaceId);
             
-            // Remove space
             this.spaces.delete(spaceId);
             
             return true;
@@ -871,7 +819,6 @@ export class RoomManager {
         }
     }
 
-    // Leave room and clean up if needed
     async leaveRoom(spaceId: string, userId: string) {
         try {
             const space = this.spaces.get(spaceId);
@@ -881,15 +828,12 @@ export class RoomManager {
                 return false;
             }
 
-            // Remove user from space
             space.users.delete(userId);
 
-            // If no users left, stop timestamp broadcasting and clean up
             if (space.users.size === 0) {
                 this.stopTimestampBroadcast(spaceId);
                 this.destroySpace(spaceId);
             } else {
-                // Broadcast user update to remaining users
                 await this.broadcastUserUpdate(spaceId);
             }
 
@@ -900,15 +844,11 @@ export class RoomManager {
         }
     }
 
-    // Method to handle user disconnection
     async disconnect(ws: WebSocket) {
-        // Find the space this WebSocket belongs to
         const spaceId = this.wsToSpace.get(ws);
         
-        // Remove the WebSocket from wsToSpace mapping
         this.wsToSpace.delete(ws);
         
-        // Find and remove the WebSocket from users
         let disconnectedUserId: string | null = null;
         this.users.forEach((user, userId) => {
             const wsIndex = user.ws.indexOf(ws);
@@ -916,40 +856,31 @@ export class RoomManager {
                 disconnectedUserId = userId;
                 user.ws.splice(wsIndex, 1);
                 
-                // If user has no more WebSocket connections, remove them
                 if (user.ws.length === 0) {
                     this.users.delete(userId);
                 }
             }
         });
         
-        // Remove user from space if found
         if (spaceId && disconnectedUserId) {
             const space = this.spaces.get(spaceId);
             if (space) {
                 space.users.delete(disconnectedUserId);
                 
-                // If space is empty, stop timestamp broadcasting and clean up
                 if (space.users.size === 0) {
                     this.stopTimestampBroadcast(spaceId);
-                    // Optionally clean up the space
-                    // this.spaces.delete(spaceId);
                 } else {
-                    // Broadcast user update to remaining users
                     await this.broadcastUserUpdate(spaceId);
                 }
             }
         }
     }
-
-    // Helper methods for user management and communication
     async sendRoomInfoToUser(spaceId: string, userId: string) {
         const user = this.users.get(userId);
         const space = this.spaces.get(spaceId);
         
         if (!user || !space) return;
         
-        // Get space name from Redis cache
         const spaceName = await this.getSpaceName(spaceId);
         const roomInfo = {
             spaceId,
@@ -975,11 +906,9 @@ export class RoomManager {
         
         const userList = Array.from(space.users.keys());
         
-        // Get space name from Redis cache
         const spaceName = await this.getSpaceName(spaceId);
         
         
-        // Get user details with real names from Redis cache
         const userDetails = await Promise.all(
             userList.map(async (userId) => {
                 const userInfo = await this.getUserInfo(userId);
@@ -992,7 +921,6 @@ export class RoomManager {
                 };
             })
         );
-        console.log("User Infoooo 🥠🥠🥠", userDetails);
         space.users.forEach((user, userId) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -1016,10 +944,8 @@ export class RoomManager {
         if (!user) return;
         
         try {
-            // Get queue from Redis
             const queue = await this.getRedisQueue(spaceId);
             
-            // Add vote counts to each song
             const queueWithVotes = await Promise.all(
                 queue.map(async (song) => ({
                     ...song,
@@ -1045,7 +971,6 @@ export class RoomManager {
         if (!user) return;
         
         try {
-            // Get current playing song from Redis
             const currentSong = await this.getCurrentPlayingSong(spaceId);
             
             if (currentSong) {
@@ -1079,7 +1004,6 @@ export class RoomManager {
         try {
             const queue = await this.getRedisQueue(spaceId);
             
-            // Add vote counts to each song
             const queueWithVotes = await Promise.all(
                 queue.map(async (song) => ({
                     ...song,
@@ -1102,21 +1026,14 @@ export class RoomManager {
         }
     }
 
-    // ========================================
-    // REDIS QUEUE MANAGEMENT SYSTEM
-    // ========================================
 
     // Add song to Redis queue
     async addSongToRedisQueue(spaceId: string, song: QueueSong): Promise<void> {
         try {
-            // Add song to the end of the queue list
             const queueKey = `queue:${spaceId}`;
             const songData = JSON.stringify(song);
             
-            // Add to queue list
             await this.redisClient.rPush(queueKey, songData);
-            console.log("The Original Song Adding in the QUEUE🐉🐉😘😘", song)
-            // Also store song details in a hash for easy access
             const songKey = `song:${song.id}`;
             await this.redisClient.hSet(songKey, {
                 id: song.id,
@@ -1166,7 +1083,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
       return null; // song not found
     }
 
-    // Remove the song from Redis queue using LREM
     await this.redisClient.lRem(queueKey, 1, targetSongRaw);
 
     const deletedSong = JSON.parse(targetSongRaw) as QueueSong;
@@ -1178,8 +1094,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
   }
 }
 
-
-    // Get all songs in queue
     async getRedisQueue(spaceId: string): Promise<QueueSong[]> {
         try {
             const queueKey = `queue:${spaceId}`;
@@ -1195,7 +1109,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 }
             }
             
-            // Get vote counts and sort the queue to ensure most upvoted songs are first
             const songsWithVotes = await Promise.all(
                 songs.map(async (song) => ({
                     ...song,
@@ -1203,7 +1116,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 }))
             );
             
-            // Sort by vote count (descending), then by addedAt timestamp (ascending)
             songsWithVotes.sort((a, b) => {
                 if (b.voteCount !== a.voteCount) {
                     return b.voteCount - a.voteCount; // Higher votes first
@@ -1219,23 +1131,18 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Get next song from queue (highest voted first)
     async getNextSongFromRedisQueue(spaceId: string): Promise<QueueSong | null> {
         try {
             
-            // Get the sorted queue (most upvoted songs first)
             const sortedQueue = await this.getRedisQueue(spaceId);
-            console.log("Sorted Queue 🐉🐉 :::::", sortedQueue);
             
             if (sortedQueue.length === 0) {
                 console.log("📭 Queue is empty, no songs to play");
                 return null;
             }
             
-            // Get the first song (most upvoted)
             const nextSong = sortedQueue[0];
         
-            // Remove this song from the queue
             await this.removeSongFromRedisQueue(spaceId, nextSong.id);
             
             return nextSong;
@@ -1245,7 +1152,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Remove specific song from queue
     async removeSongFromRedisQueue(spaceId: string, songId: string): Promise<boolean> {
         try {
             const queueKey = `queue:${spaceId}`;
@@ -1255,15 +1161,12 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 try {
                     const song = JSON.parse(songDataList[i]) as QueueSong;
                     if (song.id === songId) {
-                        // Remove this specific element
                         const tempKey = `temp:${Date.now()}`;
                         await this.redisClient.lSet(queueKey, i, tempKey);
                         await this.redisClient.lRem(queueKey, 1, tempKey);
                         
-                        // Also remove song details
                         await this.redisClient.del(`song:${songId}`);
                         
-                        console.log(`🗑️ Removed song from Redis queue: ${song.title}`);
                         return true;
                     }
                 } catch (parseError) {
@@ -1278,25 +1181,21 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Clear entire queue
     async clearRedisQueue(spaceId: string): Promise<void> {
         try {
             const queueKey = `queue:${spaceId}`;
             
-            // Get all songs to clean up their individual keys
             const songs = await this.getRedisQueue(spaceId);
             for (const song of songs) {
                 await this.redisClient.del(`song:${song.id}`);
             }
             
-            // Clear the queue
             await this.redisClient.del(queueKey);
         } catch (error) {
             console.error('Error clearing Redis queue:', error);
         }
     }
 
-    // Get queue length
     async getRedisQueueLength(spaceId: string): Promise<number> {
         try {
             const queueKey = `queue:${spaceId}`;
@@ -1307,7 +1206,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Set/Get current playing song
     async setCurrentPlayingSong(spaceId: string, song: QueueSong): Promise<void> {
         try {
             const currentKey = `current:${spaceId}`;
@@ -1333,24 +1231,18 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Get current space image (from current playing song or first in queue)
     async getCurrentSpaceImage(spaceId: string): Promise<string | null> {
         try {
-            // First try to get the currently playing song's image
             const currentSong = await this.getCurrentPlayingSong(spaceId);
             
             if (currentSong && (currentSong.bigImg || currentSong.smallImg)) {
-                // Return the bigger image if available, otherwise the small one
                 return currentSong.bigImg || currentSong.smallImg;
             }
-            
-            // If no current song or no image, get the first song from queue
             const queue = await this.getRedisQueue(spaceId);
             if (queue.length > 0 && (queue[0].bigImg || queue[0].smallImg)) {
                 return queue[0].bigImg || queue[0].smallImg;
             }
             
-            // No images found
             return null;
         } catch (error) {
             console.error('Error getting current space image:', error);
@@ -1358,33 +1250,25 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Vote management for songs (using Redis sorted sets)
     async voteOnSongRedis(spaceId: string, songId: string, userId: string, voteType: 'upvote' | 'downvote'): Promise<number> {
         try {
             const votesKey = `votes:${spaceId}:${songId}`;
             const userVoteKey = `uservote:${spaceId}:${userId}`;
-            
-            // Check if user already voted
+        
             const existingVote = await this.redisClient.get(userVoteKey);
             
             if (existingVote === songId) {
-                // User already voted on this song, remove vote
                 await this.redisClient.zRem(votesKey, userId);
                 await this.redisClient.del(userVoteKey);
-                console.log(`🗳️ Removed vote from user ${userId} for song ${songId}`);
             } else {
                 // Add new vote
                 const score = voteType === 'upvote' ? 1 : -1;
                 await this.redisClient.zAdd(votesKey, { score, value: userId });
                 await this.redisClient.set(userVoteKey, songId, { EX: EXPIRY_SECONDS });
-                console.log(`🗳️ Added ${voteType} from user ${userId} for song ${songId}`);
             }
             
-            // Get current vote count
             const voteCount = await this.redisClient.zCard(votesKey);
             
-            // Reorder the queue after voting to ensure most upvoted songs are at the top
-            console.log(`🗳️ Reordering queue after vote for song ${songId}`);
             await this.reorderQueueByVotes(spaceId);
             
             return voteCount;
@@ -1394,7 +1278,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Get vote count for a song
     async getSongVoteCount(spaceId: string, songId: string): Promise<number> {
         try {
             const votesKey = `votes:${spaceId}:${songId}`;
@@ -1405,7 +1288,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Reorder queue by vote count (highest votes first, then by creation time)
     async reorderQueueByVotes(spaceId: string): Promise<void> {
         try {
             console.log(`🔄 Reordering queue for space ${spaceId} by vote count`);
@@ -1418,7 +1300,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 return;
             }
             
-            // Parse songs from Redis (without voteCount)
             const songs: Omit<QueueSong, 'voteCount'>[] = [];
             for (const songData of songDataList) {
                 try {
@@ -1428,8 +1309,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                     console.error('Error parsing song data from Redis:', parseError);
                 }
             }
-            
-            // Get vote counts for all songs in parallel
             const songsWithVotes = await Promise.all(
                 songs.map(async (song) => ({
                     ...song,
@@ -1437,12 +1316,11 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 }))
             );
             
-            // Sort by vote count (descending), then by addedAt timestamp (ascending) for stable sorting
             songsWithVotes.sort((a, b) => {
                 if (b.voteCount !== a.voteCount) {
                     return b.voteCount - a.voteCount; // Higher votes first
                 }
-                return a.addedAt - b.addedAt; // Earlier added songs first if votes are equal
+                return a.addedAt - b.addedAt;
             });
             
             console.log(`🔄 Reordered queue:`, songsWithVotes.map(s => ({
@@ -1454,23 +1332,17 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             // Clear the current queue
             await this.redisClient.del(queueKey);
             
-            // Rebuild the queue in sorted order (store without voteCount as it's computed dynamically)
             for (const song of songsWithVotes) {
                 const { voteCount, ...songToStore } = song;
                 await this.redisClient.rPush(queueKey, JSON.stringify(songToStore));
             }
             
-            console.log(`✅ Successfully reordered queue for space ${spaceId}`);
+            console.log(` Successfully reordered queue for space ${spaceId}`);
         } catch (error) {
             console.error(`❌ Error reordering queue for space ${spaceId}:`, error);
         }
     }
 
-    // ========================================
-    // UPDATED QUEUE METHODS USING REDIS
-    // ========================================
-
-    // Updated addToQueue method using Redis
     async addToQueueRedis(spaceId: string, userId: string, url: string, trackData?: any, autoPlay?: boolean): Promise<void> {
         
         const space = this.spaces.get(spaceId);
@@ -1480,7 +1352,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             return;
         }
 
-        // Validate URL using music source manager
         if (!this.musicSourceManager.validateUrl(url)) {
             currentUser?.ws.forEach((ws) => {
                 ws.send(JSON.stringify({
@@ -1491,7 +1362,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             return;
         }
 
-        // Check queue length
         const queueLength = await this.getRedisQueueLength(spaceId);
         if (queueLength >= MAX_QUEUE_LENGTH) {
             currentUser?.ws.forEach((ws) => {
@@ -1502,7 +1372,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             });
             return;
         }
-        // Here we are getting the youtube url
         const trackDetails = await this.musicSourceManager.getTrackDetails(url);
         if (!trackDetails) {
             currentUser?.ws.forEach((ws) => {
@@ -1513,7 +1382,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             });
             return;
         }
-       console.log("Track Details 😭😭", trackDetails)
         const primaryImage = trackData?.image || trackDetails.smallImg;
         const secondaryImage = trackData?.image || trackDetails.bigImg;
         console.log("Artists 😎😎" , trackData.artist)
@@ -1539,7 +1407,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         // Add to Redis queue
         await this.addSongToRedisQueue(spaceId, queueSong);
 
-        // Broadcast song-added event to all users in the space
         if (space) {
             const songData = {
                 ...queueSong,
@@ -1564,8 +1431,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 });
             });
         }
-
-        // Auto-play logic: If this is the first song in an empty queue and no song is currently playing
         const currentPlaying = await this.getCurrentPlayingSong(spaceId);
         
         if ((queueLength === 0 || autoPlay) && !currentPlaying) {
@@ -1589,7 +1454,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             }
                await this.setCurrentPlayingSong(spaceId, song);
 
-        // Update in-memory playback state
         const now = Date.now();
         space.playbackState = {
             currentSong: {
@@ -1628,16 +1492,13 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             });
         });
 
-        // Broadcast image update for the space when song changes
         await this.broadcastImageUpdate(spaceId);
 
-        // Start timestamp broadcasting for synchronized playback
         this.startTimestampBroadcast(spaceId);
         } catch(err ) {
             console.error("Error playing the song",err)
         }
     }
-    // Updated adminPlayNext method using Redis
     async playNextFromRedisQueue(spaceId: string, userId: string): Promise<void> {        
         const space = this.spaces.get(spaceId);
         
@@ -1645,15 +1506,12 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             return;
         }
 
-        // Get the next song from Redis queue
         const nextSong = await this.getNextSongFromRedisQueue(spaceId);
-
-        console.log("playNext Song 🤣🤣🤣", nextSong)        
+      
         if (!nextSong) {
             // Clear current playing song
             await this.redisClient.del(`current:${spaceId}`);
             
-            // Update in-memory playback state
             space.playbackState = {
                 currentSong: null,
                 startedAt: 0,
@@ -1662,7 +1520,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 lastUpdated: Date.now()
             };
             
-            // Notify users that queue is empty
             space.users.forEach((user) => {
                 user.ws.forEach((ws: WebSocket) => {
                     if (ws.readyState === WebSocket.OPEN) {
@@ -1674,15 +1531,12 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 });
             });
             
-            // Broadcast image update (will be null) when queue becomes empty
             await this.broadcastImageUpdate(spaceId);
             return;
         }
 
-        // Set this song as currently playing in Redis
         await this.setCurrentPlayingSong(spaceId, nextSong);
 
-        // Update in-memory playback state
         const now = Date.now();
         space.playbackState = {
             currentSong: {
@@ -1721,14 +1575,11 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             });
         });
 
-        // Broadcast image update for the space when song changes
         await this.broadcastImageUpdate(spaceId);
 
-        // Start timestamp broadcasting for synchronized playback
         this.startTimestampBroadcast(spaceId);
     }
 
-    // Updated broadcast queue method for Redis
     async broadcastRedisQueueUpdate(spaceId: string): Promise<void> {
         const space = this.spaces.get(spaceId);
         if (!space) return;
@@ -1736,7 +1587,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         try {
             const queue = await this.getRedisQueue(spaceId);
             
-            // Add vote counts to each song
             const queueWithVotes = await Promise.all(
                 queue.map(async (song) => ({
                     ...song,
@@ -1759,18 +1609,15 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Broadcast image update to all users in a space
     async broadcastImageUpdate(spaceId: string): Promise<void> {
         try {
             const imageUrl = await this.getCurrentSpaceImage(spaceId);
             
-            // Get all users in the space
             const space = this.spaces.get(spaceId);
             if (!space) {
                 return;
             }
             
-            // Send update to all users in the space
             space.users.forEach((user, userId) => {
                 user.ws.forEach((ws: WebSocket) => {
                     if (ws.readyState === WebSocket.OPEN) {
@@ -1791,9 +1638,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
     
-    // ========================================
-    // Discord Activity Functions
-    // ========================================
   
     async broadcastDiscordActivity(spaceId: string, songData: any) {
       const space = this.spaces.get(spaceId);
@@ -1802,7 +1646,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         return;
       }
 
-      // Broadcast to all users in the space
       space.users.forEach((user) => {
         user.ws.forEach((ws) => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -1825,7 +1668,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
       console.log(`Discord activity broadcast for ${songData.title} by ${songData.artist} in space ${spaceId}`);
     }
     
-    // Helper method to set space name in Redis cache
     async setSpaceName(spaceId: string, spaceName: string): Promise<void> {
         try {
             await this.redisClient.set(
@@ -1855,7 +1697,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         // return "Unknown Space";
     }
 
-    // Helper method to decode JWT token and extract user info
     private decodeUserToken(token: string): { userId: string; username?: string; email?: string; name?: string } | null {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;

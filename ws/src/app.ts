@@ -79,9 +79,7 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
                 console.log("JWT verification error:", err)
                 sendError(ws , "Token verification failed")
             } else {
-                console.log("JWT decoded successfully:", { userId: decoded.userId, creatorId: decoded.creatorId });
                 
-                // Use userId as creatorId if creatorId is not present (for backward compatibility)
                 const creatorId = decoded.creatorId || decoded.userId;
                 const userId = decoded.userId;
                 
@@ -98,7 +96,6 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
                     );
                     console.log(`User ${userId} successfully joined room ${data.spaceId}${data.spaceName ? ` (${data.spaceName})` : ''}`);
                     
-                    // Send success response to the user
                     ws.send(JSON.stringify({
                         type: "room-joined",
                         data: {
@@ -121,14 +118,12 @@ async function  processUserAction(type: string , data : Data ) {
     console.log("Data in the user action" , data)
     switch (type) {
         case "cast-vote":
-            console.log("�️ Going to cast vote using Redis")
             const voteCount = await RoomManager.getInstance().voteOnSongRedis(
                 data.spaceId,
                 data.streamId,
                 data.userId,
                 data.vote
             );
-            // Broadcast updated queue with new vote counts
             await RoomManager.getInstance().broadcastRedisQueueUpdate(data.spaceId);
             break;
         
@@ -175,40 +170,8 @@ async function  processUserAction(type: string , data : Data ) {
             }
             break;
 
-        // Song ended - automatically play next song from Redis queue
-        case "songEnded":
-            console.log("🎵 Song ended, playing next song automatically from Redis queue");
-            await RoomManager.getInstance().playNextFromRedisQueue(data.spaceId, data.userId);
-            break;
+      
 
-        // Spotify synchronization cases (TODO: Implement Redis-based handlers)
-        case "spotify-play":
-            console.log("🎵 Spotify play - TODO: Implement Redis-based handler");
-            // await RoomManager.getInstance().handleSpotifyPlay(data.spaceId, data.userId, data);
-            break;
-
-        case "spotify-pause":
-            console.log("🎵 Spotify pause - TODO: Implement Redis-based handler");
-            // await RoomManager.getInstance().handleSpotifyPause(data.spaceId, data.userId, data);
-            break;
-
-        case "spotify-resume":
-            console.log("🎵 Spotify resume - TODO: Implement Redis-based handler");
-            // await RoomManager.getInstance().handleSpotifyPlay(data.spaceId, data.userId, { ...data, isPlaying: true });
-            break;
-
-        case "spotify-state-change":
-            console.log("🎵 Spotify state change - TODO: Implement Redis-based handler");
-            // await RoomManager.getInstance().handleSpotifyStateChange(data.spaceId, data.userId, data);
-            break;
-
-        // YouTube synchronization cases (TODO: Implement Redis-based handlers)
-        case "youtube-state-change":
-            console.log("🎵 YouTube state change - TODO: Implement Redis-based handler");
-            // await RoomManager.getInstance().handleYouTubeStateChange(data.spaceId, data.userId, data);
-            break;
-
-        // Queue management cases - Redis based
         case "get-queue":
             const queue = await RoomManager.getInstance().getRedisQueue(data.spaceId);
             // Send back to requesting user
@@ -222,34 +185,15 @@ async function  processUserAction(type: string , data : Data ) {
                 });
             }
             break;
-
-
-        // Playback control cases (TODO: Implement Redis-based handlers)
-        case "pause-playback":
-            console.log("⏸️ Pause playback - TODO: Implement Redis-based handler");
-            // await RoomManager.getInstance().pausePlayback(data.spaceId, data.userId);
-            break;
-
-        case "resume-playback":
-            console.log("▶️ Resume playback - TODO: Implement Redis-based handler");
-            // await RoomManager.getInstance().resumePlayback(data.spaceId, data.userId);
-            break;
-
         case "seek-playback":
-            console.log("⏩ [Backend] Seek playback request received:", { 
-                spaceId: data.spaceId, 
-                userId: data.userId, 
-                seekTime: data.seekTime 
-            });
             if (typeof data.seekTime === 'number' && data.spaceId) {
                 await RoomManager.getInstance().handlePlaybackSeek(
                     data.spaceId,
                     data.userId,
                     data.seekTime
                 );
-                console.log("⏩ [Backend] Playback seek handled successfully");
             } else {
-                console.error("❌ [Backend] Invalid seek data:", { 
+                console.error(" [Backend] Invalid seek data:", { 
                     seekTime: data.seekTime, 
                     spaceId: data.spaceId,
                     hasSeekTime: typeof data.seekTime === 'number',
@@ -258,21 +202,8 @@ async function  processUserAction(type: string , data : Data ) {
             }
             break;
 
-        case "get-playback-state":
-            console.log("🎵 Get playback state - TODO: Implement Redis-based handler");
-            // const playbackState = RoomManager.getInstance().getPlaybackState(data.spaceId);
-            // const stateRequestingUser = RoomManager.getInstance().users.get(data.userId);
-            // if (stateRequestingUser && playbackState) {
-            //     stateRequestingUser.ws.forEach((ws: WebSocket) => {
-            //         ws.send(JSON.stringify({
-            //             type: "playback-state-update",
-            //             data: playbackState
-            //         }));
-            //     });
-            // }
-            break;
+        
 
-        // Playback control cases - handle play/pause/seek from frontend
         case "play":
             await RoomManager.getInstance().handlePlaybackPlay(
                 data.spaceId,
@@ -307,8 +238,6 @@ async function  processUserAction(type: string , data : Data ) {
                 }
             }
             break;
-
-        // Get current playing song
         case "get-current-song":
             const currentSongUser = RoomManager.getInstance().users.get(data.userId);
             if (currentSongUser) {
@@ -331,7 +260,6 @@ async function  processUserAction(type: string , data : Data ) {
                         }));
                     }
                 });
-                console.log(`🖼️ Sent space image for ${data.spaceId}: ${imageUrl || "No image found"}`);
             } else {
                 console.error(`❌ User not found when requesting space image. UserId: ${data.userId}, SpaceId: ${data.spaceId}`);
 
@@ -345,8 +273,6 @@ async function  processUserAction(type: string , data : Data ) {
 
 async function handleUserAction(ws:WebSocket , type : string , data : Data) {
     const user = RoomManager.getInstance().users.get(data.userId);
-    console.log("Checking user in RoomManager:", data.userId);
-    console.log("All users:", RoomManager.getInstance().users);
 
 
     if (user){
@@ -367,7 +293,6 @@ async function handleConnection(ws:WebSocket) {
                 await handleJoinRoom(ws , data);
                 break;
             case "discord-activity-update":
-                // Broadcast Discord activity update to all clients in the space
                 await RoomManager.getInstance().broadcastDiscordActivity(data.spaceId, data);
                 break;
             default:
@@ -378,7 +303,6 @@ async function handleConnection(ws:WebSocket) {
 
     ws.on("error", (err : any) => {
         if (err.code === "ECONNRESET") {
-            console.warn("⚠️ Client disconnected unexpectedly.");
         } else {
             console.error("WebSocket error:", err);
         }
@@ -386,7 +310,7 @@ async function handleConnection(ws:WebSocket) {
 
 
     ws.on("close" , () => {
-        console.log("❌ WebSocket connection disconnected.");
+        console.log(" WebSocket connection disconnected.");
         RoomManager.getInstance().disconnect(ws)
     })
 }
@@ -399,7 +323,7 @@ async function main() {
     await RoomManager.getInstance().initRedisClient();
     console.log("byeee")
     wss.on("connection", (ws) => {
-        console.log("✅ New WebSocket connection established.");
+        console.log(" New WebSocket connection established.");
         handleConnection(ws)
     }
     );

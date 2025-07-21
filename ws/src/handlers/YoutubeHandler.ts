@@ -5,14 +5,11 @@ import youtubesearchapi from "youtube-search-api";
 
 export class YoutubeHandler implements MusicHandler {
     validateURL(URL: string): boolean {
-        // Accept both full YouTube URLs and video IDs (11 characters)
         if (!URL) return false;
         
-        // Check if it's a valid YouTube URL
         const urlPattern = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/;
         if (urlPattern.test(URL)) return true;
         
-        // Check if it's a valid 11-character YouTube video ID
         const videoIdPattern = /^[a-zA-Z0-9_-]{11}$/;
         return videoIdPattern.test(URL);
     }
@@ -20,30 +17,25 @@ export class YoutubeHandler implements MusicHandler {
     extractId(URL: string): string | null {
         if (!URL) return null;
         
-        // If it's already a video ID (11 characters)
         if (/^[a-zA-Z0-9_-]{11}$/.test(URL)) {
             return URL;
         }
         
-        // Extract from full URL
         const match = URL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
         return match ? match[1] : null;
     }
  async getTrackDetails(id: string): Promise<MusicTrack | null> {
   try {
-    console.log(`[YoutubeHandler] Getting track details for ID: ${id}`);
 
     if (!id || id.length !== 11 || !/^[a-zA-Z0-9_-]+$/.test(id)) {
       console.warn(`[YoutubeHandler] Invalid YouTube video ID format: ${id}`);
       return null;
     }
 
-    // const res = await youtubesearchapi.GetVideoDetails(id);
     const searchResult = await youtubesearchapi.GetListByKeyword(`https://youtube.com/watch?v=${id}`, false, 1);
 
     const video = searchResult?.items?.[0];
     console.log("The Response from the Youtube API is: ", video);
-    // console.log(`[YoutubeHandler] API Response:`, JSON.stringify(res, null, 2));
 
     // Check if response exists and has the expected structure
     // if (!res || typeof res !== "object") {
