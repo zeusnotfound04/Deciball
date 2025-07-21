@@ -34,11 +34,6 @@ const [authError , setAuthError] = useState<string>("")
     } = useForm<SignInFormData>({
         resolver: zodResolver(LoginSchema),
     })
-//   const handleChange = (e : React.ChangeEvent<HTMLInputElement>) => {
-//     setFormData({
-//       ...formData,
-//       [e.target.id]: e.target.value})
-//   }
 
 
 

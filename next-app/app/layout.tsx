@@ -18,9 +18,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
 <Providers>
-{/* <BeamsBackground intensity="strong"> */}
 {children}
-{/* </BeamsBackground> */}
 </Providers>
       </body>
     </html>

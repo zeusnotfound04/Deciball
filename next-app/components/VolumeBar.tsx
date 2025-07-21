@@ -35,16 +35,12 @@ const VolumeBar: React.FC<ElasticSliderProps> = ({
 }) => {
   const { volume, setVolume, mute, unmute, isMuted } = useAudio();
   
-  // Convert volume from 0-1 to 0-100 for display
   const currentVolumeValue = Math.round(volume * 100);
 
   const handleVolumeChange = (newValue: number) => {
-    console.log('VolumeBar: Volume change requested:', newValue);
-    const normalizedVolume = newValue / 100; // Convert back to 0-1
-    setVolume(normalizedVolume);
-    console.log('VolumeBar: Setting volume to:', normalizedVolume);
+    const normalizedVolume = newValue / 100;
+    setVolume(normalizedVolume, true); // Save to localStorage
     
-    // Automatically unmute if volume is increased from 0
     if (normalizedVolume > 0 && isMuted) {
       unmute();
     }
@@ -59,7 +55,7 @@ const VolumeBar: React.FC<ElasticSliderProps> = ({
   };
 
   const handleRightIconClick = () => {
-    setVolume(1); // Set to maximum volume
+    setVolume(1, true); // Save to localStorage
     if (isMuted) {
       unmute();
     }
@@ -123,20 +119,17 @@ const Slider: React.FC<SliderProps> = ({
   const overflow = useMotionValue(0);
   const scale = useMotionValue(1);
 
-  // Update local value when currentValue changes from parent
   useEffect(() => {
-    console.log('Slider: currentValue changed to:', currentValue);
-    if (currentValue !== undefined && currentValue !== value) {
+    if (currentValue !== undefined) {
       setValue(currentValue);
     }
   }, [currentValue]);
 
-  // Also update on defaultValue changes  
   useEffect(() => {
     if (currentValue === undefined) {
       setValue(defaultValue);
     }
-  }, [defaultValue, currentValue]);
+  }, [defaultValue]);
 
   useMotionValueEvent(clientX, "change", (latest: number) => {
     if (sliderRef.current) {
@@ -168,7 +161,6 @@ const Slider: React.FC<SliderProps> = ({
       newValue = Math.min(Math.max(newValue, startingValue), maxValue);
       setValue(newValue);
       
-      // Call the onChange callback if provided
       if (onValueChange) {
         onValueChange(newValue);
       }
@@ -195,7 +187,6 @@ const Slider: React.FC<SliderProps> = ({
       newValue = Math.min(Math.max(newValue, startingValue), maxValue);
       setValue(newValue);
       
-      // Call the onChange callback if provided
       if (onValueChange) {
         onValueChange(newValue);
       }
@@ -215,19 +206,19 @@ const Slider: React.FC<SliderProps> = ({
   return (
     <>
       <motion.div
-        onHoverStart={() => animate(scale, 1.1)} // Reduced from 1.2 to 1.1
+        onHoverStart={() => animate(scale, 1.1)}
         onHoverEnd={() => animate(scale, 1)}
-        onTouchStart={() => animate(scale, 1.1)} // Reduced from 1.2 to 1.1
+        onTouchStart={() => animate(scale, 1.1)}
         onTouchEnd={() => animate(scale, 1)}
         style={{
           scale,
-          opacity: useTransform(scale, [1, 1.1], [0.8, 1]), // Adjusted opacity range
+          opacity: useTransform(scale, [1, 1.1], [0.8, 1]),
         }}
-        className="flex w-full touch-none select-none items-center justify-center gap-3" // Reduced gap from 4 to 3
+        className="flex w-full touch-none select-none items-center justify-center gap-3"
       >
         <motion.div
           animate={{
-            scale: region === "left" ? [1, 1.02, 1] : 1, // Reduced to 1.02 for very subtle stretching
+            scale: region === "left" ? [1, 1.02, 1] : 1,
             transition: { duration: 0.25 },
           }}
           style={{
@@ -236,14 +227,14 @@ const Slider: React.FC<SliderProps> = ({
             ),
           }}
           onClick={onLeftIconClick}
-          className="cursor-pointer transition-colors hover:text-white flex-shrink-0" // Added flex-shrink-0
+          className="cursor-pointer transition-colors hover:text-white flex-shrink-0"
         >
           {leftIcon}
         </motion.div>
 
         <div
           ref={sliderRef}
-          className="relative flex w-full max-w-32 flex-grow cursor-grab touch-none select-none items-center py-2" // Increased max-w from 24 to 32 for longer bar
+          className="relative flex w-full max-w-32 flex-grow cursor-grab touch-none select-none items-center py-2"
           onPointerMove={handlePointerMove}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
@@ -255,11 +246,11 @@ const Slider: React.FC<SliderProps> = ({
                 if (sliderRef.current) {
                   const { width } = sliderRef.current.getBoundingClientRect();
                   const overflowScale = 1 + overflow.get() / width;
-                  return Math.min(overflowScale, 1.3); // Limit maximum stretch to 1.3 instead of unlimited
+                  return Math.min(overflowScale, 1.3);
                 }
                 return 1;
               }),
-              scaleY: useTransform(overflow, [0, MAX_OVERFLOW], [1, 0.9]), // Reduced from 0.8 to 0.9
+              scaleY: useTransform(overflow, [0, MAX_OVERFLOW], [1, 0.9]),
               transformOrigin: useTransform(() => {
                 if (sliderRef.current) {
                   const { left, width } =
@@ -268,9 +259,9 @@ const Slider: React.FC<SliderProps> = ({
                 }
                 return "center";
               }),
-              height: useTransform(scale, [1, 1.1], [4, 8]), // Reduced height scaling
-              marginTop: useTransform(scale, [1, 1.1], [0, -2]), // Reduced margin
-              marginBottom: useTransform(scale, [1, 1.1], [0, -2]), // Reduced margin
+              height: useTransform(scale, [1, 1.1], [4, 8]),
+              marginTop: useTransform(scale, [1, 1.1], [0, -2]),
+              marginBottom: useTransform(scale, [1, 1.1], [0, -2]),
             }}
             className="flex flex-grow"
           >
@@ -287,7 +278,7 @@ const Slider: React.FC<SliderProps> = ({
 
         <motion.div
           animate={{
-            scale: region === "right" ? [1, 1.05, 1] : 1, // Reduced to 1.05 for more subtle stretching
+            scale: region === "right" ? [1, 1.05, 1] : 1,
             transition: { duration: 0.25 },
           }}
           style={{
@@ -296,7 +287,7 @@ const Slider: React.FC<SliderProps> = ({
             ),
           }}
           onClick={onRightIconClick}
-          className="cursor-pointer transition-colors hover:text-white flex-shrink-0" // Added flex-shrink-0
+          className="cursor-pointer transition-colors hover:text-white flex-shrink-0"
         >
           {rightIcon}
         </motion.div>

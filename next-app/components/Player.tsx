@@ -22,7 +22,6 @@ import {
   SkipBack
 } from 'lucide-react';
 
-// Import the existing components
 import PLayerCover from '@/app/components/PlayerCover';
 import AudioController from '@/app/components/Controller';
 import { CommandShortcut } from '@/app/components/ui/command';
@@ -69,42 +68,35 @@ export const Player: React.FC<PlayerProps> = ({
       }
     };
 
-    // Set global callback for audioStore to use
     (window as any).__songEndedCallback = songEndedCallback;
 
-    // Cleanup
     return () => {
       delete (window as any).__songEndedCallback;
     };
   }, [sendMessage, spaceId, user?.id]);
 
-  // Custom togglePlayPause that also sends room-wide messages
   const togglePlayPause = () => {
     console.log('[Player] togglePlayPause called, current isPlaying:', isPlaying);
     
-    // Determine what action we're about to take
     const willBePlaying = !isPlaying;
     const message = willBePlaying ? 'play' : 'pause';
     
     console.log('[Player] Will be playing:', willBePlaying, 'Sending message:', message);
     
-    // Call the audio store function first
     audioTogglePlayPause();
     
-    // Send room-wide synchronization message after a brief delay to ensure state is updated
     if (sendMessage && spaceId && user?.id) {
       setTimeout(() => {
         console.log('[Player] Sending room-wide message:', message);
         sendMessage(message, { spaceId, userId: user.id });
-      }, 100); // Small delay to ensure the audio store state is updated
+      }, 100);
     }
   };
 
-  // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return; // Don't interfere with input fields
+        return;
       }
       
       switch (e.key) {
@@ -165,7 +157,6 @@ export const Player: React.FC<PlayerProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, ease: 'easeOut' }}
     >
-      {/* Main Player Card - Fixed Gray Background */}
       <motion.div
         className="w-full overflow-hidden bg-[#1C1E1F] shadow-2xl rounded-2xl border border-[#424244]"
         initial={{ scale: 0.98 }}
@@ -179,12 +170,9 @@ export const Player: React.FC<PlayerProps> = ({
             animate={{ opacity: 1 }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
-            {/* Player Content */}
             <div className="p-4  bg-[#1C1E1F] backdrop-blur-md ">
               <div className={`grid gap-6 ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-                {/* Left Column - Always visible */}
                 <div className="space-y-4">
-                  {/* Album Cover */}
                   {activeTab === 'cover' && (
                     <div className="flex flex-col items-center">
                       <motion.div
@@ -196,7 +184,6 @@ export const Player: React.FC<PlayerProps> = ({
                       >
                         <PLayerCover spaceId={spaceId} userId={user?.id} />
                       </motion.div>
-                      {/* Song Name and Artist Name */}
                       <motion.div
                         className="mt-6 text-center"
                         initial={{ opacity: 0, y: 20 }}
@@ -232,7 +219,6 @@ export const Player: React.FC<PlayerProps> = ({
         </CardContent>
       </motion.div>
 
-      {/* Audio Controller - Always at bottom */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}

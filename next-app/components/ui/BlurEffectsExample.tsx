@@ -1,18 +1,15 @@
 import React from 'react';
 import BlurText, { BlurComponent } from './BlurEffects';
 
-// Example usage of the enhanced BlurText component
 const BlurEffectsExample = () => {
   return (
     <div className="space-y-8 p-8">
-      {/* Original text-based blur */}
       <BlurText 
         text="This is a blur text animation with words" 
         animateBy="words"
         className="text-2xl font-bold text-white"
       />
       
-      {/* Component-based blur - each child component gets animated separately */}
       <BlurText animateBy="components" className="space-x-4">
         <button className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
           Button 1
@@ -25,7 +22,6 @@ const BlurEffectsExample = () => {
         </div>
       </BlurText>
       
-      {/* Using the BlurComponent helper */}
       <BlurComponent className="space-y-2" direction="bottom" delay={300}>
         <div className="p-4 bg-gradient-to-r from-pink-500 to-violet-500 rounded-lg text-white">
           <h3 className="text-lg font-semibold">Card Title</h3>
@@ -37,7 +33,6 @@ const BlurEffectsExample = () => {
         </div>
       </BlurComponent>
       
-      {/* Mixed content with custom container */}
       <BlurText 
         as="section" 
         animateBy="components" 

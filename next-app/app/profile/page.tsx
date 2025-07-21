@@ -39,7 +39,6 @@ export default function ProfileSection() {
   const [editForm, setEditForm] = useState<ProfileData>(profile)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
-  // Show notification helper
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ show: true, type, message })
     setTimeout(() => {
@@ -47,7 +46,6 @@ export default function ProfileSection() {
     }, 5000)
   }
 
-  // Initialize profile data from session when available
   useEffect(() => {
     if (session?.user) {
       const initialProfile: ProfileData = {
@@ -55,14 +53,12 @@ export default function ProfileSection() {
         username: session.user.username || session.user.email?.split('@')[0] || "",
         pfpUrl: session.user.pfpUrl || "",
         email: session.user.email || "",
-        createdAt: new Date().toISOString() // Default to current date since not available in session
+        createdAt: new Date().toISOString()
       }
       setProfile(initialProfile)
       setEditForm(initialProfile)
     }
   }, [session])
-
-  // Validation helper
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
     
@@ -124,7 +120,6 @@ export default function ProfileSection() {
         setIsEditing(false)
         showNotification('success', 'Profile updated successfully!')
         
-        // Update the session with new data
         await update({
           ...session,
           user: {
@@ -155,13 +150,11 @@ export default function ProfileSection() {
     const file = event.target.files?.[0]
     if (!file) return
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       showNotification('error', 'Image size must be less than 5MB')
       return
     }
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       showNotification('error', 'Please select a valid image file')
       return
@@ -191,12 +184,10 @@ export default function ProfileSection() {
       showNotification('error', 'Failed to upload image')
     } finally {
       setIsUploadingImage(false)
-      // Clear the file input
       event.target.value = ''
     }
   }
 
-  // Show loading state while session is being fetched
   if (status === "loading") {
     return (
       <BeamsBackground>
@@ -216,7 +207,6 @@ export default function ProfileSection() {
     )
   }
 
-  // Show message if user is not authenticated
   if (status === "unauthenticated") {
     return (
       <BeamsBackground>
@@ -231,7 +221,6 @@ export default function ProfileSection() {
     )
   }
 
-  // Notification component
   const NotificationToast = () => (
     <AnimatePresence>
       {notification.show && (
@@ -276,7 +265,6 @@ export default function ProfileSection() {
     </AnimatePresence>
   )
 
-  // Smooth animation variants
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -302,7 +290,6 @@ export default function ProfileSection() {
     },
   }
 
-  // Background floating animation
   const floatingAnimation = {
     y: [-8, 8, -8],
     opacity: [0.3, 0.6, 0.3],
@@ -313,7 +300,6 @@ export default function ProfileSection() {
     },
   }
 
-  // Pulse animation for the main card
   const pulseAnimation = {
     scale: [1, 1.02, 1],
     transition: {
@@ -328,7 +314,6 @@ export default function ProfileSection() {
       <NotificationToast />
       <BeamsBackground>
       <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
-      {/* Subtle animated background elements */}
       <div className="absolute inset-0">
         <motion.div
           className="absolute top-1/4 left-1/4 w-64 h-64 bg-slate-800/5 rounded-full blur-3xl"
@@ -362,7 +347,6 @@ export default function ProfileSection() {
             isLoading ? 'pointer-events-none' : ''
           }`}
         >
-          {/* Loading overlay */}
           <AnimatePresence>
             {isLoading && (
               <motion.div
@@ -380,20 +364,17 @@ export default function ProfileSection() {
             )}
           </AnimatePresence>
           
-          {/* Glass-like border glow */}
           <div className={`absolute inset-0 rounded-2xl ${
             isEditing 
               ? 'bg-[#1C1E1F] backdrop-blur-xl' 
               : 'bg-[#1C1E1F] backdrop-blur-xl '
           } transition-all duration-500`} />
           
-          {/* Additional glass effect for edit mode */}
           {isEditing && (
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/3 via-transparent to-white/3 opacity-50" />
           )}
           
           <div className="text-center space-y-8 relative">
-            {/* Profile Picture */}
             <motion.div variants={itemVariants} className="relative">
               <motion.div
                 whileHover={{ 
@@ -459,7 +440,6 @@ export default function ProfileSection() {
                     </motion.div>
                   )}
                 </div>
-                {/* Hidden file input */}
                 <input
                   id="profile-image-input"
                   type="file"
@@ -471,7 +451,6 @@ export default function ProfileSection() {
               </motion.div>
             </motion.div>
 
-            {/* Profile Info */}
             <AnimatePresence mode="wait">
               {isEditing ? (
                 <motion.div
@@ -580,7 +559,6 @@ export default function ProfileSection() {
                     </motion.p>
                   </div>
 
-                  {/* Additional Profile Info */}
                   <motion.div 
                     className="space-y-4 pt-4 border-t border-white/10"
                     initial={{ opacity: 0 }}
@@ -622,7 +600,6 @@ export default function ProfileSection() {
               )}
             </AnimatePresence>
 
-            {/* Action Buttons */}
             <motion.div variants={itemVariants}>
               <AnimatePresence mode="wait">
                 {isEditing ? (
@@ -704,7 +681,6 @@ export default function ProfileSection() {
           </div>
         </motion.div>
 
-        {/* Enhanced Brand Footer */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -47,7 +47,6 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <ToastContext.Provider value={{ showToast }}>
       {children}
       
-      {/* Toast Container */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
         {toasts.map((toast) => (
           <Toast
@@ -57,12 +56,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           >
             <div>
               <div className="font-medium">
-                {toast.type === 'success' && '✅'}
-                {toast.type === 'error' && '❌'}
-                {toast.type === 'warning' && '⚠️'}
-                {toast.type === 'info' && 'ℹ️'}
-                {' '}
-                {toast.type.charAt(0).toUpperCase() + toast.type.slice(1)}
+                {toast.type === 'success' && 'Success'}
+                {toast.type === 'error' && 'Error'}
+                {toast.type === 'warning' && 'Warning'}
+                {toast.type === 'info' && 'Info'}
               </div>
               <div className="text-sm mt-1">{toast.message}</div>
             </div>

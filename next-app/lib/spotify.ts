@@ -6,17 +6,12 @@ export const spotifyApi = new SpotifyWebApi({
   clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
 });
 
-
-
 let accessToken: string | null = null;
 let tokenExpiryTime: number = 0;
 
-
- async function getAccessToken(): Promise<string> {
+async function getAccessToken(): Promise<string> {
   const now = Date.now();
   
-  
-  // Return cached token if it's still valid (with 5 minute buffer)
   if (accessToken && now < tokenExpiryTime - 300000) {
     return accessToken;
   }
@@ -34,8 +29,29 @@ let tokenExpiryTime: number = 0;
   }
 }
 
-
 export async function getSpotifyApi(): Promise<SpotifyWebApi> {
   await getAccessToken();
   return spotifyApi;
+}
+
+export async function searchTracks(query: string, limit: number = 20, offset: number = 0) {
+  try {
+    const api = await getSpotifyApi();
+    const result = await api.searchTracks(query, { limit, offset });
+    return result.body;
+  } catch (error) {
+    console.error('Error searching tracks:', error);
+    throw new Error('Failed to search tracks');
+  }
+}
+
+export async function searchPlaylists(query: string, limit: number = 20, offset: number = 0) {
+  try {
+    const api = await getSpotifyApi();
+    const result = await api.searchPlaylists(query, { limit, offset });
+    return result.body;
+  } catch (error) {
+    console.error('Error searching playlists:', error);
+    throw new Error('Failed to search playlists');
+  }
 }

@@ -3,9 +3,9 @@
 import BeamsBackground from '@/components/Background';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
-import React from 'react';
+import React, { Suspense } from 'react';
 
-const SignInCard = () => {
+const SignInContent = () => {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
@@ -25,7 +25,6 @@ const SignInCard = () => {
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur-xl opacity-50 animate-pulse"></div>
 
             <div className="relative z-10">
-              {/* Header */}
               <div className="text-center mb-8">
                 <div className="mb-4 transform hover:rotate-12 transition-transform duration-300">
                   <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mx-auto flex items-center justify-center shadow-lg">
@@ -38,7 +37,6 @@ const SignInCard = () => {
                 <p className="text-gray-400 animate-fade-in-delay">Sign in to continue your journey</p>
               </div>
 
-              {/* Google Sign-in */}
               <button
                 onClick={handleGoogleSignIn}
                 className="w-full bg-white hover:bg-gray-50 text-gray-900 font-semibold py-4 px-6 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300 ease-out hover:shadow-2xl active:scale-95 flex items-center justify-center space-x-3 group mb-4"
@@ -52,7 +50,6 @@ const SignInCard = () => {
                 <span className="text-lg">Continue with Google</span>
               </button>
 
-              {/* Footer */}
               <div className="mt-8 text-center">
                 <p className="text-gray-500 text-sm">
                   By signing in, you agree to our{" "}
@@ -70,6 +67,27 @@ const SignInCard = () => {
         </div>
       </div>
     </BeamsBackground>
+  );
+};
+
+const SignInCard = () => {
+  return (
+    <Suspense fallback={
+      <BeamsBackground>
+        <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
+          <div className="relative z-10 w-full max-w-md">
+            <div className="bg-gray-900 bg-opacity-90 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-gray-800">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+                <p className="text-white mt-4">Loading...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </BeamsBackground>
+    }>
+      <SignInContent />
+    </Suspense>
   );
 };
 

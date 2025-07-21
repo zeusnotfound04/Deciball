@@ -28,7 +28,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
   customTogglePlayPause,
   spaceId,
   userId,
-  isAdmin = false // Default to false if not provided
+  isAdmin = false
 }) => {
   const {
     isPlaying,
@@ -48,7 +48,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const playerRef = useRef<any>(null);
   console.log("IS Playing :::>>", isPlaying)
 
-  // Use custom togglePlayPause if provided, otherwise use the default one
   const handleTogglePlayPause = () => {
     console.log('[AudioController] handleTogglePlayPause called');
     console.log('[AudioController] customTogglePlayPause provided:', !!customTogglePlayPause);
@@ -64,10 +63,9 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const [tempProgress, setTempProgress] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
-  const [repeatMode, setRepeatMode] = useState(0); // 0: off, 1: all, 2: one
-  const [isSeeking, setIsLocalSeeking] = useState(false); // Local seeking state for UI feedback
+  const [repeatMode, setRepeatMode] = useState(0);
+  const [isSeeking, setIsLocalSeeking] = useState(false);
 
-  // Format time display
   const formatTime = (seconds: any) => {
     if (!seconds || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -75,21 +73,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Store the progress bar element reference for calculating position
   const progressBarRef = useRef<HTMLDivElement>(null);
 
-  // Handle progress bar drag
   const handleProgressMouseDown = (e: any) => {
-    // Only allow admin to start dragging for seek
-    // if (!isAdmin) {
-    //   console.log('[AudioController] 🚫 Non-admin user tried to drag timeline - permission denied');
-    //   return;
-    // }
     
     e.preventDefault();
     setIsDragging(true);
     
-    // Calculate initial position
     if (progressBarRef.current) {
       const rect = progressBarRef.current.getBoundingClientRect();
       const percent = ((e.clientX - rect.left) / rect.width) * 100;
@@ -107,48 +97,32 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   const handleProgressMouseUp = () => {
     if (isDragging) {
-      // Only allow admin to seek
-      // if (!isAdmin) {
-      //   console.log('[AudioController] 🚫 Non-admin user tried to seek - permission denied');
-      //   setIsDragging(false);
-      //   setTempProgress(0); // Reset temp progress
-      //   return;
-      // }
       
       const newTime = (tempProgress / 100) * duration;
       
-      // Set local seeking state for UI feedback
       setIsLocalSeeking(true);
-      setTimeout(() => setIsLocalSeeking(false), 3000); // Clear after 3 seconds
+      setTimeout(() => setIsLocalSeeking(false), 3000);
       
-      // Apply seek immediately for responsive UI
       seek(newTime);
       setIsDragging(false);
     }
   };
 
-  // Handle progress bar click (for direct jumping)
   const handleProgressClick = (e: any) => {
     
-    // if (!isAdmin) {
-    //   console.log('[AudioController] 🚫 Non-admin user tried to click timeline - permission denied');
-    //   return;
-    // }
     
     if (progressBarRef.current) {
       const rect = progressBarRef.current.getBoundingClientRect();
       const percent = ((e.clientX - rect.left) / rect.width) * 100;
       const newTime = (percent / 100) * duration;
       
-      // Set local seeking state for UI feedback
       setIsLocalSeeking(true);
-      setTimeout(() => setIsLocalSeeking(false), 3000); // Clear after 3 seconds
+      setTimeout(() => setIsLocalSeeking(false), 3000);
       
       seek(newTime);
     }
   };
 
-  // Handle volume control - now handled by VolumeBar component
   const toggleMute = () => {
     if (isMuted) {
       unmute();
@@ -157,7 +131,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
     }
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e : any) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -171,11 +144,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
           if (e.ctrlKey) {
             e.preventDefault();
             playPrev();
-            // if (isAdmin) {
-            //   playPrev();
-            // } else {
-            //   console.log('🚫 Non-admin user tried to use previous shortcut');
-            // }
           } else {
             const newTime = Math.max(0, progress - 10);
             seek(newTime);
@@ -185,11 +153,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
           if (e.ctrlKey) {
             e.preventDefault();
             playNext();
-            // if (isAdmin) {
-            //   playNext();
-            // } else {
-            //   console.log('🚫 Non-admin user tried to use next shortcut');
-            // }
           } else {
             const newTime = Math.min(duration, progress + 10);
             seek(newTime);
@@ -213,7 +176,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
     return () => document.removeEventListener('keydown', handleKeyPress);
   }, [handleTogglePlayPause, playNext, playPrev, seek, progress, duration, volume, toggleMute, setVolume]);
 
-  // Mouse event listeners for progress bar
   useEffect(() => {
     if (isDragging) {
       const handleMouseMove = (e: MouseEvent) => handleProgressMouseMove(e);
@@ -242,7 +204,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
   return (
     <div className="bg-gradient-to-r from-[#1C1E1F] via-[#1C1E1F] to-[#1C1E1F] border-t border-[#424244] rounded-xl p-4 shadow-2xl">
       <div className="max-w-6xl mx-auto">
-        {/* Progress Bar */}
         <div className="mb-4">
           <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
             <span>{formatTime(progress)}</span>
@@ -280,7 +241,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
         </div>
 
         <div className="flex items-center justify-between">
-          {/* Song Info */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
          
             <button
@@ -293,7 +253,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
           </div>
 
-          {/* Main Controls */}
           <div className="flex items-center gap-2 mx-6 justify-center">
           
 
@@ -363,7 +322,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
            
           </div>
 
-          {/* Volume Control */}
           <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
             <div className="w-32 max-w-32 ">
               <VolumeBar
@@ -399,7 +357,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         
-        /* Force icon stroke colors to inherit from text color */
         .text-black svg path {
           stroke: #000000 !important;
         }

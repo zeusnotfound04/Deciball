@@ -50,17 +50,13 @@ const BlurText: React.FC<BlurTextProps> = ({
   stepDuration = 0.35,
   as: Component = "div",
 }) => {
-  // Determine what to animate
   let elements: (string | ReactNode)[] = [];
   
   if (children && animateBy === "components") {
-    // If children are provided and animateBy is "components", animate each child
     elements = Children.toArray(children);
   } else if (text) {
-    // If text is provided, split by words or letters
     elements = animateBy === "words" ? text.split(" ") : text.split("");
   } else if (children) {
-    // If children are provided but not animateBy components, treat as single element
     elements = [children];
   }
   
@@ -123,17 +119,13 @@ const BlurText: React.FC<BlurTextProps> = ({
         };
         (spanTransition as any).ease = easing;
 
-        // Determine content to render
         let content: ReactNode;
         
         if (typeof element === "string") {
-          // Handle text content
           content = element === " " ? "\u00A0" : element;
         } else if (isValidElement(element)) {
-          // Handle React component
           content = element;
         } else {
-          // Handle any other content
           content = element;
         }
 
@@ -160,7 +152,6 @@ const BlurText: React.FC<BlurTextProps> = ({
   );
 };
 
-// Additional component for easier component-based animations
 type BlurComponentProps = Omit<BlurTextProps, 'text' | 'animateBy'> & {
   children: ReactNode;
 };
@@ -173,6 +164,5 @@ const BlurComponent: React.FC<BlurComponentProps> = ({ children, ...props }) => 
   );
 };
 
-// Export both components and the default export for backward compatibility
 export { BlurComponent };
 export default BlurText;

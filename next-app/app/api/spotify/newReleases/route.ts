@@ -5,14 +5,12 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // Get query parameters
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
     const country = searchParams.get('country') || undefined;
 
     console.log('Fetching new releases with params:', { limit, offset, country });
 
-    // Call the Spotify new releases function
     const result = await getNewReleases(limit, offset, country);
 
     if (!result || !result.items) {
@@ -22,7 +20,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('✅ New releases fetched:', { 
+    console.log('New releases fetched:', { 
       albumsCount: result.items.length,
       success: true
     });
@@ -30,7 +28,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result);
 
   } catch (error: any) {
-    console.error('❌ Error in new releases API:', error);
+    console.error('Error in new releases API:', error);
     
     return NextResponse.json(
       { 

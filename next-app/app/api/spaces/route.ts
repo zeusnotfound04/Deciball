@@ -1,4 +1,3 @@
-// import { getRedisQueue, getRedisQueueLength } from "@/actions/redis";
 import { authOptions } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/db";
 import { getServerSession } from "next-auth";
@@ -8,7 +7,6 @@ export async function POST(req: NextRequest) {
     try {
         console.log("=== Space Creation API Called ===");
         
-        // Check session
         const session = await getServerSession(authOptions);
         console.log("Session:", JSON.stringify(session, null, 2));
 
@@ -20,7 +18,6 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Parse request data
         const data = await req.json();
         console.log("Request data:", JSON.stringify(data, null, 2));
 
@@ -32,13 +29,11 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Test database connection
         console.log("Testing database connection...");
         await prisma.$connect();
         console.log("Database connected successfully");
 
 
-        // Create space
         console.log("Creating space with data:", {
             name: data.spaceName,
             hostId: session.user.id
@@ -65,7 +60,6 @@ export async function POST(req: NextRequest) {
         console.error("Error message:", error.message);
         console.error("Error stack:", error.stack);
         
-        // Handle specific Prisma errors
         if (error.code === 'P2002') {
             return NextResponse.json(
                 { success: false, message: "A space with this name already exists" },
@@ -84,7 +78,6 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Handle authentication errors
         if (error.message === "Unauthenticated Request") {
             return NextResponse.json(
                 { success: false, message: "You must be logged in to create a space" },
@@ -92,7 +85,6 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Handle database connection errors
         if (error.message.includes('connect') || error.message.includes('database')) {
             return NextResponse.json(
                 { success: false, message: "Database connection error" },
@@ -109,7 +101,6 @@ export async function POST(req: NextRequest) {
             { status: 500 }
         );
     } finally {
-        // Ensure database connection is closed
         await prisma.$disconnect();
     }
 }
@@ -218,45 +209,10 @@ export async function GET(req:NextRequest) {
                 isActive: true
             },
             orderBy: {
-                id: 'desc' // Most recently created first
+                id: 'desc'
             }
         });
 
-        // Enhance spaces with Redis queue data (with fallback)
-        // const enhancedSpaces = await Promise.all(
-        //     spaces.map(async (space) => {
-        //         try {
-        //             // Get queue length from Redis
-        //             const queueLength = await getRedisQueueLength(space.id);
-                    
-        //             // Get a sample track from queue for display
-        //             const queueSongs = await getRedisQueue(space.id);
-        //             const firstTrack = queueSongs.length > 0 ? queueSongs[0] : null;
-                    
-        //             return {
-        //                 ...space,
-        //                 _count: {
-        //                     streams: queueLength
-        //                 },
-        //                 streams: firstTrack ? [{
-        //                     id: firstTrack.id,
-        //                     title: firstTrack.title,
-        //                     smallImg: firstTrack.smallImg,
-        //                     bigImg: firstTrack.bigImg,
-        //                     artist: firstTrack.artist
-        //                 }] : []
-        //             };
-        //         } catch (error) {
-        //             console.error(`Error enhancing space ${space.id} with Redis data:`, error);
-        //             // Fallback to basic space data if Redis fails
-        //             return {
-        //                 ...space,
-        //                 _count: { streams: 0 },
-        //                 streams: []
-        //             };
-        //         }
-        //     })
-        // );
 
         return NextResponse.json(
             { success: true, message: "Spaces retrieved successfully", spaces: spaces },

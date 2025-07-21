@@ -26,10 +26,6 @@ export default function Page() {
   const { data: session, status } = useSession()
   const [isCreating, setIsCreating] = useState(false)
   
-  // Remove auto-redirect logic - users will only reach this page when needed
-  // const { isLoading: redirectLoading, isAuthenticated } = useRedirect({
-  //   redirectTo: 'manual'
-  // })
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -57,16 +53,6 @@ export default function Page() {
     }
   }
 
-  // if (status === 'loading' || redirectLoading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-black to-zinc-900">
-  //       <div className="text-center">
-  //         <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
-  //         <p className="text-zinc-400 text-lg">Loading...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
 
   if (!session || !session.user) {  
     return (
@@ -82,7 +68,6 @@ export default function Page() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black to-zinc-900 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
-        {/* Header */}
         <div className="text-center mb-12">
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
@@ -101,7 +86,6 @@ export default function Page() {
           </motion.p>
         </div>
 
-        {/* Features Grid */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -139,7 +123,6 @@ export default function Page() {
           </Card>
         </motion.div>
 
-        {/* Creation Form */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -197,7 +180,6 @@ export default function Page() {
           </Card>
         </motion.div>
 
-        {/* Additional Info */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

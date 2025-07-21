@@ -4,7 +4,7 @@ import { searchTracks as searchSpotifyTracks } from '@/actions/spotify/searchTra
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
-  const source = searchParams.get('source'); // 'youtube', 'spotify', or null for both
+  const source = searchParams.get('source');
   const limit = parseInt(searchParams.get('limit') || '20');
   const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
   try {
     let allResults: any[] = [];
 
-    // Search Spotify if requested or if no source specified
     if (!source || source === 'spotify') {
       try {
         console.log('Searching Spotify for:', query);
@@ -63,12 +62,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Search YouTube/JioSaavn if requested or if no source specified
     if (!source || source === 'youtube') {
       try {
         console.log('Searching YouTube/JioSaavn for:', query);
         
-        // Make request to your existing search endpoint for YouTube/JioSaavn
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
         const youtubeResults = await response.json();
         
@@ -85,9 +82,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Sort results by relevance (you can implement your own scoring logic)
     allResults.sort((a, b) => {
-      // Prioritize exact matches in title
       const aExactMatch = a.name.toLowerCase().includes(query.toLowerCase());
       const bExactMatch = b.name.toLowerCase().includes(query.toLowerCase());
       

@@ -25,7 +25,6 @@ export default function AudioVisualizer() {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
       for (let i = 0; i < bars; i++) {
-        // Smoothly transition to the target height
         barHeights[i] += (targetHeights[i] - barHeights[i]) * 0.1
 
         const height = barHeights[i]
@@ -43,7 +42,6 @@ export default function AudioVisualizer() {
         ctx.fill()
       }
 
-      // Update target heights less frequently
       if (Math.random() < 0.05) {
         for (let i = 0; i < bars; i++) {
           targetHeights[i] = Math.random() * canvas.height * 0.8

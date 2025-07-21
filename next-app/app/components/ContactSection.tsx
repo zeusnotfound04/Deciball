@@ -37,12 +37,10 @@ export default function ContactSection() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    // Simulating an API call
     await new Promise((resolve) => setTimeout(resolve, 2000))
     console.log("Form submitted:", formData)
     setIsSubmitting(false)
     setIsSubmitted(true)
-    // Reset form after 3 seconds
     setTimeout(() => {
       setIsSubmitted(false)
       setFormData({ name: "", email: "", message: "" })

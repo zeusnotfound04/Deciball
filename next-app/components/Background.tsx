@@ -38,9 +38,8 @@ export default function HalftoneWavesBackground({ children }: HalftoneWavesBackg
           const maxDistance = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2))
           const normalizedDistance = distanceFromCenter / maxDistance
 
-          // Simple, smooth wave pattern
           const wave = Math.sin(normalizedDistance * 5 - time) * 0.5 + 0.5
-          const smoothWave = wave * wave * (3 - 2 * wave) // smooth step easing
+          const smoothWave = wave * wave * (3 - 2 * wave)
           const size = gridSize * smoothWave * 0.7
 
           ctx.beginPath()
@@ -74,10 +73,8 @@ export default function HalftoneWavesBackground({ children }: HalftoneWavesBackg
 
   return (
     <div className="relative min-h-screen">
-      {/* Fixed background canvas */}
       <canvas ref={canvasRef} className="fixed inset-0 w-full h-full bg-black -z-10 pointer-events-none" />
 
-      {/* Enhanced glass overlay with dark texture and increased opacity */}
       <div 
         className="fixed inset-0 -z-5 pointer-events-none"
         style={{
@@ -93,7 +90,6 @@ export default function HalftoneWavesBackground({ children }: HalftoneWavesBackg
         }}
       />
 
-      {/* Content layer */}
       <div className="relative z-10">{children}</div>
     </div>
   )

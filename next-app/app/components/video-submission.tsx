@@ -13,7 +13,6 @@ export default function VideoSubmission() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle video submission logic here
     console.log("Submitted video:", videoUrl)
     setVideoUrl("")
     setPreviewUrl("")

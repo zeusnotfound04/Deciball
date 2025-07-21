@@ -13,7 +13,7 @@ interface Space {
 interface UseRedirectOptions {
   redirectTo?: 'login' | 'onboarding' | 'spaces' | 'auto' | 'manual';
   onRedirect?: (destination: string) => void;
-  autoRedirectOnMount?: boolean; // New option to control auto-redirect behavior
+  autoRedirectOnMount?: boolean;
 }
 
 export default function useRedirect(options: UseRedirectOptions = {}) {
@@ -25,7 +25,6 @@ export default function useRedirect(options: UseRedirectOptions = {}) {
   const [isCheckingSpaces, setIsCheckingSpaces] = useState(false);
   const [redirectDestination, setRedirectDestination] = useState<string>('');
 
-  // Function to fetch user's spaces
   const fetchUserSpaces = async () => {
     if (!session.data?.user?.id) return [];
     
@@ -41,19 +40,15 @@ export default function useRedirect(options: UseRedirectOptions = {}) {
     }
   };
 
-  // Function to determine redirect destination
   const determineRedirectDestination = (userSpaces: Space[]) => {
-    // Case 1: User not logged in -> redirect to login (only when manually triggered)
     if (session.status === "unauthenticated") {
       return '/signin';
     }
 
-    // Case 2: User logged in but no spaces -> redirect to space creation/onboarding (only when manually triggered)
     if (session.status === "authenticated" && userSpaces.length === 0) {
       return '/dashboard';
     }
 
-    // Case 3: User has spaces -> redirect to spaces listing (can be auto or manual)
     if (session.status === "authenticated" && userSpaces.length > 0) {
       return '/spaces';
     }
@@ -61,12 +56,10 @@ export default function useRedirect(options: UseRedirectOptions = {}) {
     return '';
   };
 
-  // Function to check if we should auto-redirect (only for users with spaces)
   const shouldAutoRedirect = (userSpaces: Space[]) => {
     return session.status === "authenticated" && userSpaces.length > 0;
   };
 
-  // Function to handle the redirect
   const handleRedirect = (destination?: string) => {
     const targetDestination = destination || redirectDestination;
     
@@ -79,7 +72,6 @@ export default function useRedirect(options: UseRedirectOptions = {}) {
     }
   };
 
-  // Effect to check authentication and spaces
   useEffect(() => {
     const checkAndRedirect = async () => {
       if (session.status === "loading") return;
@@ -90,23 +82,19 @@ export default function useRedirect(options: UseRedirectOptions = {}) {
         const destination = determineRedirectDestination(userSpaces);
         setRedirectDestination(destination);
         
-        // Only auto-redirect if user has spaces OR autoRedirectOnMount is true
         if (shouldAutoRedirect(userSpaces) || autoRedirectOnMount) {
           handleRedirect(destination);
         }
       } else if (redirectTo === 'manual') {
-        // For manual mode, just fetch spaces and set destination but don't redirect
         const userSpaces = await fetchUserSpaces();
         setSpaces(userSpaces);
         const destination = determineRedirectDestination(userSpaces);
         setRedirectDestination(destination);
         
-        // Only auto-redirect if user has spaces (this is the key change)
         if (shouldAutoRedirect(userSpaces)) {
           handleRedirect(destination);
         }
       } else {
-        // Handle specific redirect cases
         switch (redirectTo) {
           case 'login':
             handleRedirect('/signin');

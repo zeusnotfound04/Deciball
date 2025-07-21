@@ -14,12 +14,9 @@ import {
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'; 
 import { cn } from "@/app/lib/utils";
 import axios from 'axios';
-// Assuming searchResults type is not directly used for the Track type, but if it is, ensure it's compatible.
-// import { searchResults } from '@/types'; 
 import { useSocket } from '@/context/socket-context';
 import { motion, useInView } from "framer-motion";
 
-// Track type to match Spotify API structure
 type Track = {
   id: string;
   name: string;
@@ -41,7 +38,7 @@ type Track = {
     }[];
   };
   external_urls: { spotify: string };
-  preview_url?: string; // Add preview_url for audio playback
+  preview_url?: string;
 };
 interface Artist {
     external_urls : string[];
@@ -59,17 +56,16 @@ interface SearchSongPopupProps {
   maxResults?: number;
   isAdmin?: boolean;
   enableBatchSelection?: boolean;
-  spaceId?: string; // Add spaceId as a prop
+  spaceId?: string;
 }
 
-// --- AnimatedItem Component ---
 interface AnimatedItemProps {
   children: ReactNode;
   delay?: number;
   index: number;
   onMouseEnter?: MouseEventHandler<HTMLDivElement>;
   onClick?: MouseEventHandler<HTMLDivElement>;
-  className?: string; // Add className prop for flexibility
+  className?: string;
 }
 
 const AnimatedItem: React.FC<AnimatedItemProps> = ({
@@ -81,24 +77,23 @@ const AnimatedItem: React.FC<AnimatedItemProps> = ({
   className,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { amount: 0.5, once: false }); // Changed once to false for continuous animation if needed
+  const inView = useInView(ref, { amount: 0.5, once: false });
   return (
     <motion.div
       ref={ref}
       data-index={index}
       onMouseEnter={onMouseEnter}
       onClick={onClick}
-      initial={{ scale: 0.9, opacity: 0 }} // Slightly adjusted initial scale for smoother entry
+      initial={{ scale: 0.9, opacity: 0 }}
       animate={inView ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0 }}
-      transition={{ duration: 0.3, delay: delay + index * 0.05 }} // Added index-based delay for staggered effect
-      className={cn("mb-2 cursor-pointer", className)} // Adjusted margin and added cn for class merging
+      transition={{ duration: 0.3, delay: delay + index * 0.05 }}
+      className={cn("mb-2 cursor-pointer", className)}
     >
       {children}
     </motion.div>
   );
 };
 
-// --- AnimatedList Component ---
 interface AnimatedListProps<T> {
   items: T[];
   renderItem: (item: T, index: number, isSelected: boolean) => ReactNode;
@@ -109,10 +104,10 @@ interface AnimatedListProps<T> {
   itemClassName?: string;
   displayScrollbar?: boolean;
   initialSelectedIndex?: number;
-  selectedItemIds?: string[]; // New prop to track selected items by ID
+  selectedItemIds?: string[];
 }
 
-const AnimatedList = <T extends { id: string } | string>({ // Generic type T, requires 'id' if object
+const AnimatedList = <T extends { id: string } | string>({
   items = [],
   renderItem,
   onItemSelect,
@@ -122,7 +117,7 @@ const AnimatedList = <T extends { id: string } | string>({ // Generic type T, re
   itemClassName = "",
   displayScrollbar = true,
   initialSelectedIndex = -1,
-  selectedItemIds = [], // Default to empty array
+  selectedItemIds = [],
 }: AnimatedListProps<T>) => {
   const listRef = useRef<HTMLDivElement>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(initialSelectedIndex);
@@ -212,8 +207,8 @@ const AnimatedList = <T extends { id: string } | string>({ // Generic type T, re
           const isSelected = selectedItemIds.includes(itemId);
           return (
             <AnimatedItem
-              key={itemId} // Use item.id as key if available, otherwise index
-              delay={0.05} // Small delay for staggered animation
+              key={itemId}
+              delay={0.05}
               index={index}
               onMouseEnter={() => setSelectedIndex(index)}
               onClick={() => {
@@ -222,7 +217,7 @@ const AnimatedList = <T extends { id: string } | string>({ // Generic type T, re
                   onItemSelect(item, index);
                 }
               }}
-              className={cn(itemClassName, selectedIndex === index && "bg-zinc-800/60 rounded-lg")} // Apply selected style here
+              className={cn(itemClassName, selectedIndex === index && "bg-zinc-800/60 rounded-lg")}
             >
               {renderItem(item, index, isSelected)}
             </AnimatedItem>
@@ -232,11 +227,11 @@ const AnimatedList = <T extends { id: string } | string>({ // Generic type T, re
       {showGradients && (
         <>
           <div
-            className="absolute top-0 left-0 right-0 h-[50px] bg-gradient-to-b from-zinc-900 to-transparent pointer-events-none transition-opacity duration-300 ease" // Adjusted gradient color
+            className="absolute top-0 left-0 right-0 h-[50px] bg-gradient-to-b from-zinc-900 to-transparent pointer-events-none transition-opacity duration-300 ease"
             style={{ opacity: topGradientOpacity }}
           ></div>
           <div
-            className="absolute bottom-0 left-0 right-0 h-[50px] bg-gradient-to-t from-zinc-900 to-transparent pointer-events-none transition-opacity duration-300 ease" // Adjusted gradient color and height
+            className="absolute bottom-0 left-0 right-0 h-[50px] bg-gradient-to-t from-zinc-900 to-transparent pointer-events-none transition-opacity duration-300 ease"
             style={{ opacity: bottomGradientOpacity }}
           ></div>
         </>
@@ -253,7 +248,7 @@ export default function SearchSongPopup({
   maxResults = 10,
   isAdmin = false,
   enableBatchSelection = false,
-  spaceId = '' // Add spaceId prop with default value
+  spaceId = ''
 }: SearchSongPopupProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Track[]>([]);
@@ -261,13 +256,11 @@ export default function SearchSongPopup({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasSearched, setHasSearched] = useState(false); // Track if user has searched
+  const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // Get socket and user context for WebSocket communication
   const { sendMessage, user: socketUser, socket } = useSocket();
   
-  // Add keyboard shortcut to open search with Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -280,13 +273,11 @@ export default function SearchSongPopup({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
   
-  // Auto search when query changes (with debounce)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (query) {
         handleSearch();
       } else {
-        // Reset search state when query is empty
         setHasSearched(false);
         setResults([]);
         setError(null);
@@ -296,7 +287,6 @@ export default function SearchSongPopup({
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Focus input when dialog opens
   useEffect(() => {
     if (open && inputRef.current) {
       setTimeout(() => {
@@ -305,14 +295,13 @@ export default function SearchSongPopup({
     }
   }, [open]);
 
-  // Clear results when dialog is closed
   useEffect(() => {
     if (!open) {
       setQuery('');
       setResults([]);
       setSelectedTracks([]);
       setError(null);
-      setHasSearched(false); // Reset search state
+      setHasSearched(false);
     }
   }, [open]);
 
@@ -326,7 +315,7 @@ export default function SearchSongPopup({
     
     setLoading(true);
     setError(null);
-    setHasSearched(true); // Mark that user has searched
+    setHasSearched(true);
     
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
@@ -361,13 +350,11 @@ export default function SearchSongPopup({
     }
   };
 
-  // Convert Spotify track format to your music player format
   const convertTrackFormat = (spotifyTrack: Track): any => {
     return {
       id: spotifyTrack.id,
       name: spotifyTrack.name,
       type: 'song',
-      // Convert artists array to your expected format
       artistes: {
         primary: spotifyTrack.artists?.map(artist => ({
           id: artist.id,
@@ -387,22 +374,19 @@ export default function SearchSongPopup({
           url: artist.external_urls?.spotify || ''
         })) || []
       },
-      // Convert album images to your expected format
       image: spotifyTrack.album?.images?.map(img => ({
         quality: img.height >= 300 ? '500x500' : '150x150',
         url: img.url
       })) || [],
-      // Add download URLs - use preview_url if available
       downloadUrl: spotifyTrack.preview_url ? [
         {
           quality: '128kbps',
           url: spotifyTrack.preview_url
         }
       ] : [],
-      // Add other required fields with default values
       year: new Date().getFullYear().toString(),
       releaseDate: new Date().toISOString().split('T')[0],
-      duration: '30', // Spotify previews are typically 30 seconds
+      duration: '30',
       label: '',
       copyright: '',
       hasLyrics: false,
@@ -419,11 +403,9 @@ export default function SearchSongPopup({
     };
   };
 
-  // Helper function to try multiple Youtube results until one works
   const tryMultipleResults = async (searchResults: any[], track: any, spaceId: string, autoPlay: boolean = false): Promise<boolean> => {
     for (let i = 0; i < searchResults.length; i++) {
       const { downloadUrl: [{ url: videoId }] } = searchResults[i];
-      // Validate video ID format
       if (!videoId || videoId.length !== 11 || !/^[a-zA-Z0-9_-]+$/.test(videoId)) {
         continue;
       }
@@ -431,7 +413,6 @@ export default function SearchSongPopup({
       const title : string = track.name.replace(/\s*\(.*?\)\s*/g, '').trim();
       
       try {
-        // ✅ Send WebSocket message with Spotify album image (not YouTube thumbnail)
         const success = sendMessage("add-to-queue", {
           spaceId: spaceId,
           addedByUser : socketUser?.name || "",
@@ -441,7 +422,7 @@ export default function SearchSongPopup({
           trackData: {
             title: title,
             artist:  track.artists.map((artist: Artist) => artist.name).join(', ') || 'Unknown Artist',
-            image: track.album?.images?.[0]?.url || '', // 🎯 SPOTIFY ALBUM IMAGE - NOT YOUTUBE
+            image: track.album?.images?.[0]?.url || '',
             source: 'Youtube',
             spotifyId: track.id,
             youtubeId: videoId,
@@ -450,10 +431,9 @@ export default function SearchSongPopup({
               name: socketUser?.name || 'Unknown'
             }
           },
-          // Legacy fields for backward compatibility - ALSO USE SPOTIFY IMAGE
           title: track.name,
           artist: track.artists?.[0]?.name || 'Unknown Artist',
-          image: track.album?.images?.[0]?.url || '', // 🎯 SPOTIFY ALBUM IMAGE - NOT YOUTUBE
+          image: track.album?.images?.[0]?.url || '',
           source: 'Youtube',
           spotifyId: track.id,
           youtubeId: videoId
@@ -499,7 +479,6 @@ export default function SearchSongPopup({
         setError('Room ID not found. Please rejoin the room.');
         return;
       }
-      // Try multiple results using fallback logic with autoPlay enabled for single selection
       const success = await tryMultipleResults(searchResults, track, spaceId, true);
       
       if (success) {
@@ -512,7 +491,6 @@ export default function SearchSongPopup({
       }
     } catch (error) {
       
-      // Provide more specific error messages
       if (error instanceof Error) {
         if (error.message.includes('Invalid response structure')) {
           setError('Failed to convert Spotify track to YouTube. Please try a different song.');
@@ -535,13 +513,11 @@ export default function SearchSongPopup({
     if (selectedTracks.length === 0) return;
 
     try {
-      // Use spaceId prop instead of extracting from URL
       if (!spaceId) {
         setError('Room ID not found. Please rejoin the room.');
         return;
       }
 
-      // Process each selected track with fallback logic
       const results = [];
       let trackIndex = 0;
       for (const track of selectedTracks) {
@@ -555,16 +531,13 @@ export default function SearchSongPopup({
             continue;
           }
           
-          // Auto-play the first song in batch selection
           const shouldAutoPlay = trackIndex === 0;
           
-          // Try multiple results using fallback logic
           const success = await tryMultipleResults(searchResults, track, spaceId, shouldAutoPlay);
           results.push({ track: track.name, success, error: success ? null : "All video sources failed" });
           
           trackIndex++;
           
-          // Small delay between tracks
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
           results.push({ track: track.name, success: false, error: error instanceof Error ? error.message : "Unknown error" });
@@ -572,7 +545,6 @@ export default function SearchSongPopup({
         }
       }
 
-      // Show results summary
       const successful = results.filter(r => r.success).length;
       const failed = results.filter(r => !r.success).length;
       console.log(`Batch complete: ${successful} successful, ${failed} failed`);
@@ -617,7 +589,7 @@ export default function SearchSongPopup({
             </div>
             <span className="font-medium">Search Songs</span>
             <kbd className="pointer-events-none inline-flex h-6 select-none items-center gap-1 rounded-md border border-zinc-600/50 bg-zinc-800/50 px-2 font-mono text-[10px] font-medium text-zinc-400 opacity-100 group-hover:border-zinc-500/50 group-hover:bg-zinc-700/50 transition-all duration-300">
-              <span className="text-xs">⌘</span>K
+              <span className="text-xs">Cmd</span>K
             </kbd>
           </div>
         </Button>
@@ -626,7 +598,6 @@ export default function SearchSongPopup({
         hideCloseButton={true} 
         className={cn(
           "w-[90vw] max-w-3xl p-0 gap-0 border-zinc-700/50 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-2xl rounded-xl overflow-hidden flex flex-col backdrop-blur-xl",
-          // Dynamic height based on whether results should be shown
           hasSearched ? "h-[650px]" : "h-auto"
         )}
       >
@@ -637,7 +608,6 @@ export default function SearchSongPopup({
         </DialogHeader>
         
         <div className="flex flex-col h-full">
-          {/* Enhanced Search Input - Fixed height */}
           <div className="flex-shrink-0 bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 p-4 border-b border-zinc-800/50">
             <div className="flex rounded-xl overflow-hidden shadow-xl ring-1 ring-zinc-700/50">
               <div className="relative flex-1">
@@ -647,7 +617,7 @@ export default function SearchSongPopup({
                   </div>
                   <Input
                     ref={inputRef}
-                    placeholder="Search for songs, artists, albums... (⌘K)"
+                    placeholder="Search for songs, artists, albums... (Cmd+K)"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -666,7 +636,6 @@ export default function SearchSongPopup({
               </div>
             </div>
             
-            {/* Enhanced Batch Selection Controls */}
             {enableBatchSelection && isAdmin && hasSearched && results.length > 0 && (
               <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-zinc-800/50 to-zinc-700/50 rounded-xl p-4 backdrop-blur-sm border border-zinc-600/30">
                 <div className="flex items-center gap-4">
@@ -700,10 +669,8 @@ export default function SearchSongPopup({
             )}
           </div>
           
-          {/* Enhanced Results container */}
           {hasSearched && (
             <div className="flex-1 bg-gradient-to-b from-zinc-900/50 to-zinc-950/80 border-t border-zinc-700/30 shadow-inner overflow-hidden flex flex-col min-h-0 backdrop-blur-sm">
-              {/* Enhanced loading indicator */}
               {loading && (
                 <div className="flex items-center justify-center py-12 flex-1">
                   <div className="flex flex-col items-center gap-4">
@@ -719,7 +686,6 @@ export default function SearchSongPopup({
                 </div>
               )}
               
-              {/* Enhanced results display */}
               {!loading && results.length > 0 && (
                 <div className="flex-1 relative min-h-0">
                   <AnimatedList<Track>
@@ -738,7 +704,6 @@ export default function SearchSongPopup({
                           "backdrop-blur-sm"
                         )}
                       >
-                        {/* Enhanced selection checkbox */}
                         {enableBatchSelection && isAdmin && (
                           <div className="flex-shrink-0">
                             <div className={cn(
@@ -754,7 +719,6 @@ export default function SearchSongPopup({
                           </div>
                         )}
                         
-                        {/* Enhanced album artwork */}
                         <div className="w-14 h-14 overflow-hidden rounded-xl flex-shrink-0 border-2 border-zinc-700/50 shadow-lg bg-gradient-to-br from-zinc-800 to-zinc-900 group-hover:border-zinc-600/50 transition-all duration-300">
                           {track.album?.images && track.album.images[0]?.url ? (
                             <img
@@ -772,7 +736,6 @@ export default function SearchSongPopup({
                           )}
                         </div>
                         
-                        {/* Enhanced track information */}
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold truncate text-zinc-100 group-hover:text-white text-base leading-tight">
                             {track.name}
@@ -787,18 +750,17 @@ export default function SearchSongPopup({
                             </span>
                             {track.preview_url && (
                               <span className="text-xs text-emerald-300 bg-emerald-900/30 px-2 py-1 rounded-full border border-emerald-700/50">
-                                ▶ PLAYABLE
+                                PLAYABLE
                               </span>
                             )}
                             {isSelected && (
                               <span className="text-xs text-cyan-300 bg-cyan-900/30 px-2 py-1 rounded-full border border-cyan-700/50">
-                                ✓ SELECTED
+                                SELECTED
                               </span>
                             )}
                           </div>
                         </div>
                         
-                        {/* Hover indicator */}
                         <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <div className="p-2 rounded-full bg-zinc-700/50 text-zinc-300">
                             <Plus className="w-4 h-4" />
@@ -810,7 +772,6 @@ export default function SearchSongPopup({
                 </div>
               )}
               
-              {/* Enhanced empty state */}
               {!loading && results.length === 0 && (
                 <div className="py-16 text-center flex-1 flex items-center justify-center">
                   <div className="max-w-md">

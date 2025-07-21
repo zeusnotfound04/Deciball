@@ -14,18 +14,15 @@ declare global {
 
 export function ElectronDetector() {
   useEffect(() => {
-    // Check if we're running inside Electron
     const isElectron = window.navigator.userAgent.toLowerCase().includes('electron');
     console.log('Is running in Electron:', isElectron);
     
-    // Check if the electronAPI bridge is available
     const hasElectronAPI = !!window.electronAPI;
     console.log('Has Electron API bridge:', hasElectronAPI);
     
     if (window.electronAPI) {
       console.log('Electron API methods available');
       
-      // Test sending a simple message
       window.electronAPI.updateDiscordActivity({
         title: 'Test Song',
         artist: 'Test Artist',

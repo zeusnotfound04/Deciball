@@ -40,7 +40,6 @@ export async function getRecommendations(options: {
   const api = await getSpotifyApi();
   
   try {
-    // Validate that we have at least one seed
     const hasSeeds = (options.seed_tracks && options.seed_tracks.length > 0) ||
                      (options.seed_artists && options.seed_artists.length > 0) ||
                      (options.seed_genres && options.seed_genres.length > 0);
@@ -49,12 +48,10 @@ export async function getRecommendations(options: {
       throw new Error('At least one seed is required (tracks, artists, or genres)');
     }
 
-    // Clean up the options object - keep seeds as arrays, not comma-separated strings
     const cleanOptions: any = {
       limit: options.limit || 20
     };
 
-    // Add seeds as arrays (not comma-separated strings)
     if (options.seed_tracks && options.seed_tracks.length > 0) {
       cleanOptions.seed_tracks = options.seed_tracks;
     }
@@ -65,7 +62,6 @@ export async function getRecommendations(options: {
       cleanOptions.seed_genres = options.seed_genres;
     }
 
-    // Add target parameters if provided
     if (options.target_acousticness !== undefined) cleanOptions.target_acousticness = options.target_acousticness;
     if (options.target_danceability !== undefined) cleanOptions.target_danceability = options.target_danceability;
     if (options.target_energy !== undefined) cleanOptions.target_energy = options.target_energy;
@@ -77,7 +73,6 @@ export async function getRecommendations(options: {
     if (options.target_valence !== undefined) cleanOptions.target_valence = options.target_valence;
     if (options.target_popularity !== undefined) cleanOptions.target_popularity = options.target_popularity;
 
-    // Add min/max parameters if provided
     if (options.min_acousticness !== undefined) cleanOptions.min_acousticness = options.min_acousticness;
     if (options.max_acousticness !== undefined) cleanOptions.max_acousticness = options.max_acousticness;
     if (options.min_danceability !== undefined) cleanOptions.min_danceability = options.min_danceability;
@@ -99,26 +94,23 @@ export async function getRecommendations(options: {
     if (options.min_valence !== undefined) cleanOptions.min_valence = options.min_valence;
     if (options.max_valence !== undefined) cleanOptions.max_valence = options.max_valence;
 
-    console.log('🎵 Calling Spotify API with clean options:', cleanOptions);
-    console.log('🔍 API instance ready:', !!api);
-    console.log('🔑 Access token set:', !!api.getAccessToken());
+    console.log('Calling Spotify API with clean options:', cleanOptions);
+    console.log('API instance ready:', !!api);
+    console.log('Access token set:', !!api.getAccessToken());
     
-    // Add a small delay to ensure token is properly set
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    // Try the recommendations API call
     const result = await api.getRecommendations(cleanOptions);
-    console.log('✅ Spotify API returned:', { success: true, tracksCount: result?.body?.tracks?.length });
+    console.log('Spotify API returned:', { success: true, tracksCount: result?.body?.tracks?.length });
     return result.body;
   } catch (error: any) {
-    console.error('❌ Error getting recommendations:', error);
-    console.error('❌ Error details:', {
+    console.error('Error getting recommendations:', error);
+    console.error('Error details:', {
       message: error.message,
       statusCode: error.statusCode,
       body: error.body
     });
     
-    // Provide more specific error messages
     if (error.statusCode === 404) {
       throw new Error('Spotify recommendations endpoint not found. Check your API setup.');
     } else if (error.statusCode === 401) {

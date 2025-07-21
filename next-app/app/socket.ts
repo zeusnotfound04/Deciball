@@ -12,7 +12,7 @@ export const createWebSocket = () => {
   ws.onopen = () => console.log("WebSocket connected");
   ws.onclose = () => {
     console.warn("WebSocket disconnected. Reconnecting...");
-    setTimeout(createWebSocket, 3000); // 3 second me dubara reconnect try
+    setTimeout(createWebSocket, 3000);
   };
   ws.onerror = (error) => console.error("WebSocket Error:", error);
 

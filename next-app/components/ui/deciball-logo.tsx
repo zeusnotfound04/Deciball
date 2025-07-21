@@ -9,13 +9,11 @@ export default function Component() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isMobile, setIsMobile] = useState(false)
   
-  // Use the redirect hook to handle the button click
   const { handleRedirect, isLoading: redirectLoading, redirectDestination } = useRedirect({
-    redirectTo: 'manual', // Changed from 'auto' to 'manual'
+    redirectTo: 'manual',
   })
 
   const handleStartListening = () => {
-    // This will now only redirect when the button is clicked
     if (redirectDestination) {
       handleRedirect(redirectDestination)
     }
@@ -29,14 +27,13 @@ export default function Component() {
     if (!ctx) return
 
     const updateCanvasSize = () => {
-      // Set canvas to cover entire viewport with device pixel ratio for crisp rendering
       const dpr = window.devicePixelRatio || 1
       canvas.width = window.innerWidth * dpr
       canvas.height = window.innerHeight * dpr
       canvas.style.width = window.innerWidth + 'px'
       canvas.style.height = window.innerHeight + 'px'
       ctx.scale(dpr, dpr)
-      setIsMobile(window.innerWidth < 768) // Set mobile breakpoint
+      setIsMobile(window.innerWidth < 768)
     }
 
     updateCanvasSize()
@@ -60,7 +57,6 @@ export default function Component() {
 
       ctx.save()
 
-      // MASSIVE font size for absolutely maximum impact and visibility
             const fontSize = isMobile ? 120 : 240
       ctx.font = `bold ${fontSize}px "Arial", sans-serif`
       ctx.textAlign = "left"
@@ -69,25 +65,20 @@ export default function Component() {
       const deciText = "deci"
       const ballText = "ball"
       
-      // Measure both text widths with proper context
       const deciMetrics = ctx.measureText(deciText)
       const ballMetrics = ctx.measureText(ballText)
       const deciWidth = deciMetrics.width
       const ballWidth = ballMetrics.width
       
-      // Use a smaller, more precise gap
       const gap = fontSize * 0.05
       const totalWidth = deciWidth + ballWidth + gap
       
-      // Calculate starting position to center the entire text (use actual canvas dimensions)
       const startX = (window.innerWidth - totalWidth) / 2
       const centerY = window.innerHeight / 2
       
-      // Draw "deci" in white
       ctx.fillStyle = "white"
       ctx.fillText(deciText, startX, centerY)
 
-      // Draw "ball" in dark blue
       ctx.fillStyle = "#1e3a8a"
       ctx.fillText(ballText, startX + deciWidth + gap, centerY)
 
@@ -110,9 +101,7 @@ export default function Component() {
 
         const index = (y * window.innerWidth + x) * 4
 
-        // Check if the pixel is part of the logo (has alpha > 128)
         if (data[index + 3] > 128) {
-          // Determine if the pixel is from the dark blue part by checking its color
           const isDarkBlue = data[index] < 100 && data[index + 1] < 100 && data[index + 2] > 100
 
           return {
@@ -123,7 +112,7 @@ export default function Component() {
             size: Math.random() * 1 + 0.5,
             color: isDarkBlue ? "#1e3a8a" : "white",
             scatteredColor: isDarkBlue ? "#1e3a8a" : "#FFFFFF",
-            isTeal: isDarkBlue, // Rename this to isDarkBlue later
+            isTeal: isDarkBlue,
             life: Math.random() * 100 + 50,
           }
         }
@@ -133,7 +122,7 @@ export default function Component() {
     }
 
     function createInitialParticles(scale: number) {
-      const baseParticleCount = 10000 // Increased for larger canvas and text
+      const baseParticleCount = 10000
       const particleCount = Math.floor(baseParticleCount * Math.sqrt((window.innerWidth * window.innerHeight) / (1920 * 1080)))
       for (let i = 0; i < particleCount; i++) {
         const particle = createParticle(scale)
@@ -150,7 +139,6 @@ export default function Component() {
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i]
 
-        // Remove all mouse interaction - particles stay in place
         ctx.fillStyle = p.color
         ctx.fillRect(p.x, p.y, p.size, p.size)
 
@@ -212,7 +200,6 @@ export default function Component() {
         style={{ width: '100vw', height: '100vh' }}
         aria-label="Interactive particle effect with Deciball logo"
       />
-       {/* Start Listening Button - positioned just below the text */}
          <div className="absolute text-center z-10" style={{ 
            top: `calc(50% + ${isMobile ? 80 : 140}px)`, 
            left: '50%', 

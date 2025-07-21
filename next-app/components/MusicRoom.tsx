@@ -16,7 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
-import { DiscordPresence } from './DiscordPresence';
+// import { DiscordPresence } from './DiscordPresence';
 import { ElectronDetector } from './ElectronDetector';
 import HalftoneWavesBackground from './Background';
 import BlurText, { BlurComponent } from './ui/BlurEffects';
@@ -42,7 +42,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [spaceInfo, setSpaceInfo] = useState<{ spaceName: string; hostId: string } | null>(null);
 
-  // Helper functions for profile
   const getProfilePicture = () => {
     return user?.imageUrl || (session?.user as any)?.image || session?.user?.pfpUrl || null;
   };
@@ -60,10 +59,9 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     }
   };
 
-  // Debug effect to track userDetails changes
   useEffect(() => {
-    console.log('🔄 UserDetails state changed:', userDetails);
-    console.log('🔄 UserDetails length:', userDetails.length);
+    console.log('UserDetails state changed:', userDetails);
+    console.log('UserDetails length:', userDetails.length);
   }, [userDetails]);
 
   useEffect(() => {
@@ -89,7 +87,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
      console.log("[katana] MusicRoom session user:", user);
   }, [session, user, setUser]);
 
-  // Set spaceId in audio store when component mounts
   useEffect(() => {
     if (spaceId) {
       console.log("[MusicRoom] Setting spaceId in audio store:", spaceId);
@@ -97,7 +94,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     }
   }, [spaceId, setCurrentSpaceId]);
 
-  // Fetch space information when component mounts
   useEffect(() => {
     const fetchSpaceInfo = async () => {
       try {
@@ -112,12 +108,10 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           setRoomName(data.spaceName);
         } else {
           console.error('Failed to fetch space info:', data.message);
-          // Set fallback room name
           setRoomName("Unknown Space");
         }
       } catch (error) {
         console.error('Error fetching space info:', error);
-        // Set fallback room name
         setRoomName("Unknown Space");
       }
     };
@@ -128,7 +122,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   }, [spaceId]);
 
   const handleBatchAddToQueue = async (tracks: any[]) => {
-    console.log('🎵 Batch add completed by Search component:', { 
+    console.log('Batch add completed by Search component:', { 
       tracksCount: tracks.length, 
       trackNames: tracks.map(t => t.name)
     });
@@ -149,7 +143,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           console.log('Room info updated:', { isAdmin: data.isAdmin, userCount: data.userCount });
           break;
         case 'room-joined':
-          console.log('✅ Successfully joined room:', data);
+          console.log('Successfully joined room:', data);
           console.log('   - SpaceId:', data.spaceId);
           console.log('   - UserId:', data.userId);
           console.log('   - Message:', data.message);
@@ -157,7 +151,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         case 'user-update':
           setConnectedUsers(data.userCount || data.connectedUsers || 0);
           if (data.userDetails) {
-            console.log('📊 Updating userDetails:', data.userDetails);
+            console.log('Updating userDetails:', data.userDetails);
             setUserDetails(data.userDetails);
           }
           console.log('Updated user count:', data.userCount || data.connectedUsers || 0);
@@ -165,16 +159,14 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           break;
         case 'user-joined':
           setConnectedUsers(prev => prev + 1);
-          console.log('👋 User joined - new count will be:', connectedUsers + 1);
-          // Request updated user list
+          console.log('User joined - new count will be:', connectedUsers + 1);
           if (socket?.readyState === WebSocket.OPEN) {
             sendMessage('get-room-users', { spaceId });
           }
           break;
         case 'user-left':
           setConnectedUsers(prev => Math.max(0, prev - 1));
-          console.log('👋 User left - new count will be:', Math.max(0, connectedUsers - 1));
-          // Request updated user list
+          console.log('User left - new count will be:', Math.max(0, connectedUsers - 1));
           if (socket?.readyState === WebSocket.OPEN) {
             sendMessage('get-room-users', { spaceId });
           }
@@ -184,13 +176,11 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
 
         case 'queue-update':
           console.log('Queue update received in MusicRoom:', data);
-          // The queue will be handled by QueueManager component
           break;
         case 'error':
           console.error('Room error:', data.message || data);
-          // Show more helpful error messages to user
           if (data.message === 'You are unauthorized to perform this action') {
-            console.error('❌ Authorization error - this might be due to:');
+            console.error('Authorization error - this might be due to:');
             console.error('   - Invalid or expired authentication token');
             console.error('   - User not properly joined to the room');
             console.error('   - User ID mismatch between token and request');
@@ -205,9 +195,8 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
               readyState: socket?.readyState 
             });
             
-            // Try to rejoin the room
             if (user?.token && socket?.readyState === WebSocket.OPEN) {
-              console.log('🔄 Attempting to rejoin room due to authorization error...');
+              console.log('Attempting to rejoin room due to authorization error...');
               sendMessage('join-room', { 
                 spaceId, 
                 token: user.token,
@@ -223,10 +212,8 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
 
     socket.addEventListener('message', handleMessage);
 
-    // Join the room only if we have space info
     if (spaceInfo) {
-      // Join the room
-      console.log('🏠 Attempting to join room:', { 
+      console.log('Attempting to join room:', { 
         spaceId, 
         spaceName: spaceInfo.spaceName,
         userId: user.id, 
@@ -242,12 +229,12 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       });
       
       if (!roomJoined) {
-        console.error('❌ Failed to join room - connection issue');
+        console.error('Failed to join room - connection issue');
       } else {
-        console.log('✅ Join room message sent successfully with space name:', spaceInfo.spaceName);
+        console.log('Join room message sent successfully with space name:', spaceInfo.spaceName);
       }
     } else {
-      console.log('⏳ Waiting for space info before joining room...');
+      console.log('Waiting for space info before joining room...');
     }
 
     return () => {
@@ -276,13 +263,10 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   return (
     <HalftoneWavesBackground>
       <div className="flex min-h-screen text-white">
-        {/* Discord Presence (invisible component) */}
-        <DiscordPresence />
+        {/* <DiscordPresence /> */}
         
-        {/* Electron Detector for debugging */}
         <ElectronDetector />
         
-        {/* Left Sidebar */}
         <div className="flex-shrink-0">
           <SidebarProvider>
             <ListenerSidebar 
@@ -298,13 +282,10 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           </SidebarProvider>
         </div>
 
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Premium Minimalistic Header */}
           <div className="flex items-center justify-center p-6">
             <div className="flex items-center gap-8 bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl px-12 py-4 shadow-2xl min-w-[900px] max-w-5xl w-full">
               
-              {/* Room Name - Left Side */}
               <div className="flex items-center gap-3">
                 <BlurText 
                   text={roomName} 
@@ -335,8 +316,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                   </Badge>
                 </div>
               </div>
-
-              {/* Search Bar - Center */}
               <div className="flex-1 max-w-xl mx-12">
                 <SearchSongPopup 
                   onSelect={(track) => {
@@ -351,7 +330,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                 />
               </div>
 
-              {/* Profile Section - Right Side */}
               <div className="flex items-center gap-3">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -413,15 +391,11 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             </div>
           </div>
 
-            {/* Main Content Grid */}
             <div className="flex-1 p-4">
               <div className="max-w-7xl mx-auto h-full">
-                {/* Two Column Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full min-h-[calc(100vh-200px)]">
 
-                  {/* Left Column - Player + Recommendations */}
                   <div className="flex flex-col gap-4">
-                    {/* Player Section */}
                     <BlurComponent 
                       delay={500} 
                       direction="top"
@@ -441,7 +415,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       )}
                     </BlurComponent>
 
-                    {/* New Releases Panel */}
                     <BlurComponent
                       delay={700}
                       direction="bottom"
@@ -455,7 +428,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                     </BlurComponent>
                   </div>
 
-                  {/* Right Column - Queue Manager */}
                   <div className="flex flex-col">
                     <BlurComponent
                       delay={600}

@@ -22,7 +22,7 @@ export default function Header() {
   const handleLogout = async () => {
     try {
       console.log("Handle Logout clicked")
-      await signOut({ callbackUrl: "/" }) // Redirect to home page after logout
+      await signOut({ callbackUrl: "/" })
     } catch (error) {
       console.error("Logout error:", error)
     }
@@ -37,7 +37,7 @@ export default function Header() {
 
 
         
-        {/* Conditional button based on session */}
+        
         {status === "loading" ? (
           <div className="hidden md:block w-20 h-9 bg-gray-700 animate-pulse rounded"></div>
         ) : session ? (

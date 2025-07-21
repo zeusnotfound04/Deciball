@@ -45,7 +45,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeRef = useRef<HTMLDivElement>(null);
 
-  // Update progress from audio element
   useEffect(() => {
     const audioElement = audioRef.current;
     if (!audioElement) return;
@@ -61,7 +60,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
     return () => audioElement.removeEventListener('timeupdate', updateProgress);
   }, [isDragging, setProgress]);
 
-  // Handle progress bar click/drag
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !audioRef.current?.duration) return;
 
@@ -97,7 +95,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
     setIsDragging(false);
   };
 
-  // Volume control
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume, true);
@@ -114,7 +111,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
     }
   };
 
-  // Format time helper
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -122,7 +118,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Get current time and duration
   const currentTime = audioRef.current?.currentTime || 0;
   const totalDuration = audioRef.current?.duration || 0;
   const displayProgress = isDragging ? tempProgress : progress;
@@ -149,7 +144,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
         className
       )}>
         <div className="flex items-center gap-3">
-          {/* Song Info */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0 bg-zinc-800">
               {currentSong.image?.[0]?.url ? (
@@ -174,7 +168,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
             </div>
           </div>
 
-          {/* Controls */}
           <div className="flex items-center gap-2">
             <button
               onClick={playPrev}
@@ -205,7 +198,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
       "bg-zinc-900/95 border-t border-zinc-800 backdrop-blur-sm",
       className
     )}>
-      {/* Progress Bar */}
       <div className="px-4 pt-2">
         <div
           ref={progressRef}
@@ -231,10 +223,8 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
         </div>
       </div>
 
-      {/* Main Controls */}
       <div className="px-4 pb-4 pt-2">
         <div className="flex items-center justify-between">
-          {/* Song Info */}
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-zinc-800 shadow-lg">
               {currentSong.image?.[0]?.url ? (
@@ -267,7 +257,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
             </div>
           </div>
 
-          {/* Playback Controls */}
           <div className="flex items-center gap-4 mx-8">
             <button
               onClick={playPrev}
@@ -289,7 +278,6 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
             </button>
           </div>
 
-          {/* Volume Control */}
           <div className="flex items-center gap-2">
             <button
               onClick={toggleMute}

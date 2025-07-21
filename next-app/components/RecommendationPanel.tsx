@@ -42,7 +42,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [addingTrack, setAddingTrack] = useState<string | null>(null);
 
-  // Fetch new releases using existing API
   const fetchNewReleases = async () => {
     setLoading(true);
     setError(null);
@@ -50,7 +49,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     try {
       console.log('Fetching new releases...');
       
-      // Call the new releases API endpoint
       const response = await fetch('/api/spotify/newReleases?limit=10', {
         method: 'GET'
       });
@@ -63,7 +61,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
       const result = await response.json();
       
       if (result && result.items) {
-        // Convert albums to tracks format
         const tracks: SpotifyTrack[] = result.items.map((album: any) => ({
           id: album.id,
           name: album.name,
@@ -73,7 +70,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
             name: album.name,
             images: album.images
           },
-          popularity: 80, // Default popularity for new releases
+          popularity: 80,
           preview_url: null,
           external_urls: album.external_urls
         }));
@@ -92,7 +89,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     }
   };
 
-  // Add track to queue
   const addToQueue = async (track: SpotifyTrack) => {
     if (!isAdmin) {
       toast.error('Only admins can add songs to queue');
@@ -107,7 +103,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     setAddingTrack(track.id);
 
     try {
-      // Use existing getTrack API to convert Spotify track to YouTube
       const convertResponse = await fetch('/api/spotify/getTrack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,7 +120,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
         throw new Error('No YouTube video found for this track');
       }
 
-      // Get the first result's video ID
       const firstResult = youtubeResults[0];
       const videoId = firstResult.downloadUrl?.[0]?.url;
 
@@ -133,7 +127,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
         throw new Error('Invalid video ID from conversion');
       }
 
-      // Add to queue via WebSocket
       const success = sendMessage("add-to-queue", {
         spaceId: spaceId,
         addedByUser: user.name || "",
@@ -152,7 +145,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
             name: user.name || 'Unknown'
           }
         },
-        // Legacy fields for backward compatibility
         title: track.name,
         artist: track.artists?.[0]?.name || 'Unknown Artist',
         image: track.album?.images?.[0]?.url || '',
@@ -174,7 +166,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     }
   };
 
-  // Fetch new releases on component mount
   useEffect(() => {
     fetchNewReleases();
   }, []);
@@ -240,10 +231,9 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
       )}
 
       <div className="bg-[#1C1E1F] border border-gray-500/30 rounded-xl p-4 relative overflow-hidden">
-        {/* Subtle scroll indicator */}
         {newReleases.length > 3 && (
           <div className="absolute top-2 right-2 text-xs text-gray-400 opacity-60 z-10">
-            Scroll ↔
+            Scroll
           </div>
         )}
         {loading ? (

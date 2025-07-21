@@ -1,7 +1,6 @@
 import { searchPlaylists } from '@/actions/spotify/searchPlayList';
 import { searchTracks } from '@/actions/spotify/searchTracks';
 import { NextRequest, NextResponse } from 'next/server';
-// import { searchTracks, searchPlaylists } from '@/lib/spotify';
 
 export async function GET(request: NextRequest) {
   console.log("WebSocket URL:", process.env.NEXT_PUBLIC_WSS_URL);

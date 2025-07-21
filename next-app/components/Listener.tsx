@@ -51,7 +51,6 @@ export const Listener: React.FC<ListenerProps> = ({
           }
           break;
         case 'user-joined':
-          // Add new user to the list if not already present
           if (data.user) {
             setListeners(prev => {
               const exists = prev.find(listener => listener.userId === data.user.userId);
@@ -63,13 +62,11 @@ export const Listener: React.FC<ListenerProps> = ({
           }
           break;
         case 'user-left':
-          // Remove user from the list
           if (data.userId) {
             setListeners(prev => prev.filter(listener => listener.userId !== data.userId));
           }
           break;
         case 'listener-update':
-          // Update specific listener data
           if (data.userId) {
             setListeners(prev => prev.map(listener => 
               listener.userId === data.userId 
@@ -83,7 +80,6 @@ export const Listener: React.FC<ListenerProps> = ({
 
     socket.addEventListener('message', handleMessage);
     
-    // Request initial listener data
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({
         type: 'get-listeners',
@@ -160,18 +156,15 @@ export const Listener: React.FC<ListenerProps> = ({
                   className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    {/* User Avatar */}
                     <div className={`relative w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${getStatusColor(user)}`}>
                       {user.isCreator ? (
                         <Crown className="w-5 h-5" />
                       ) : (
                         <User className="w-5 h-5" />
                       )}
-                      {/* Online indicator */}
                       <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
                     </div>
 
-                    {/* User Info */}
                     <div>
                       <p className="font-medium text-gray-900 dark:text-gray-100">
                         {getUserDisplayName(user)}
@@ -190,9 +183,7 @@ export const Listener: React.FC<ListenerProps> = ({
                     </div>
                   </div>
 
-                  {/* User Status & Actions */}
                   <div className="flex items-center gap-2">
-                    {/* Volume indicator for listening users */}
                     {user.isListening && user.volume !== undefined && (
                       <div className="flex items-center gap-1 text-xs text-gray-500">
                         <Volume2 className="w-3 h-3" />
@@ -200,7 +191,6 @@ export const Listener: React.FC<ListenerProps> = ({
                       </div>
                     )}
 
-                    {/* Role badges */}
                     <div className="flex flex-col gap-1">
                       {user.isCreator && (
                         <Badge variant="default" className="text-xs">
@@ -214,7 +204,6 @@ export const Listener: React.FC<ListenerProps> = ({
                       )}
                     </div>
 
-                    {/* Admin actions */}
                     {isAdmin && !user.isCreator && (
                       <Button
                         variant="ghost"
@@ -230,7 +219,6 @@ export const Listener: React.FC<ListenerProps> = ({
               ))
             )}
 
-            {/* Quick stats */}
             {listeners.length > 0 && (
               <div className="border-t pt-3 mt-4">
                 <div className="grid grid-cols-3 gap-4 text-center">

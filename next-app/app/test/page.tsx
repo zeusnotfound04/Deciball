@@ -8,7 +8,6 @@ import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Separator } from '@/app/components/ui/separator';
 import MusicPlayer from '../components/MusicPlayer';
-// import { YouTubePlayer } from '../components/YoutubePlayer';
 import { useAudio } from '@/store/audioStore';
 import PLayerCoverComp from "@/app/components/PlayerCover"
 import AudioController from '../components/Controller';
@@ -53,8 +52,7 @@ export default function TestPage() {
               <CardTitle className="text-zinc-200">Selected Track</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {/* Track info header */}
-              <div className="flex flex-col sm:flex-row">
+                  <div className="flex flex-col sm:flex-row">
                 <div className="w-full sm:w-40 h-40 sm:h-full overflow-hidden flex-shrink-0">
                   <img 
                     src={selectedTrack.album.images[0]?.url} 

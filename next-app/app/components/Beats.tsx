@@ -38,7 +38,6 @@ export default function BeatsSection() {
   }, [])
 
   const fetchBeats = async () => {
-    // Simulated API call
     setTimeout(() => {
       setBeats([
         {

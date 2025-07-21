@@ -7,7 +7,6 @@ import { toast } from "sonner";
 function useAddSong() {
   const { queue, ws, emitMessage } = useUserStore();
   
-  // Memoize queue IDs for performance
   const queuedSongIds = useMemo(() => {
     return new Set(queue?.map((song) => song.id) || []);
   }, [queue]);
@@ -18,14 +17,12 @@ function useAddSong() {
       spaceId?: string | null,
       check: boolean = true
     ) => {
-      // Early returns for invalid inputs
       if (!spaceId) return;
       if (!selectedSongs.length) {
         toast.info("No songs selected to add.");
         return;
       }
 
-      // Filter unique songs if needed
       let songsToAdd = selectedSongs;
       if (check) {
         const uniqueSongs = selectedSongs.filter(
@@ -56,7 +53,6 @@ function useAddSong() {
           toast.success(`${songText} added to ${destination}`, { id: toastId });
           
           if (!check) {
-            // Use the emitMessage function from userStore
             emitMessage("event", { spaceId });
           }
         } else {

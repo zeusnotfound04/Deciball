@@ -47,7 +47,6 @@ interface QueueManagerProps {
   isAdmin?: boolean;
 }
 
-// Playing animation component for the now playing song
 const PlayingAnimation = () => {
   return (
     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -72,7 +71,72 @@ const PlayingAnimation = () => {
   );
 };
 
-// Single upvote button component
+// Floating heart/upvote particles animation
+const FloatingParticles = ({ trigger }: { trigger: boolean }) => {
+  const particles = Array.from({ length: 8 }, (_, i) => ({
+    id: i,
+    delay: i * 0.1,
+    angle: (i * 45) * (Math.PI / 180), // Convert to radians
+  }));
+
+  if (!trigger) return null;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      {particles.map((particle) => (
+        <motion.div
+          key={particle.id}
+          className="absolute top-1/2 left-1/2 text-blue-400"
+          initial={{ 
+            opacity: 0, 
+            scale: 0, 
+            x: -8, 
+            y: -8,
+            rotate: 0 
+          }}
+          animate={{
+            opacity: [0, 1, 0],
+            scale: [0, 1.2, 0.8],
+            x: Math.cos(particle.angle) * 30 - 8,
+            y: Math.sin(particle.angle) * 30 - 8,
+            rotate: 360,
+          }}
+          transition={{
+            duration: 1.2,
+            delay: particle.delay,
+            ease: "easeOut"
+          }}
+        >
+          <PiArrowFatLineUpFill size={12} />
+        </motion.div>
+      ))}
+    </div>
+  );
+};
+
+// Ripple effect animation
+const RippleEffect = ({ trigger }: { trigger: boolean }) => {
+  if (!trigger) return null;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
+      {[0, 0.2, 0.4].map((delay, index) => (
+        <motion.div
+          key={index}
+          className="absolute inset-0 border-2 border-blue-400/50 rounded-xl"
+          initial={{ scale: 0, opacity: 0.8 }}
+          animate={{ scale: 2, opacity: 0 }}
+          transition={{
+            duration: 0.8,
+            delay,
+            ease: "easeOut"
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 const UpvoteButton = ({ 
   onClick, 
   isVoted = false,
@@ -82,51 +146,150 @@ const UpvoteButton = ({
   isVoted?: boolean;
   voteCount?: number;
 }) => {
-  console.log('🔍 UpvoteButton render:', { isVoted, voteCount });
+  const [animationTrigger, setAnimationTrigger] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const handleClick = (e: any) => {
+    // Trigger particle animation
+    setAnimationTrigger(true);
+    setShowSuccess(true);
+    
+    // Reset animation trigger
+    setTimeout(() => setAnimationTrigger(false), 1200);
+    setTimeout(() => setShowSuccess(false), 2000);
+    
+    onClick(e);
+  };
   
   return (
-    <motion.button
-      onClick={onClick}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      className={`flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl ${
-        isVoted 
-          ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30' 
-          : 'bg-white/10 text-gray-300 border-white/20 hover:bg-white/15 hover:border-white/30 hover:text-white hover:shadow-2xl hover:ring-1 hover:ring-white/20'
-      }`}
-    >
-      <motion.div
-        animate={isVoted ? { scale: [1, 1.2, 1] } : {}}
-        transition={{ duration: 0.3 }}
-        className="flex items-center justify-center"
-        style={{ minWidth: '16px', minHeight: '16px' }}
-      >
-        {isVoted ? (
-          <PiArrowFatLineUpFill 
-            size={16} 
-            style={{ color: '#60a5fa', display: 'block' }} 
-            className="text-blue-400"
-          />
-        ) : (
-          <LuArrowBigUpDash 
-            size={16} 
-            style={{ color: 'currentColor', display: 'block' }} 
-            className="text-gray-300"
-          />
+    <motion.div className="relative">
+      {/* Success message */}
+      <AnimatePresence>
+        {showSuccess && !isVoted && (
+          <motion.div
+            className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-xs font-bold backdrop-blur-xl border border-green-500/30 shadow-lg z-10"
+            initial={{ opacity: 0, y: 10, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.8 }}
+            transition={{ duration: 0.3 }}
+          >
+            Upvoted! 🎵
+          </motion.div>
         )}
-      </motion.div>
-      <motion.span 
-        className="font-bold text-sm"
-        animate={isVoted ? { scale: [1, 1.1, 1] } : {}}
-        transition={{ duration: 0.3 }}
+      </AnimatePresence>
+
+      <motion.button
+        onClick={handleClick}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.9 }}
+        className={`relative flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl overflow-hidden ${
+          isVoted 
+            ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30' 
+            : 'bg-white/10 text-gray-300 border-white/20 hover:bg-white/15 hover:border-white/30 hover:text-white hover:shadow-2xl hover:ring-1 hover:ring-white/20'
+        }`}
       >
-        {voteCount}
-      </motion.span>
-    </motion.button>
+        {/* Ripple effect */}
+        <RippleEffect trigger={animationTrigger} />
+        
+        {/* Floating particles */}
+        <FloatingParticles trigger={animationTrigger} />
+        
+        {/* Glow effect when clicked */}
+        <AnimatePresence>
+          {animationTrigger && (
+            <motion.div
+              className="absolute inset-0 bg-blue-400/20 rounded-xl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 0.6, 0] }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6 }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Icon with enhanced animation */}
+        <motion.div
+          animate={
+            isVoted 
+              ? { scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] } 
+              : animationTrigger 
+                ? { scale: [1, 1.4, 1], rotate: [0, 15, 0] }
+                : {}
+          }
+          transition={{ duration: isVoted ? 0.4 : 0.6, ease: "easeOut" }}
+          className="flex items-center justify-center relative z-10"
+          style={{ minWidth: '16px', minHeight: '16px' }}
+        >
+          {isVoted ? (
+            <motion.div
+              animate={{ 
+                filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"],
+              }}
+              transition={{ duration: 0.5, repeat: 2 }}
+            >
+              <PiArrowFatLineUpFill 
+                size={16} 
+                style={{ color: '#60a5fa', display: 'block' }} 
+                className="text-blue-400"
+              />
+            </motion.div>
+          ) : (
+            <LuArrowBigUpDash 
+              size={16} 
+              style={{ color: 'currentColor', display: 'block' }} 
+              className="text-gray-300"
+            />
+          )}
+        </motion.div>
+
+        {/* Vote count with enhanced animation */}
+        <motion.span 
+          className="font-bold text-sm relative z-10"
+          animate={
+            isVoted 
+              ? { scale: [1, 1.2, 1], color: ["#60a5fa", "#93c5fd", "#60a5fa"] } 
+              : animationTrigger 
+                ? { scale: [1, 1.3, 1] }
+                : {}
+          }
+          transition={{ duration: isVoted ? 0.4 : 0.6 }}
+        >
+          {voteCount}
+        </motion.span>
+
+        {/* Sparkle effect */}
+        <AnimatePresence>
+          {animationTrigger && (
+            <>
+              {[...Array(6)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-1 h-1 bg-blue-400 rounded-full"
+                  style={{
+                    top: `${20 + Math.random() * 60}%`,
+                    left: `${20 + Math.random() * 60}%`,
+                  }}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ 
+                    opacity: [0, 1, 0],
+                    scale: [0, 1, 0],
+                    rotate: 360
+                  }}
+                  transition={{
+                    duration: 1,
+                    delay: i * 0.1,
+                    ease: "easeOut"
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </AnimatePresence>
+      </motion.button>
+    </motion.div>
   );
 };
 
-// Song card component
 const SongCard = ({ 
   item, 
   index, 
@@ -173,7 +336,6 @@ const SongCard = ({
           <div className="flex items-center space-x-4">
       
             
-            {/* Album Art with Animation */}
             <motion.div 
               className="relative flex-shrink-0"
               layout
@@ -191,7 +353,6 @@ const SongCard = ({
               {isCurrentlyPlaying && <PlayingAnimation />}
             </motion.div>
             
-            {/* Song Info */}
             <motion.div 
               className="flex-1 min-w-0" 
               layout
@@ -216,13 +377,11 @@ const SongCard = ({
              
             </motion.div>
             
-            {/* Actions */}
             <motion.div 
               className="flex items-center space-x-3"
               layout
               transition={{ duration: 0.6 }}
             >
-              {/* Upvote Button - Only show for queue items, not currently playing */}
               {!isCurrentlyPlaying && (
                 <motion.div
                   initial={{ opacity: 0, x: 10 }}
@@ -240,7 +399,6 @@ const SongCard = ({
                 </motion.div>
               )}
               
-              {/* Vote Count Display for Currently Playing */}
               {isCurrentlyPlaying && (
                 <motion.div 
                   className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-xl border-2 border-white/20 shadow-xl ring-1 ring-white/10"
@@ -253,7 +411,6 @@ const SongCard = ({
                 </motion.div>
               )}
               
-              {/* Admin Delete Button */}
               {isAdmin && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -292,20 +449,16 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const { user } = useUserStore();
   const { voteOnSong, addToQueue, play, currentSong: audioCurrentSong } = useAudio();
 
-  // Sort queue by vote count (descending) and then by creation time (ascending)
   const sortedQueue = useMemo(() => {
     return [...queue].sort((a, b) => {
-      // First sort by vote count (highest first)
       if (b.voteCount !== a.voteCount) {
         return b.voteCount - a.voteCount;
       }
       
-      // If vote counts are equal, sort by creation time (oldest first)
       return new Date(a.createAt || 0).getTime() - new Date(b.createAt || 0).getTime();
     });
   }, [queue]);
 
-  // Utility function to clean up URLs
   const cleanUrl = (url: string): string => {
     if (!url) return '';
     
@@ -339,7 +492,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     return cleanedUrl;
   };
 
-  // Monitor WebSocket connection status
   useEffect(() => {
     if (!socket) {
       setConnectionStatus('disconnected');
@@ -385,29 +537,29 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
 
     const handleMessage = (event: MessageEvent) => {
       const { type, data } = JSON.parse(event.data);
-      console.log('🎵 QueueManager received message:', { type, data });
+      console.log('QueueManager received message:', { type, data });
       
       switch (type) {
         case 'queue-update':
-          console.log('📋 Queue update received:', data.queue);
+          console.log('Queue update received:', data.queue);
           setQueue(data.queue || []);
           break;
         case 'current-song-update':
-          console.log('🎶 Current song update:', data.song);
+          console.log('Current song update:', data.song);
           setCurrentPlaying(data.song || null);
           
           if (data.song) {
-            console.log('🎵 Starting playback of new current song:', data.song.title);
+            console.log('Starting playback of new current song:', data.song.title);
             
             const isSameSong = audioCurrentSong?.id === data.song.id;
             const { isPlaying } = useAudioStore.getState();
             
             if (isSameSong && isPlaying) {
-              console.log('🎵 Same song already playing, skipping playback restart');
+              console.log('Same song already playing, skipping playback restart');
               
               const { pendingSync } = useAudioStore.getState();
               if (pendingSync) {
-                console.log('🔄 Applying pending sync for existing song');
+                console.log('Applying pending sync for existing song');
                 const { handleRoomSync } = useAudioStore.getState();
                 const youtubeVideoId = extractYouTubeVideoId(data.song.youtubeUrl || data.song.url);
                 const existingAudioSong = {
@@ -481,10 +633,10 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             setTimeout(() => {
               const { pendingSync, youtubePlayer } = useAudioStore.getState();
               if (pendingSync) {
-                console.log('🔄 Applying pending sync after song load for new user');
+                console.log('Applying pending sync after song load for new user');
                 
                 if (youtubePlayer && youtubePlayer.seekTo) {
-                  console.log('🔄 YouTube player ready, applying sync directly');
+                  console.log('YouTube player ready, applying sync directly');
                   youtubePlayer.seekTo(pendingSync.timestamp, true);
                   if (pendingSync.isPlaying) {
                     youtubePlayer.playVideo();
@@ -494,37 +646,36 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   const { handleRoomSync } = useAudioStore.getState();
                   handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong, true);
                 } else {
-                  console.log('🔄 YouTube player not ready yet, pending sync will be applied when ready');
+                  console.log('YouTube player not ready yet, pending sync will be applied when ready');
                 }
               }
             }, 1500);
           } else {
-            console.log('🛑 No current song to play');
+            console.log('No current song to play');
           }
           break;
         case 'song-added':
-          console.log('➕ Song added to queue:', data.song);
+          console.log('Song added to queue:', data.song);
           setQueue(prev => {
             const newQueue = [...prev, data.song];
-            console.log('📋 Updated queue length:', newQueue.length);
+            console.log('Updated queue length:', newQueue.length);
             return newQueue;
           });
           break;
         case 'vote-updated':
-          console.log('👍 Vote updated:', { streamId: data.streamId, voteCount: data.voteCount });
+          console.log('Vote updated:', { streamId: data.streamId, voteCount: data.voteCount });
           setQueue(prev => prev.map(item => 
             item.id === data.streamId 
               ? { ...item, voteCount: data.voteCount, upvotes: data.upvotes }
               : item
           ));
           break;
-        // ... other cases remain the same
       }
     };
 
     socket.addEventListener('message', handleMessage);
     
-    console.log('📋 Requesting initial queue for space:', spaceId);
+    console.log('Requesting initial queue for space:', spaceId);
     sendMessage('get-queue', { spaceId });
 
     return () => {
@@ -533,11 +684,10 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   }, [socket, sendMessage, spaceId, currentPlaying, isAdmin]);
 
   const handleVote = (streamId: string) => {
-    // Toggle vote - if already voted, remove vote; if not voted, add upvote
     const item = queue.find(q => q.id === streamId);
     const hasVoted = item?.upvotes?.some(vote => vote.userId === user?.id) || false;
     
-    console.log('🗳️ Vote action:', { 
+    console.log('Vote action:', { 
       streamId, 
       hasVoted, 
       action: hasVoted ? 'downvote' : 'upvote',
@@ -546,9 +696,9 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     });
     
     if (hasVoted) {
-      voteOnSong(streamId, 'downvote'); // Remove vote
+      voteOnSong(streamId, 'downvote');
     } else {
-      voteOnSong(streamId, 'upvote'); // Add vote
+      voteOnSong(streamId, 'upvote');
     }
   };
 
@@ -558,25 +708,25 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
 
   const handlePlayNext = () => {
     if (!isAdmin) return;
-    console.log('⏭️ Admin playing next song for space:', spaceId);
+    console.log('Admin playing next song for space:', spaceId);
     sendMessage('play-next', { spaceId });
   };
 
   const handleRemoveSong = (streamId: string) => {
     if (!isAdmin) return;
-    console.log('🗑️ Admin removing song:', streamId);
+    console.log('Admin removing song:', streamId);
     sendMessage('remove-song', { spaceId, streamId });
-  };
+  }
 
   const handleEmptyQueue = () => {
     if (!isAdmin) return;
-    console.log('🗑️ Admin emptying queue for space:', spaceId);
+    console.log('Admin emptying queue for space:', spaceId);
     sendMessage('empty-queue', { spaceId });
   };
 
   const hasUserVoted = (item: QueueItem) => {
     const voted = item.upvotes?.some(vote => vote.userId === user?.id) || false;
-    console.log('🔍 hasUserVoted check:', { 
+    console.log('hasUserVoted check:', { 
       songId: item.id, 
       songTitle: item.title,
       voted, 
@@ -593,14 +743,13 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Header */}
-      <motion.div 
-        className="flex items-center justify-between"
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-      >
-        <div className="flex items-center gap-3">
+        <motion.div 
+          className="flex items-center justify-between"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex items-center gap-3">
           <motion.div
             whileHover={{ rotate: 5, scale: 1.1 }}
             transition={{ duration: 0.2 }}
@@ -624,7 +773,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
        
       </motion.div>
 
-      {/* Currently Playing */}
       <AnimatePresence mode="wait">
         {currentPlaying && (
           <motion.div
@@ -661,7 +809,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         )}
       </AnimatePresence>
 
-      {/* Queue */}
       <div className="space-y-4">
         <motion.h3 
           className="text-lg font-semibold text-white flex items-center gap-2"

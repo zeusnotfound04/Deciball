@@ -1,4 +1,3 @@
-// Modified userStore implementation
 import { createWebSocket } from "@/app/socket";
 import { generateSpaceId } from "@/lib/utils";
 import { listener, searchResults, User } from "@/types";
@@ -76,23 +75,19 @@ export const useUserStore = create<UserStoreState>()(
       setAdminOnline: (online) => set({ isAdminOnline: online }),
       
       connectWebSocket: () => {
-        // Close existing connection if any
         const currentWs = get().ws;
         if (currentWs) {
           currentWs.close();
         }
         
-        // Create new WebSocket
         const ws = createWebSocket();
         
-        // Set up event handlers
         ws.onopen = () => {
           console.log("WebSocket connected");
         };
         
         ws.onclose = () => {
           console.log("WebSocket disconnected");
-          // Optional: reconnect logic
           setTimeout(() => get().connectWebSocket(), 3000);
         };
         
@@ -104,38 +99,38 @@ export const useUserStore = create<UserStoreState>()(
       },
       
       emitMessage: (event, message) => {
-        console.log("📡 [EmitMessage] ====================== emitMessage() CALLED ======================");
-        console.log("📡 [EmitMessage] Event:", event);
-        console.log("📡 [EmitMessage] Message:", message);
+        console.log("[EmitMessage] ====================== emitMessage() CALLED ======================");
+        console.log("[EmitMessage] Event:", event);
+        console.log("[EmitMessage] Message:", message);
         
         const ws = get().ws;
-        console.log("📡 [EmitMessage] WebSocket available:", !!ws);
-        console.log("📡 [EmitMessage] WebSocket ready state:", ws?.readyState);
-        console.log("📡 [EmitMessage] WebSocket OPEN constant:", WebSocket.OPEN);
-        console.log("📡 [EmitMessage] Is WebSocket ready:", ws && ws.readyState === WebSocket.OPEN);
+        console.log("[EmitMessage] WebSocket available:", !!ws);
+        console.log("[EmitMessage] WebSocket ready state:", ws?.readyState);
+        console.log("[EmitMessage] WebSocket OPEN constant:", WebSocket.OPEN);
+        console.log("[EmitMessage] Is WebSocket ready:", ws && ws.readyState === WebSocket.OPEN);
         
         if (ws && ws.readyState === WebSocket.OPEN) {
           const payload = JSON.stringify({ event, message });
-          console.log("📡 [EmitMessage] ✅ WebSocket is ready, sending message");
-          console.log("📡 [EmitMessage] Payload:", payload);
+          console.log("[EmitMessage] WebSocket is ready, sending message");
+          console.log("[EmitMessage] Payload:", payload);
           
           try {
             ws.send(payload);
-            console.log("📡 [EmitMessage] ✅ Message sent successfully via WebSocket");
+            console.log("[EmitMessage] Message sent successfully via WebSocket");
           } catch (error) {
-            console.error("📡 [EmitMessage] ❌ Error sending message via WebSocket:", error);
+            console.error("[EmitMessage] Error sending message via WebSocket:", error);
           }
         } else {
-          console.error("📡 [EmitMessage] ❌ CRITICAL: WebSocket is not connected.");
+          console.error("[EmitMessage] CRITICAL: WebSocket is not connected.");
           if (!ws) {
-            console.error("📡 [EmitMessage] WebSocket is null/undefined");
+            console.error("[EmitMessage] WebSocket is null/undefined");
           } else {
-            console.error("📡 [EmitMessage] WebSocket state:", ws.readyState);
-            console.error("📡 [EmitMessage] WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3");
+            console.error("[EmitMessage] WebSocket state:", ws.readyState);
+            console.error("[EmitMessage] WebSocket states: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3");
           }
         }
         
-        console.log("📡 [EmitMessage] ====================== emitMessage() COMPLETED ======================");
+        console.log("[EmitMessage] ====================== emitMessage() COMPLETED ======================");
       },
       
       emitProgress: (currentTime) => {

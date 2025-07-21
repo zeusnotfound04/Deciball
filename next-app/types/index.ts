@@ -41,10 +41,9 @@ export interface data {
 
 export interface searchResults {
     id : string  ;
-    url : string; // added by Zeus for debugging
+    url : string;
     name : string;
-    // artistes : string[];
-        artistes : {primary : artists[]};
+    artistes : {primary : artists[]};
     image : downloadUrl[];
     addedBy : string;
     source?: "youtube";

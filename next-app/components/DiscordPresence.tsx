@@ -1,88 +1,78 @@
-'use client';
+// 'use client';
 
-import { useEffect } from 'react';
-import { useAudioStore } from '@/store/audioStore';
-import { useSocket } from '@/context/socket-context';
+// import { useEffect } from 'react';
+// import { useAudioStore } from '@/store/audioStore';
+// import { useSocket } from '@/context/socket-context';
 
-declare global {
-  interface Window {
-    electronAPI?: {
-      updateDiscordActivity: (songData: any) => void;
-    }
-  }
-}
+// declare global {
+//   interface Window {
+//     electronAPI?: {
+//       updateDiscordActivity: (songData: any) => void;
+//     }
+//   }
+// }
 
-export function DiscordPresence() {
-  const { 
-    currentSong, 
-    isPlaying,
-    currentProgress,
-    currentDuration,
-    currentSpaceId
-  } = useAudioStore();
+// export function DiscordPresence() {
+//   const { 
+//     currentSong, 
+//     isPlaying,
+//     currentProgress,
+//     currentDuration,
+//     currentSpaceId
+//   } = useAudioStore();
   
-  const { sendMessage } = useSocket();
+//   const { sendMessage } = useSocket();
 
-  useEffect(() => {
-    // Only proceed if we have a song playing
-    if (!currentSong || !currentSong.name) return;
+//   useEffect(() => {
+//     if (!currentSong || !currentSong.name) return;
     
-    // Extract artist names from artistes
-    const artistNames = currentSong.artistes?.primary
-      ? currentSong.artistes.primary.map(artist => artist.name).join(', ')
-      : 'Unknown Artist';
+//     const artistNames = currentSong.artistes?.primary
+//       ? currentSong.artistes.primary.map(artist => artist.name).join(', ')
+//       : 'Unknown Artist';
     
-    // Get image URL from the image array
-    const imageUrl = currentSong.image && currentSong.image.length > 0 
-      ? currentSong.image[0].url 
-      : undefined;
+//     const imageUrl = currentSong.image && currentSong.image.length > 0 
+//       ? currentSong.image[0].url 
+//       : undefined;
     
-    const songData = {
-      title: currentSong.name,
-      artist: artistNames,
-      image: imageUrl,
-      duration: currentDuration,
-      currentTime: currentProgress, // Current position in seconds
-      startTime: Date.now() - (currentProgress * 1000), // When the song started
-      isPlaying: isPlaying, // Pass playback state
-      spaceId: currentSpaceId || undefined, // Convert null to undefined
-      spaceName: 'Deciball Space'
-    };
+//     const songData = {
+//       title: currentSong.name,
+//       artist: artistNames,
+//       image: imageUrl,
+//       duration: currentDuration,
+//       currentTime: currentProgress,
+//       startTime: Date.now() - (currentProgress * 1000),
+//       isPlaying: isPlaying,
+//       spaceId: currentSpaceId || undefined,
+//       spaceName: 'Deciball Space'
+//     };
 
-    // Send to Discord RPC via Electron (if available)
-    try {
-      console.log('Current window.electronAPI status:', !!window.electronAPI);
+//     try {
+//       console.log('Current window.electronAPI status:', !!window.electronAPI);
       
-      if (typeof window !== 'undefined' && window.electronAPI) {
-        console.log('Sending Discord activity update to Electron:', JSON.stringify(songData));
-        window.electronAPI.updateDiscordActivity(songData);
-      } else {
-        console.log('Running outside of Electron environment - Discord RPC not available');
-      }
-    } catch (error) {
-      console.error('Error sending data to Electron:', error);
-    }
+//       if (typeof window !== 'undefined' && window.electronAPI) {
+//         console.log('Sending Discord activity update to Electron:', JSON.stringify(songData));
+//         window.electronAPI.updateDiscordActivity(songData);
+//       } else {
+//         console.log('Running outside of Electron environment - Discord RPC not available');
+//       }
+//     } catch (error) {
+//       console.error('Error sending data to Electron:', error);
+//     }
     
-    // Also broadcast to other clients via WebSocket
-    if (currentSpaceId) {
-      console.log('Broadcasting Discord activity to WebSocket:', songData);
-      sendMessage('discord-activity-update', {
-        ...songData,
-        spaceId: currentSpaceId
-      });
-    }
-  }, [
-    // Only trigger when these values change significantly
-    currentSong?.name,
-    currentSong?.artistes,
-    isPlaying,
-    // Update more frequently for smoother progress bar
-    // Discord actually uses the timestamps to calculate the progress bar on its end,
-    // so we only need to update when song changes or playback state changes
-    Math.floor(currentProgress / 10), // Update every 10 seconds for better sync
-    currentSpaceId
-  ]);
+//     if (currentSpaceId) {
+//       console.log('Broadcasting Discord activity to WebSocket:', songData);
+//       sendMessage('discord-activity-update', {
+//         ...songData,
+//         spaceId: currentSpaceId
+//       });
+//     }
+//   }, [
+//     currentSong?.name,
+//     currentSong?.artistes,
+//     isPlaying,
+//     Math.floor(currentProgress / 10),
+//     currentSpaceId
+//   ]);
 
-  // This is a utility component with no UI
-  return null;
-}
+//   return null;
+// }

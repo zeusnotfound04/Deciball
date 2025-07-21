@@ -27,23 +27,20 @@ interface ListenerSidebarProps {
 const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
   const { state } = useSidebar(); 
   
-  // Debug effect to track when listeners prop changes
   useEffect(() => {
    
   }, [listeners, state]);
   
-  console.log('🎧 ListenerSidebar - rendering with state:', listeners);
+  console.log('ListenerSidebar - rendering with state:', listeners);
 
-  // Simplified animation approach using direct motion values
   const isExpanded = state === "expanded";
   
-  const sidebarWidth = isExpanded ? 280 : 90; // Increased from 85 to 100
+  const sidebarWidth = isExpanded ? 280 : 90;
   const animationConfig = {
     duration: 0.4,
     ease: [0.25, 0.46, 0.45, 0.94] as const
   };
 
-  // Add missing itemVariants
   const itemVariants = {
     expanded: {
       opacity: 1,
@@ -59,10 +56,8 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
     }
   };
 
-  // Memoize the listeners count to prevent unnecessary re-calculations
   const listenersCount = useMemo(() => listeners.length, [listeners.length]);
 
-  // Enhanced empty listeners content with better collapsed state
   const emptyListenersContent = useMemo(() => {
     if (listenersCount > 0) return null;
     
@@ -84,7 +79,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
               className="text-center space-y-3"
             >
               <div className="w-12 h-12 mx-auto rounded-2xl bg-[#1C1E1F] flex items-center justify-center shadow-lg border border-[#424244]/50">
-                <span className="text-lg">👤</span>
+                <span className="text-lg">User</span>
               </div>
               <div className="space-y-1">
                 <span className="text-sm text-gray-300 font-medium block">
@@ -102,7 +97,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-              className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#1C1E1F] text-sm font-bold border border-[#424244]/50 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 mx-1" // Adjusted size and added margin
+              className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#1C1E1F] text-sm font-bold border border-[#424244]/50 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 mx-1"
             >
               <span className="text-gray-300">0</span>
             </motion.div>
@@ -119,7 +114,6 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
         : listener.userId.slice(0, 2).toUpperCase();
     }, [listener.name, listener.userId]);
 
-    // Memoize display name
     const displayName = useMemo(() => {
       return listener.name || `User ${listener.userId.slice(0, 8)}`;
     }, [listener.name, listener.userId]);
@@ -141,7 +135,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
           <motion.div 
             className={`sidebar-item flex items-center transition-all duration-300 backdrop-blur-sm border border-gray-700/20 hover:border-gray-600/40 hover:shadow-lg group ${
               !isExpanded 
-                ? "justify-center p-2 rounded-xl mx-1 mb-2" // Reduced padding and margin
+                ? "justify-center p-2 rounded-xl mx-1 mb-2"
                 : "gap-3 p-3 rounded-xl hover:bg-gray-700/30"
             }`}
             whileHover={{ 
@@ -154,7 +148,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             >
               <Avatar className={`transition-all duration-300 flex-shrink-0 ring-2 ring-gray-600/20 group-hover:ring-blue-500/30 ${
-                !isExpanded ? "h-9 w-9" : "h-9 w-9" // Slightly reduced size for collapsed
+                !isExpanded ? "h-9 w-9" : "h-9 w-9"
               }`}>
                 {listener.imageUrl && (
                   <AvatarImage
@@ -168,7 +162,6 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
               </Avatar>
             </motion.div>
             
-            {/* Animated name and creator badge */}
             <AnimatePresence mode="wait">
               {isExpanded && (
                 <motion.div
@@ -206,7 +199,6 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
     );
   });
 
-  // Memoize the entire listeners list
   const listenersContent = useMemo(() => {
     if (listenersCount === 0) {
       return emptyListenersContent;
@@ -221,15 +213,14 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
     ));
   }, [listeners, listenersCount, emptyListenersContent]);
 
-  // Memoize the main sidebar content with stable dependencies
   const sidebarContent = useMemo(() => (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-      className={!isExpanded ? "pt-3 px-2" : "p-4 space-y-2"} // Adjusted padding for collapsed state
+      className={!isExpanded ? "pt-3 px-2" : "p-4 space-y-2"}
     >
-      <SidebarMenu className={!isExpanded ? "space-y-1" : "space-y-2"}> {/* Reduced spacing in collapsed */}
+      <SidebarMenu className={!isExpanded ? "space-y-1" : "space-y-2"}>
         {listenersContent}
       </SidebarMenu>
     </motion.div>
@@ -247,16 +238,15 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
         animate={{ x: 0, opacity: 1, width: sidebarWidth }}
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
         className="h-full"
-        style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, maxWidth: `${sidebarWidth}px` }} // Enforce width constraints
+        style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, maxWidth: `${sidebarWidth}px` }}
       >
         <Sidebar
           side="left"
           className="dark bg-transparent text-white border-none h-full transition-all duration-500 ease-out overflow-hidden"
           collapsible="icon"
-          style={{ width: `${sidebarWidth}px` }} // Force the width override
+          style={{ width: `${sidebarWidth}px` }}
         >
           <SidebarHeader className="flex flex-col p-4 relative h-auto min-h-16 bg-[#1C1E1F] backdrop-blur-md rounded-t-2xl border-b border-[#424244]/50 shadow-lg">
-            {/* Enhanced trigger button - positioned at top right */}
             <motion.div 
               className="absolute right-3 top-3 z-10"
               whileHover={{ scale: 1.05 }}
@@ -265,7 +255,6 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
               <SidebarTrigger className="transition-all duration-300 hover:bg-gray-700/50 rounded-xl p-2 w-12 h- flex items-center justify-center backdrop-blur-sm border border-gray-600/20 hover:border-gray-500/40 shadow-sm hover:shadow-md" />
             </motion.div>
             
-            {/* Premium Header */}
             <div className="flex-1 pr-12 flex flex-col justify-center h-full">
               <AnimatePresence mode="wait">
                 {isExpanded && (
@@ -298,7 +287,6 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
               </AnimatePresence>
             </div>
             
-            {/* Crisply-style line separator - always visible */}
             <motion.div 
               className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-500/40 to-transparent"
               initial={{ scaleX: 0 }}

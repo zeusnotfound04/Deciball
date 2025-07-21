@@ -255,7 +255,6 @@ export default function PixelCard({
     let allIdle = true;
     for (let i = 0; i < pixelsRef.current.length; i++) {
       const pixel = pixelsRef.current[i];
-      // @ts-ignore
       pixel[fnName]();
       if (!pixel.isIdle) {
         allIdle = false;
@@ -298,7 +297,6 @@ export default function PixelCard({
         cancelAnimationFrame(animationRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finalGap, finalSpeed, finalColors, finalNoFocus]);
 
   return (
