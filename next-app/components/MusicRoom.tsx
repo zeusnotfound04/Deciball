@@ -429,13 +429,13 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                       stepDuration={0.4}
                     >
                       {showPlayer && (
-                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6">
+                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6 min-h-[600px]">
                           <Player 
                             spaceId={spaceId}
                             isAdmin={isAdmin}
                             userCount={connectedUsers}
                             userDetails={userDetails}
-                            className="w-full"
+                            className="w-full h-full"
                           />
                         </div>
                       )}
