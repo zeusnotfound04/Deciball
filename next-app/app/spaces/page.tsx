@@ -1,20 +1,17 @@
 "use client"
 
-import { useEffect, useState, useContext } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useEffect, useState, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
+import { Card, CardContent } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
-import { Badge } from "@/app/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/app/components/ui/dropdown-menu";
-import { Loader2, Plus, Users, Music, Trash2, ExternalLink, User, LogOut, Settings } from "lucide-react";
-import useRedirect from "@/hooks/useRedirect";
+import { Input } from "@/app/components/ui/input";
+import { Loader2, Play } from "lucide-react";
 import BackgroundAnimation from "@/components/Background";
-import ChromaGrid, { ChromaItem } from "@/app/components/ui/ChromaGrid";
+import { signikaNegative, lexend, poppins } from "@/lib/font";
 import axios from "axios";
-import { SocketContext } from "@/context/socket-context";
+import GlitchText from "@/components/ui/glitch-text";
 
 interface Space {
   id: string;
@@ -24,82 +21,18 @@ interface Space {
   _count?: {
     streams: number;
   };
-  streams?: Array<{
-    id: string;
-    title: string;
-    smallImg: string;
-    bigImg: string;
-    artist?: string;
-  }>;
-  currentImage?: string; // Added to track current song image
 }
 
 export default function SpacesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [spaces, setSpaces] = useState<Space[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState<string>('');
-  const [spaceImages, setSpaceImages] = useState<Record<string, string>>({});
-  const [imageUpdated, setImageUpdated] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [spaceName, setSpaceName] = useState("");
+  const [showPastSpaces, setShowPastSpaces] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   
-  // Use the socket context
-  const { socket, sendMessage, user } = useContext(SocketContext);
-  
-  // Remove the redirect logic - users will only reach this page if they have spaces
-  const { isLoading: redirectLoading, isAuthenticated } = useRedirect({
-    redirectTo: 'manual'
-  });
-
-  // Request and handle space images via WebSocket
-  useEffect(() => {
-    if (!socket || !user || !spaces.length) return;
-
-    // Handle WebSocket messages for space images
-    const handleMessage = (event: MessageEvent) => {
-      try {
-        const { type, data } = JSON.parse(event.data);
-        
-        // Handle space image response message
-        if (type === 'space-image-response' && data.spaceId && data.imageUrl) {
-          console.log(`🖼️ Received space image for ${data.spaceId}:`, data.imageUrl);
-          setSpaceImages(prev => ({
-            ...prev,
-            [data.spaceId]: data.imageUrl
-          }));
-        }
-        
-        // Handle space image update message (when songs change)
-        else if (type === 'space-image-update' && data.spaceId && data.imageUrl) {
-          console.log(`🖼️ Received space image update for ${data.spaceId}:`, data.imageUrl);
-          setSpaceImages(prev => ({
-            ...prev,
-            [data.spaceId]: data.imageUrl
-          }));
-          setImageUpdated(data.spaceId); // Set the updated image ID
-          setTimeout(() => setImageUpdated(null), 3000); // Clear the indicator after 3 seconds
-        }
-      } catch (error) {
-        console.error('Error handling WebSocket message:', error);
-      }
-    };
-
-    // Add event listener for messages
-    socket.addEventListener('message', handleMessage);
-
-    // Request images for each space
-    spaces.forEach(space => {
-      if (socket.readyState === WebSocket.OPEN && user) {
-        console.log(`🖼️ Requesting image for space: ${space.id}`);
-        sendMessage('get-space-image', { spaceId: space.id });
-      }
-    });
-
-    // Clean up
-    return () => {
-      socket.removeEventListener('message', handleMessage);
-    };
-  }, [socket, user, spaces, sendMessage]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchSpaces = async () => {
     try {
@@ -113,51 +46,28 @@ export default function SpacesPage() {
     }
   };
 
-  // Convert spaces to ChromaGrid items
-  const convertSpacesToChromaItems = (spaces: Space[]): ChromaItem[] => {
-    return spaces.map((space, index) => {
-      // Use the space image from WebSocket if available, otherwise fallback to API data or default
-      const spaceImage = spaceImages[space.id] ||
-                         space.streams?.[0]?.bigImg || 
-                         space.streams?.[0]?.smallImg || 
-                         `https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&crop=entropy&auto=format&q=80&random=${index}`;
-      
-      // Generate gradient colors based on space activity
-      const gradientColors = space.isActive 
-        ? ["#10B981", "#000"] // Green gradient for active spaces
-        : ["#6B7280", "#000"]; // Gray gradient for inactive spaces
-      
-      const borderColor = space.isActive ? "#10B981" : "#6B7280";
-      
-      return {
-        image: spaceImage,
-        title: space.name,
-        subtitle: `${space._count?.streams || 0} tracks`,
-        handle: space.isActive ? "Active" : "Inactive",
-        location: imageUpdated === space.id ? "🎵 Now playing updated!" : "Hosted by you",
-        borderColor: imageUpdated === space.id ? "#3b82f6" : borderColor, // Highlight border when updated
-        gradient: imageUpdated === space.id 
-          ? `linear-gradient(145deg, #3b82f6, #000)` // Blue gradient for updated image
-          : `linear-gradient(145deg, ${gradientColors[0]}, ${gradientColors[1]})`,
-        url: `/space/${space.id}`, // Link to join the space
-      };
-    });
-  };
-
-  const handleDeleteSpace = async (spaceId: string, spaceName: string) => {
-    if (!confirm(`Are you sure you want to delete "${spaceName}"? This action cannot be undone.`)) {
+  const handleCreateSpace = async () => {
+    if (!spaceName.trim()) return;
+    
+    // Check if user is authenticated
+    if (status !== 'authenticated') {
+      router.push('/signin');
       return;
     }
 
     try {
-      setDeleting(spaceId);
-      await axios.delete(`/api/spaces?spaceId=${spaceId}`);
-      setSpaces(spaces.filter(space => space.id !== spaceId));
+      setIsCreating(true);
+      const response = await axios.post('/api/spaces', {
+        spaceName: spaceName.trim()
+      });
+      
+      if (response.data.space) {
+        router.push(`/space/${response.data.space.id}`);
+      }
     } catch (error) {
-      console.error('Error deleting space:', error);
-      alert('Failed to delete space. Please try again.');
+      console.error('Error creating space:', error);
     } finally {
-      setDeleting('');
+      setIsCreating(false);
     }
   };
 
@@ -165,238 +75,278 @@ export default function SpacesPage() {
     router.push(`/space/${spaceId}`);
   };
 
-  const handleCreateNewSpace = () => {
-    router.push('/dashboard');
+  const handleViewPastSpaces = () => {
+    if (status !== 'authenticated') {
+      router.push('/signin');
+      return;
+    }
+    
+    setShowPastSpaces(true);
+    fetchSpaces();
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut({ redirect: true, callbackUrl: '/' });
-    } catch (error) {
-      console.error('Error signing out:', error);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCreateSpace();
     }
   };
 
-  // Get user's profile picture URL
-  const getProfilePicture = () => {
-    if (session?.user?.pfpUrl) {
-      return session.user.pfpUrl;
-    }
-    if (session?.user?.pfpUrl) {
-      return session.user.pfpUrl;
-    }
-    return null;
+  // Animation variants
+  const textVariants = {
+    hidden: { opacity: 0, y: 30, filter: "blur(10px)" },
+    visible: { opacity: 1, y: 0, filter: "blur(0px)" }
   };
 
-  // Get user's initials for fallback
-  const getUserInitials = () => {
-    if (session?.user?.name) {
-      return session.user.name.split(' ').map(n => n[0]).join('').toUpperCase();
-    }
-    if (session?.user?.username) {
-      return session.user.username.slice(0, 2).toUpperCase();
-    }
-    if (session?.user?.email) {
-      return session.user.email.slice(0, 2).toUpperCase();
-    }
-    return 'U';
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    visible: { opacity: 1, y: 0, scale: 1 }
   };
-
-  useEffect(() => {
-    if (isAuthenticated && !redirectLoading) {
-      fetchSpaces();
-    }
-  }, [isAuthenticated, redirectLoading]);
-
-  if (status === 'loading' || redirectLoading || loading) {
-    return (
-      <BackgroundAnimation >
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
-            <p className="text-zinc-400 text-lg">Loading your spaces...</p>
-          </div>
-        </div>
-      </BackgroundAnimation>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <BackgroundAnimation>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-4">Please Sign In</h1>
-            <p className="text-zinc-400">You need to be signed in to view your spaces.</p>
-          </div>
-        </div>
-      </BackgroundAnimation>
-    );
-  }
 
   return (
-    <div className="min-h-screen relative">
-      {/* Fixed background that doesn't scroll */}
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Fixed background */}
       <div className="fixed inset-0 z-0">
-        <BackgroundAnimation  />
+        <BackgroundAnimation />
       </div>
       
-      {/* User Avatar in Top Right */}
-      <div className="fixed top-4 right-4 z-50">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-zinc-800/50">
-              <Avatar className="h-10 w-10 ring-2 ring-cyan-400/20 hover:ring-cyan-400/40 transition-all duration-300">
-                <AvatarImage 
-                  src={getProfilePicture() || undefined} 
-                  alt={'User'} 
-                  className="object-cover"
+      {/* Main content */}
+      <div className="relative z-10 min-h-screen">
+        <AnimatePresence mode="wait">
+          {!showPastSpaces ? (
+            <motion.div
+              key="onboarding"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -50 }}
+              transition={{ duration: 0.6 }}
+              className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-0"
+            >
+              {/* Main title */}
+              <motion.h1
+                variants={textVariants}
+                initial="hidden"
+                animate="visible"
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className={`${signikaNegative.className} text-3xl sm:text-4xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-center text-white mb-4 sm:mb-6 leading-tight px-2`}
+              >
+                Sync the Beat, Vote the Heat!
+              </motion.h1>
+
+              {/* Deciball title */}
+              <motion.div
+                variants={textVariants}
+                initial="hidden"
+                animate="visible"
+                transition={{ duration: 0.8, delay: 0.6 }}
+                className="relative mb-8 sm:mb-12"
+              >
+                <GlitchText
+                  speed={1}
+                  enableShadows={true}
+                  enableOnHover={false}
+                  className={`${lexend.className} text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-bold text-center bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent px-2`}
+                >
+                  Deciball
+                </GlitchText>
+
+                {/* <h2 className={`${lexend.className} text-3xl md:text-5xl lg:text-6xl font-bold text-center bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent`}>
+                  Deciball
+                // </h2> */}
+              </motion.div>
+
+              {/* Animated input field */}
+              <motion.div
+                variants={textVariants}
+                initial="hidden"
+                animate="visible"
+                transition={{ duration: 0.8, delay: 1.0 }}
+                className="w-full max-w-sm sm:max-w-md md:max-w-lg relative mb-6 sm:mb-8 px-4 sm:px-0"
+              >
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Enter your space name..."
+                  value={spaceName}
+                  onChange={(e) => setSpaceName(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="w-full px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 bg-white text-black placeholder-gray-500 text-lg sm:text-xl border-2 border-gray-300 rounded-xl focus:border-black focus:ring-0 focus:outline-none transition-all duration-300"
+                  disabled={isCreating}
                 />
-                <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-teal-500 text-white font-semibold">
-                  {getUserInitials()}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56 bg-zinc-900/95 border-zinc-800" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none text-zinc-100">
-                  {session?.user?.name || session?.user?.username || 'User'}
-                </p>
-                <p className="text-xs leading-none text-zinc-400">
-                  {session?.user?.email}
-                </p>
+              </motion.div>
+
+              {/* Jam Now Button */}
+              <motion.div
+                variants={textVariants}
+                initial="hidden"
+                animate="visible"
+                transition={{ duration: 0.8, delay: 1.2 }}
+                className="mb-16 sm:mb-20 px-4 sm:px-0"
+              >
+                <motion.button
+                  whileHover={{ 
+                    scale: 1.05,
+                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)"
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleCreateSpace}
+                  disabled={!spaceName.trim() || isCreating}
+                  className={`${poppins.className} bg-black text-white px-8 sm:px-12 md:px-16 py-4 sm:py-5 text-lg sm:text-xl font-semibold rounded-2xl hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 border-2 border-transparent hover:border-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300/50 w-full sm:w-auto`}
+                >
+                  {isCreating ? (
+                    <div className="flex items-center justify-center gap-3">
+                      <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
+                      <span>Creating...</span>
+                    </div>
+                  ) : (
+                    "Jam Now"
+                  )}
+                </motion.button>
+              </motion.div>
+
+              {/* Bottom action */}
+              <motion.div
+                variants={textVariants}
+                initial="hidden"
+                animate="visible"
+                transition={{ duration: 0.8, delay: 1.4 }}
+                className="fixed bottom-0 left-0 right-0 pb-6 sm:pb-8 pt-4 sm:pt-6 bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm px-4"
+              >
+                <div className="flex justify-center">
+                  {status === 'authenticated' ? (
+                    <motion.button
+                      whileHover={{ 
+                        scale: 1.05,
+                        y: -2
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleViewPastSpaces}
+                      className={`${poppins.className} text-white/80 hover:text-white transition-all duration-300 text-base sm:text-lg font-medium group bg-white/10 backdrop-blur-md px-6 sm:px-8 py-2.5 sm:py-3 rounded-full border border-white/20 hover:border-white/40 hover:bg-white/20 w-full sm:w-auto max-w-sm text-center`}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-sm sm:text-base">View Past Created Spaces</span>
+                        <motion.div
+                          initial={{ width: 0 }}
+                          whileHover={{ width: "100%" }}
+                          className="h-0.5 bg-gradient-to-r from-cyan-400 to-teal-400 rounded-full transition-all duration-300"
+                        />
+                      </div>
+                    </motion.button>
+                  ) : (
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="w-full sm:w-auto max-w-sm"
+                    >
+                      <Button
+                        onClick={() => router.push('/signin')}
+                        variant="outline"
+                        className={`${poppins.className} border-white/30 text-white/80 hover:text-white hover:border-white/60 hover:bg-white/10 transition-all duration-300 px-6 sm:px-8 py-2.5 sm:py-3 text-base sm:text-lg font-medium rounded-full backdrop-blur-md w-full sm:w-auto`}
+                      >
+                        Sign In
+                      </Button>
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="past-spaces"
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="min-h-screen py-6 sm:py-8"
+            >
+              <div className="container mx-auto px-4 max-w-4xl">
+                {/* Header */}
+                <div className="text-center mb-8 sm:mb-12">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowPastSpaces(false)}
+                    className="text-zinc-400 hover:text-cyan-400 transition-colors duration-300 mb-4 sm:mb-6 inline-flex items-center gap-2 text-sm sm:text-base"
+                  >
+                    ← Back to Create
+                  </motion.button>
+                  
+                  <motion.h1
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`${lexend.className} text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3 sm:mb-4 px-2`}
+                  >
+                    Your Past Spaces
+                  </motion.h1>
+                  
+                  <motion.p
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="text-zinc-400 text-base sm:text-lg px-2"
+                  >
+                    Join your previously created music rooms
+                  </motion.p>
+                </div>
+
+                {/* Spaces Grid */}
+                {loading ? (
+                  <div className="flex justify-center py-12 sm:py-16">
+                    <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+                  </div>
+                ) : spaces.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-12 sm:py-16 px-4"
+                  >
+                    <h3 className="text-lg sm:text-xl font-bold text-zinc-300 mb-3 sm:mb-4">No Spaces Found</h3>
+                    <p className="text-zinc-500 mb-4 sm:mb-6 text-sm sm:text-base">You haven't created any spaces yet.</p>
+                    <Button
+                      onClick={() => setShowPastSpaces(false)}
+                      className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 w-full sm:w-auto"
+                    >
+                      Create Your First Space
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {spaces.map((space, index) => (
+                      <motion.div
+                        key={space.id}
+                        variants={cardVariants}
+                        initial="hidden"
+                        animate="visible"
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                      >
+                        <Card className="bg-zinc-900/50 backdrop-blur-sm border-zinc-800 hover:border-cyan-400/50 transition-all duration-300 group">
+                          <CardContent className="p-4 sm:p-6">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-base sm:text-lg font-semibold text-white mb-1 sm:mb-2 group-hover:text-cyan-400 transition-colors duration-300 truncate">
+                                  {space.name}
+                                </h3>
+                                <p className="text-xs sm:text-sm text-zinc-400 mb-2 sm:mb-4">
+                                  {space.isActive ? 'Active' : 'Inactive'} • {space._count?.streams || 0} tracks
+                                </p>
+                              </div>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleJoinSpace(space.id)}
+                                className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white p-2 sm:p-2.5 rounded-full transition-all duration-300 shadow-lg ml-3 flex-shrink-0"
+                              >
+                                <Play className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </motion.button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-zinc-800" />
-            <DropdownMenuItem 
-              className="text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 cursor-pointer"
-              onClick={() => router.push('/profile')}
-            >
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              className="text-zinc-300 hover:text-zinc-100 hover:bg-zinc-800 cursor-pointer"
-              onClick={() => router.push('/settings')}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="bg-zinc-800" />
-            <DropdownMenuItem 
-              className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer"
-              onClick={handleLogout}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      
-      {/* Scrollable content */}
-      <div className="relative z-10 min-h-screen py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <motion.h1 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent mb-4"
-          >
-            Your Music Spaces
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-zinc-400 text-lg"
-          >
-            Manage and join your collaborative music rooms
-          </motion.p>
-        </div>
-
-        {/* Create New Space Button */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mb-8 text-center"
-        >
-          <Button 
-            onClick={handleCreateNewSpace}
-            className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white px-8 py-3 rounded-lg font-medium transition-all duration-300 shadow-lg shadow-cyan-900/30"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Create New Space
-          </Button>
-        </motion.div>
-
-        {/* Spaces Grid */}
-        {spaces.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-            className="text-center py-16"
-          >
-            <Music className="w-16 h-16 text-zinc-600 mx-auto mb-6" />
-            <h2 className="text-2xl font-bold text-zinc-300 mb-4">No Spaces Yet</h2>
-            <p className="text-zinc-500 mb-8 max-w-md mx-auto">
-              You haven't created any music spaces yet. Create your first space to start listening with friends!
-            </p>
-            <Button 
-              onClick={handleCreateNewSpace}
-              className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white px-6 py-2 rounded-lg font-medium transition-all duration-300"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Your First Space
-            </Button>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="min-h-[600px] relative"
-          >
-            <ChromaGrid 
-              items={convertSpacesToChromaItems(spaces)}
-              className="py-8"
-              radius={250}
-              damping={0.4}
-              fadeOut={0.5}
-            />
-            
-            {/* Floating Action Buttons */}
-            <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-40">
-              {/* Delete Mode Toggle */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-red-900/20 border-red-800 text-red-400 hover:bg-red-900/40 hover:text-red-300"
-                onClick={() => {
-                  // Toggle delete mode - you can implement this functionality
-                  alert("Right-click on a space card to delete it, or implement a delete mode toggle here");
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-              
-              {/* Create New Space */}
-              <Button 
-                onClick={handleCreateNewSpace}
-                className="bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white shadow-lg shadow-cyan-900/30"
-                size="lg"
-              >
-                <Plus className="w-5 h-5" />
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

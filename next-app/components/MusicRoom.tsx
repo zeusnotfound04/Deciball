@@ -416,57 +416,63 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             {/* Main Content Grid */}
             <div className="flex-1 p-4">
               <div className="max-w-7xl mx-auto h-full">
-                {/* Grid Layout - 2 columns */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-[calc(100vh-200px)]">
+                {/* Two Column Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full min-h-[calc(100vh-200px)]">
 
-                  {/* Left Column - Player and Recommendation with Blur Effects */}
-                  <BlurComponent 
-                    delay={500} 
-                    direction="top"
-                    className="flex flex-col justify-center space-y-6"
-                    stepDuration={0.4}
-                  >
-                    {showPlayer && (
-                      <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6">
-                        <Player 
-                          spaceId={spaceId}
-                          isAdmin={isAdmin}
-                          userCount={connectedUsers}
-                          userDetails={userDetails}
-                          className="w-full"
-                        />
-                      </div>
-                    )}
-</BlurComponent>
-<BlurComponent
-                    delay={600}
-                    direction="bottom"
-                    className="h-full"
-                    stepDuration={0.4}
-                  >
-                    {/* Recommendation Section */}
-                    <RecommendationPanel 
-                      spaceId={spaceId}
-                      isAdmin={isAdmin}
-                    />
-                  </BlurComponent>
+                  {/* Left Column - Player + Recommendations */}
+                  <div className="flex flex-col gap-4">
+                    {/* Player Section */}
+                    <BlurComponent 
+                      delay={500} 
+                      direction="top"
+                      className="flex-shrink-0"
+                      stepDuration={0.4}
+                    >
+                      {showPlayer && (
+                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6">
+                          <Player 
+                            spaceId={spaceId}
+                            isAdmin={isAdmin}
+                            userCount={connectedUsers}
+                            userDetails={userDetails}
+                            className="w-full"
+                          />
+                        </div>
+                      )}
+                    </BlurComponent>
 
-                  {/* Right Column - Queue with Blur Effects */}
-                  <BlurComponent
-                    delay={700}
-                    direction="bottom"
-                    className="h-full"
-                    stepDuration={0.4}
-                  >
-                    {showQueue && (
-                      <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-8 h-full min-h-[600px]">
-                        <QueueManager 
-                          spaceId={spaceId} 
-                          isAdmin={isAdmin}
-                        />
-                      </div>
-                    )}
-                  </BlurComponent>
+                    {/* New Releases Panel */}
+                    <BlurComponent
+                      delay={700}
+                      direction="bottom"
+                      className="flex-1"
+                      stepDuration={0.4}
+                    >
+                      <RecommendationPanel 
+                        spaceId={spaceId}
+                        isAdmin={isAdmin}
+                      />
+                    </BlurComponent>
+                  </div>
+
+                  {/* Right Column - Queue Manager */}
+                  <div className="flex flex-col">
+                    <BlurComponent
+                      delay={600}
+                      direction="top"
+                      className="h-full"
+                      stepDuration={0.4}
+                    >
+                      {showQueue && (
+                        <div className="backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6 h-full min-h-[600px]">
+                          <QueueManager 
+                            spaceId={spaceId} 
+                            isAdmin={isAdmin}
+                          />
+                        </div>
+                      )}
+                    </BlurComponent>
+                  </div>
                 </div>
               </div>
             </div>

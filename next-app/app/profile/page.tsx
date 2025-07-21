@@ -2,40 +2,100 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Edit3, Save, X, Camera, User, AtSign } from "lucide-react"
+import { Edit3, Save, X, Camera, User, AtSign, Mail, Calendar, Shield, CheckCircle2, AlertCircle, Upload } from "lucide-react"
 import BeamsBackground from "@/components/Background"
 
+interface ProfileData {
+  name: string
+  username: string
+  pfpUrl: string
+  email?: string
+  createdAt?: string
+}
+
+interface NotificationState {
+  show: boolean
+  type: 'success' | 'error'
+  message: string
+}
+
 export default function ProfileSection() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
-  const [profile, setProfile] = useState({
+  const [notification, setNotification] = useState<NotificationState>({
+    show: false,
+    type: 'success',
+    message: ''
+  })
+  const [profile, setProfile] = useState<ProfileData>({
     name: "",
     username: "",
     pfpUrl: "",
+    email: "",
+    createdAt: ""
   })
-  const [editForm, setEditForm] = useState(profile)
+  const [editForm, setEditForm] = useState<ProfileData>(profile)
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
+
+  // Show notification helper
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ show: true, type, message })
+    setTimeout(() => {
+      setNotification({ show: false, type: 'success', message: '' })
+    }, 5000)
+  }
 
   // Initialize profile data from session when available
   useEffect(() => {
     if (session?.user) {
-      const initialProfile = {
-        name: session.user.name || "",
+      const initialProfile: ProfileData = {
+        name: String(session.user.name || ""),
         username: session.user.username || session.user.email?.split('@')[0] || "",
         pfpUrl: session.user.pfpUrl || "",
+        email: session.user.email || "",
+        createdAt: new Date().toISOString() // Default to current date since not available in session
       }
       setProfile(initialProfile)
       setEditForm(initialProfile)
     }
   }, [session])
 
+  // Validation helper
+  const validateForm = () => {
+    const newErrors: { [key: string]: string } = {}
+    
+    if (!editForm.name.trim()) {
+      newErrors.name = "Name is required"
+    } else if (editForm.name.trim().length < 2) {
+      newErrors.name = "Name must be at least 2 characters"
+    }
+    
+    if (!editForm.username.trim()) {
+      newErrors.username = "Username is required"
+    } else if (editForm.username.trim().length < 3) {
+      newErrors.username = "Username must be at least 3 characters"
+    } else if (!/^[a-zA-Z0-9_]+$/.test(editForm.username.trim())) {
+      newErrors.username = "Username can only contain letters, numbers, and underscores"
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleEdit = () => {
     setIsEditing(true)
     setEditForm(profile)
+    setErrors({})
   }
 
   const handleSave = async () => {
+    if (!validateForm()) {
+      showNotification('error', 'Please fix the errors and try again')
+      return
+    }
+
     setIsLoading(true)
     
     try {
@@ -45,23 +105,41 @@ export default function ProfileSection() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: editForm.name,
-          username: editForm.username,
+          name: editForm.name.trim(),
+          username: editForm.username.trim(),
           pfpUrl: editForm.pfpUrl,
         }),
       })
 
+      const data = await response.json()
+
       if (response.ok) {
-        const updatedProfile = await response.json()
+        const updatedProfile = {
+          ...profile,
+          name: data.name,
+          username: data.username,
+          pfpUrl: data.pfpUrl || ""
+        }
         setProfile(updatedProfile)
         setIsEditing(false)
+        showNotification('success', 'Profile updated successfully!')
+        
+        // Update the session with new data
+        await update({
+          ...session,
+          user: {
+            ...session?.user,
+            name: data.name,
+            username: data.username,
+            pfpUrl: data.pfpUrl
+          }
+        })
       } else {
-        console.error('Failed to save profile')
-        // You might want to show an error message to the user
+        showNotification('error', data.error || 'Failed to save profile')
       }
     } catch (error) {
       console.error('Error saving profile:', error)
-      // You might want to show an error message to the user
+      showNotification('error', 'An unexpected error occurred')
     } finally {
       setIsLoading(false)
     }
@@ -70,11 +148,24 @@ export default function ProfileSection() {
   const handleCancel = () => {
     setEditForm(profile)
     setIsEditing(false)
+    setErrors({})
   }
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('error', 'Image size must be less than 5MB')
+      return
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', 'Please select a valid image file')
+      return
+    }
 
     setIsUploadingImage(true)
     try {
@@ -87,20 +178,21 @@ export default function ProfileSection() {
         body: formData,
       })
 
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.fileUrls.length > 0) {
-          setEditForm({ ...editForm, pfpUrl: result.fileUrls[0] })
-        }
+      const result = await response.json()
+
+      if (response.ok && result.success && result.fileUrls.length > 0) {
+        setEditForm({ ...editForm, pfpUrl: result.fileUrls[0] })
+        showNotification('success', 'Profile image uploaded successfully!')
       } else {
-        console.error('Failed to upload image')
-        // You might want to show an error message to the user
+        showNotification('error', result.error || 'Failed to upload image')
       }
     } catch (error) {
       console.error('Error uploading image:', error)
-      // You might want to show an error message to the user
+      showNotification('error', 'Failed to upload image')
     } finally {
       setIsUploadingImage(false)
+      // Clear the file input
+      event.target.value = ''
     }
   }
 
@@ -139,101 +231,117 @@ export default function ProfileSection() {
     )
   }
 
+  // Notification component
+  const NotificationToast = () => (
+    <AnimatePresence>
+      {notification.show && (
+        <motion.div
+          initial={{ opacity: 0, y: -50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -50, scale: 0.9 }}
+          className="fixed top-4 right-4 z-50 max-w-md"
+        >
+          <motion.div
+            className={`px-6 py-4 rounded-2xl backdrop-blur-xl shadow-2xl border-2 flex items-center space-x-3 ${
+              notification.type === 'success' 
+                ? 'bg-green-500/20 border-green-500/30 text-green-300' 
+                : 'bg-red-500/20 border-red-500/30 text-red-300'
+            }`}
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              {notification.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5" />
+              ) : (
+                <AlertCircle className="w-5 h-5" />
+              )}
+            </motion.div>
+            <p className="font-medium">{notification.message}</p>
+            <motion.button
+              onClick={() => setNotification({ ...notification, show: false })}
+              className="ml-auto text-current hover:opacity-70 transition-opacity"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <X className="w-4 h-4" />
+            </motion.button>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+
   // Smooth animation variants
- const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.8,
-      ease: [0.22, 1, 0.36, 1] as const, // Add 'as const' assertion
-      staggerChildren: 0.08,
-    },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 15 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { 
-      duration: 0.6, 
-      ease: [0.22, 1, 0.36, 1] as const, // Add 'as const' assertion
-    },
-  },
-}
-
-// Alternative approach using string easing names
-const containerVariantsAlt = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.8,
-      ease: "easeOut", // Use predefined easing strings
-      staggerChildren: 0.08,
-    },
-  },
-}
-
-const itemVariantsAlt = {
-  hidden: { opacity: 0, y: 15 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { 
-      duration: 0.6, 
-      ease: "easeOut", // Use predefined easing strings
-    },
-  },
-}
-
-  const floatingVariants = {
-    animate: {
-      y: [-8, 8, -8],
-      opacity: [0.3, 0.6, 0.3],
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
       transition: {
-        duration: 8,
-        repeat: Number.POSITIVE_INFINITY,
-        ease: "easeInOut",
+        duration: 0.8,
+        ease: [0.22, 1, 0.36, 1] as const,
+        staggerChildren: 0.08,
       },
     },
   }
 
-  const pulseVariants = {
-    animate: {
-      scale: [1, 1.02, 1],
-      transition: {
-        duration: 4,
-        repeat: Number.POSITIVE_INFINITY,
-        ease: "easeInOut",
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { 
+        duration: 0.6, 
+        ease: [0.22, 1, 0.36, 1] as const,
       },
+    },
+  }
+
+  // Background floating animation
+  const floatingAnimation = {
+    y: [-8, 8, -8],
+    opacity: [0.3, 0.6, 0.3],
+    transition: {
+      duration: 8,
+      repeat: Number.POSITIVE_INFINITY,
+      ease: "easeInOut" as const,
+    },
+  }
+
+  // Pulse animation for the main card
+  const pulseAnimation = {
+    scale: [1, 1.02, 1],
+    transition: {
+      duration: 4,
+      repeat: Number.POSITIVE_INFINITY,
+      ease: "easeInOut" as const,
     },
   }
 
   return (
-    <BeamsBackground>
-    <div className="min-h-screen  relative overflow-hidden flex items-center justify-center p-6">
+    <>
+      <NotificationToast />
+      <BeamsBackground>
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
       {/* Subtle animated background elements */}
       <div className="absolute inset-0">
         <motion.div
           className="absolute top-1/4 left-1/4 w-64 h-64 bg-slate-800/5 rounded-full blur-3xl"
-          variants={floatingVariants}
-          animate="animate"
+          animate={floatingAnimation}
         />
         <motion.div
           className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-gray-700/5 rounded-full blur-3xl"
-          variants={floatingVariants}
-          animate="animate"
+          animate={floatingAnimation}
           transition={{ delay: 3 }}
         />
         <motion.div
           className="absolute top-3/4 left-1/3 w-32 h-32 bg-slate-600/5 rounded-full blur-3xl"
-          variants={floatingVariants}
-          animate="animate"
+          animate={floatingAnimation}
           transition={{ delay: 6 }}
         />
       </div>
@@ -245,19 +353,38 @@ const itemVariantsAlt = {
         className="w-full max-w-md relative z-10"
       >
         <motion.div
-          variants={pulseVariants}
-          animate="animate"
+          animate={pulseAnimation}
           className={`${
             isEditing 
               ? 'bg-white/5 backdrop-blur-2xl border border-white/10' 
               : 'bg-gray-900/40 backdrop-blur-xl border border-gray-800/50'
-          } rounded-2xl shadow-2xl p-8 relative overflow-hidden transition-all duration-500`}
+          } rounded-2xl shadow-2xl p-8 relative overflow-hidden transition-all duration-500 ${
+            isLoading ? 'pointer-events-none' : ''
+          }`}
         >
+          {/* Loading overlay */}
+          <AnimatePresence>
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-2xl flex items-center justify-center z-50"
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                  className="w-8 h-8 border-2 border-white border-t-transparent rounded-full"
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
           {/* Glass-like border glow */}
           <div className={`absolute inset-0 rounded-2xl ${
             isEditing 
-              ? 'bg-gradient-to-r from-white/5 via-transparent to-white/5 opacity-70' 
-              : 'bg-gradient-to-r from-gray-700/10 via-transparent to-gray-700/10 opacity-50'
+              ? 'bg-[#1C1E1F] backdrop-blur-xl' 
+              : 'bg-[#1C1E1F] backdrop-blur-xl '
           } transition-all duration-500`} />
           
           {/* Additional glass effect for edit mode */}
@@ -311,15 +438,22 @@ const itemVariantsAlt = {
                         whileHover={{ scale: 1.1 }} 
                         whileTap={{ scale: 0.9 }}
                         transition={{ duration: 0.2 }}
+                        className="flex flex-col items-center space-y-1"
                       >
                         {isUploadingImage ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                            className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
-                          />
+                          <>
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                              className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                            />
+                            <span className="text-xs text-white/80">Uploading...</span>
+                          </>
                         ) : (
-                          <Camera className="w-6 h-6 text-white" />
+                          <>
+                            <Upload className="w-6 h-6 text-white" />
+                            <span className="text-xs text-white/80">Change</span>
+                          </>
                         )}
                       </motion.div>
                     </motion.div>
@@ -361,10 +495,25 @@ const itemVariantsAlt = {
                     </label>
                     <input
                       value={editForm.name}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      className="w-full bg-white/5 backdrop-blur-sm border border-white/10 text-white focus:border-white/20 focus:outline-none rounded-lg px-4 py-3 transition-all duration-300 focus:bg-white/10 placeholder-gray-400"
+                      onChange={(e) => {
+                        setEditForm({ ...editForm, name: e.target.value })
+                        if (errors.name) setErrors({ ...errors, name: '' })
+                      }}
+                      className={`w-full bg-white/5 backdrop-blur-sm border ${
+                        errors.name ? 'border-red-500/50' : 'border-white/10'
+                      } text-white focus:border-white/20 focus:outline-none rounded-lg px-4 py-3 transition-all duration-300 focus:bg-white/10 placeholder-gray-400`}
                       placeholder="Enter your display name"
                     />
+                    {errors.name && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-red-400 text-xs flex items-center gap-1"
+                      >
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.name}
+                      </motion.p>
+                    )}
                   </motion.div>
                   <motion.div
                     className="text-left space-y-2"
@@ -379,10 +528,25 @@ const itemVariantsAlt = {
                     </label>
                     <input
                       value={editForm.username}
-                      onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                      className="w-full bg-white/5 backdrop-blur-sm border border-white/10 text-white focus:border-white/20 focus:outline-none rounded-lg px-4 py-3 transition-all duration-300 focus:bg-white/10 placeholder-gray-400"
+                      onChange={(e) => {
+                        setEditForm({ ...editForm, username: e.target.value })
+                        if (errors.username) setErrors({ ...errors, username: '' })
+                      }}
+                      className={`w-full bg-white/5 backdrop-blur-sm border ${
+                        errors.username ? 'border-red-500/50' : 'border-white/10'
+                      } text-white focus:border-white/20 focus:outline-none rounded-lg px-4 py-3 transition-all duration-300 focus:bg-white/10 placeholder-gray-400`}
                       placeholder="Enter your username"
                     />
+                    {errors.username && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-red-400 text-xs flex items-center gap-1"
+                      >
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.username}
+                      </motion.p>
+                    )}
                   </motion.div>
                 </motion.div>
               ) : (
@@ -392,27 +556,68 @@ const itemVariantsAlt = {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  className="space-y-3"
+                  className="space-y-6"
                 >
-                  <motion.h1
-                    className="text-3xl font-bold text-white tracking-tight"
-                    whileHover={{ 
-                      scale: 1.02,
-                      transition: { duration: 0.2 }
-                    }}
+                  <div className="text-center space-y-3">
+                    <motion.h1
+                      className="text-3xl font-bold text-white tracking-tight"
+                      whileHover={{ 
+                        scale: 1.02,
+                        transition: { duration: 0.2 }
+                      }}
+                    >
+                      {profile.name}
+                    </motion.h1>
+                    <motion.p
+                      className="text-gray-400 text-lg"
+                      whileHover={{ 
+                        scale: 1.02,
+                        color: "#9CA3AF",
+                        transition: { duration: 0.2 }
+                      }}
+                    >
+                      @{profile.username}
+                    </motion.p>
+                  </div>
+
+                  {/* Additional Profile Info */}
+                  <motion.div 
+                    className="space-y-4 pt-4 border-t border-white/10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
                   >
-                    {profile.name}
-                  </motion.h1>
-                  <motion.p
-                    className="text-gray-400 text-lg"
-                    whileHover={{ 
-                      scale: 1.02,
-                      color: "#9CA3AF",
-                      transition: { duration: 0.2 }
-                    }}
-                  >
-                    @{profile.username}
-                  </motion.p>
+                    {profile.email && (
+                      <motion.div 
+                        className="flex items-center gap-3 text-gray-300 hover:text-white transition-colors duration-300"
+                        whileHover={{ x: 5 }}
+                      >
+                        <Mail className="w-4 h-4 opacity-70" />
+                        <span className="text-sm">{profile.email}</span>
+                      </motion.div>
+                    )}
+                    
+                    <motion.div 
+                      className="flex items-center gap-3 text-gray-300"
+                      whileHover={{ x: 5 }}
+                    >
+                      <Calendar className="w-4 h-4 opacity-70" />
+                      <span className="text-sm">
+                        Member since {new Date(profile.createdAt || '').toLocaleDateString('en-US', { 
+                          month: 'long', 
+                          year: 'numeric' 
+                        })}
+                      </span>
+                    </motion.div>
+
+                    <motion.div 
+                      className="flex items-center gap-3 text-gray-300"
+                      whileHover={{ x: 5 }}
+                    >
+                      <Shield className="w-4 h-4 opacity-70" />
+                      <span className="text-sm">Verified Account</span>
+                    </motion.div>
+                  </motion.div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -526,6 +731,7 @@ const itemVariantsAlt = {
         </motion.div>
       </motion.div>
     </div>
-    </BeamsBackground>  
+    </BeamsBackground>
+    </>
   )
 }
