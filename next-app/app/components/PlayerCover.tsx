@@ -11,7 +11,7 @@ interface PlayerCoverProps {
 }
 
 function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
-  const { user, setShowAddDragOptions, emitMessage } = useUserStore();
+  const { user,  } = useUserStore();
   const { sendMessage } = useSocket();
   const { currentSong, isPlaying, setYouTubePlayer, youtubePlayer, pause, resume } = useAudio();
   const { setIsPlaying } = useAudioStore();
@@ -76,17 +76,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
   };
 
 
-  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-    if (currentSong) {
-      setShowAddDragOptions(true);
-      e.dataTransfer.setData("application/json", JSON.stringify(currentSong));
-    }
-  };
-
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setShowAddDragOptions(false);
-  };
+  
 
   const onPlayerReady = (event: any) => {
     setYouTubePlayer(event.target);
@@ -141,7 +131,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
             if (sendMessage && spaceId && userId) {
               sendMessage("songEnded", { spaceId, userId });
             } else {
-              emitMessage("songEnded", "songEnded");
+              // emitMessage("songEnded", "songEnded");
             }
           }}
           onStateChange={(event) => {
@@ -183,9 +173,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
 
       <div
         draggable
-        onDragStart={(e) => handleDragStart(e)}
-        onDragEnd={handleDragEnd}
-        className="relative h-auto min-h-40 overflow-hidden rounded-xl bg-[#1C1E1F]  shadow-lg border border-[#424244] transition-all duration-300 hover:shadow-xl hover:border-gray-600"
+        className="relative w-full aspect-square max-w-[280px] sm:max-w-sm mx-auto overflow-hidden rounded-xl bg-[#1C1E1F] shadow-lg border border-[#424244] transition-all duration-300 hover:shadow-xl hover:border-gray-600"
       >
         {!currentSong?.video ? (
           <div className="relative">

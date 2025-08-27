@@ -40,6 +40,7 @@ interface OAuthAccount {
 }
 
 export const authOptions: NextAuthOptions = {
+  debug: true,
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
@@ -63,8 +64,8 @@ export const authOptions: NextAuthOptions = {
       checks: process.env.NODE_ENV === 'development' ? [] : ['state'],
     }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
     CredentialsProvider({
       name: 'Sign in',
@@ -215,6 +216,31 @@ export const authOptions: NextAuthOptions = {
         token.username = user.username;
         token.pfpUrl = user.image || null;
         token.name = user.name ;
+      } else if (token.id) {
+        // Fetch fresh user data from database to ensure we have latest profile info
+        try {
+          const freshUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              username: true,
+              pfpUrl: true,
+              image: true,
+            }
+          });
+          
+          if (freshUser) {
+            token.id = freshUser.id;
+            token.email = freshUser.email;
+            token.username = freshUser.username || '';
+            token.pfpUrl = freshUser.pfpUrl || freshUser.image || null;
+            token.name = freshUser.name || '';
+          }
+        } catch (error) {
+          console.error('Error fetching fresh user data in JWT callback:', error);
+        }
       }
       return token;
     },

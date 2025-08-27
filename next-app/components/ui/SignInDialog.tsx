@@ -1,120 +1,171 @@
-"use client";
+'use client';
 
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/app/components/ui/button";
-import { signIn } from "next-auth/react";
-import { X, LogIn } from "lucide-react";
-import { poppins } from "@/lib/font";
+import { Button } from '@/app/components/ui/button';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { signIn } from 'next-auth/react';
+import { spaceGrotesk } from '@/lib/font';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/app/components/ui/dialog';
+
+type AuthProvider = 'google';
+
+type AuthIconProps = React.ComponentProps<'svg'>;
+
+interface SignInButtonProps {
+  title: string;
+  provider: AuthProvider;
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
+  callbackURL?: string;
+  icon: React.ReactNode;
+}
 
 interface SignInDialogProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
   description?: string;
+  callbackURL?: string;
 }
 
-export default function SignInDialog({ 
-  isOpen, 
-  onClose, 
-  title = "Sign In Required",
-  description = "Please sign in to continue using Deciball"
+/**
+ * Authentication provider icons
+ */
+const AuthIcons = {
+  Google: (props: AuthIconProps) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" {...props}>
+      <path
+        fill="currentColor"
+        d="M 25.996094 48 C 13.3125 48 2.992188 37.683594 2.992188 25 C 2.992188 12.316406 13.3125 2 25.996094 2 C 31.742188 2 37.242188 4.128906 41.488281 7.996094 L 42.261719 8.703125 L 34.675781 16.289063 L 33.972656 15.6875 C 31.746094 13.78125 28.914063 12.730469 25.996094 12.730469 C 19.230469 12.730469 13.722656 18.234375 13.722656 25 C 13.722656 31.765625 19.230469 37.269531 25.996094 37.269531 C 30.875 37.269531 34.730469 34.777344 36.546875 30.53125 L 24.996094 30.53125 L 24.996094 20.175781 L 47.546875 20.207031 L 47.714844 21 C 48.890625 26.582031 47.949219 34.792969 43.183594 40.667969 C 39.238281 45.53125 33.457031 48 25.996094 48 Z"
+      ></path>
+    </svg>
+  ),
+};
+
+/**
+ * Button component for social authentication providers using NextAuth
+ */
+const SignInButton = ({
+  title,
+  provider,
+  loading,
+  setLoading,
+  callbackURL = '/',
+  icon,
+}: SignInButtonProps) => (
+  <Button
+    variant="outline"
+    className={cn(
+      'w-full py-3 gap-3 bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10',
+      'transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl',
+      'hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-400/20',
+      spaceGrotesk.className
+    )}
+    disabled={loading}
+    onClick={async () => {
+      setLoading(true);
+      try {
+        await signIn(provider, { 
+          callbackUrl: callbackURL,
+          redirect: true 
+        });
+      } catch (error) {
+        console.error('Sign in error:', error);
+        setLoading(false);
+      }
+    }}
+  >
+    {loading ? (
+      <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+    ) : (
+      <div className="w-5 h-5 text-white">{icon}</div>
+    )}
+    <span className="font-medium">
+      {loading ? 'Signing in...' : `Continue with ${title}`}
+    </span>
+  </Button>
+);
+
+/**
+ * Modern SignIn Dialog component with NextAuth integration
+ */
+export default function SignInDialog({
+  isOpen,
+  onClose,
+  title = "Welcome to Deciball",
+  description = "Sign in to create and join music spaces with your friends",
+  callbackURL = "/",
 }: SignInDialogProps) {
-  
-  const handleGoogleSignIn = async () => {
-    try {
-      await signIn("google", { 
-        callbackUrl: window.location.href 
-      });
-    } catch (error) {
-      console.error("Sign in error:", error);
-    }
-  };
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
-            onClick={onClose}
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md bg-black/90 backdrop-blur-xl border border-white/20 text-white">
+        <DialogHeader>
+          <DialogTitle className={cn(
+            "text-2xl font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent",
+            spaceGrotesk.className
+          )}>
+            {title}
+          </DialogTitle>
+          <DialogDescription className={cn(
+            "text-white/70 text-base leading-relaxed mt-2",
+            spaceGrotesk.className
+          )}>
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-6">
+          <SignInButton
+            title="Google"
+            provider="google"
+            loading={googleLoading}
+            setLoading={setGoogleLoading}
+            callbackURL={callbackURL}
+            icon={<AuthIcons.Google />}
           />
           
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <motion.h2 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className={`${poppins.className} text-xl sm:text-2xl font-bold text-white`}
-                >
-                  {title}
-                </motion.h2>
-                
-                <motion.button
-                  initial={{ opacity: 0, rotate: -90 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  transition={{ delay: 0.2 }}
-                  whileHover={{ scale: 1.1, rotate: 90 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-white transition-colors duration-200 p-1"
-                >
-                  <X className="w-5 h-5" />
-                </motion.button>
-              </div>
-
-              <motion.p 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-gray-300 mb-8 text-center text-sm sm:text-base"
-              >
-                {description}
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="space-y-4"
-              >
-                <motion.button
-                  whileHover={{ 
-                    scale: 1.02,
-                    boxShadow: "0 8px 25px rgba(59, 130, 246, 0.3)"
-                  }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleGoogleSignIn}
-                  className={`${poppins.className} w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 border border-blue-500/30 hover:border-blue-400/50`}
-                >
-                  <LogIn className="w-5 h-5" />
-                  <span>Continue with Google</span>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={onClose}
-                  className={`${poppins.className} w-full bg-zinc-800 hover:bg-zinc-700 text-gray-300 hover:text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 border border-zinc-700 hover:border-zinc-600`}
-                >
-                  Cancel
-                </motion.button>
-              </motion.div>
-            </motion.div>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/20" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className={cn(
+                "bg-black/90 px-4 text-white/50 font-medium",
+                spaceGrotesk.className
+              )}>
+                Secure Sign In
+              </span>
+            </div>
           </div>
-        </>
-      )}
-    </AnimatePresence>
+        </div>
+
+        <div className="mt-6 text-center">
+          <p className={cn(
+            "text-xs text-white/50 leading-relaxed",
+            spaceGrotesk.className
+          )}>
+            By continuing, you agree to our{' '}
+            <Link
+              href="/terms-of-service"
+              className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors"
+            >
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link
+              href="/privacy-policy"
+              className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

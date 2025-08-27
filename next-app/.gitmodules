@@ -1,0 +1,3 @@
+[submodule "ws"]
+	path = ws
+	url = git@github.com:Deciball-music/ws.git

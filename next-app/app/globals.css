@@ -30,6 +30,68 @@ body {
   color: white;
 }
 
+/* Enhanced Mobile Touch Optimization */
+* {
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Allow text selection only where needed */
+input, textarea, [contenteditable] {
+  -webkit-user-select: text !important;
+  -khtml-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Ensure all buttons and interactive elements work on mobile */
+button, [role="button"], [onClick], [onTouchStart] {
+  touch-action: manipulation !important;
+  -webkit-tap-highlight-color: transparent !important;
+  cursor: pointer !important;
+  -webkit-user-select: none !important;
+  -khtml-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Prevent zoom on mobile inputs */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Enhanced click target size for mobile */
+@media (max-width: 640px) {
+  button, [role="button"] {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
+/* Force hardware acceleration */
+button, [role="button"], .motion-element {
+  transform: translateZ(0) !important;
+  -webkit-transform: translateZ(0) !important;
+  will-change: transform !important;
+}
+
+/* Better tap feedback */
+button:active, [role="button"]:active {
+  transform: scale(0.95) translateZ(0) !important;
+  transition: transform 0.1s ease !important;
+}
+
+/* Prevent text selection on interactive elements */
+.group, .motion-div, [class*="motion-"] {
+  -webkit-user-select: none !important;
+  -khtml-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
 @layer base {
   body {
     background: hsl(var(--background));
@@ -66,6 +128,63 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  /* Custom xs breakpoint utilities */
+  @media (min-width: 475px) {
+    .xs\:text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+    .xs\:text-5xl { font-size: 3rem; line-height: 1; }
+    .xs\:text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+    .xs\:text-base { font-size: 1rem; line-height: 1.5rem; }
+    .xs\:text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+    .xs\:text-xs { font-size: 0.75rem; line-height: 1rem; }
+    .xs\:text-2xl { font-size: 1.5rem; line-height: 2rem; }
+    .xs\:max-w-sm { max-width: 24rem; }
+    .xs\:max-w-xs { max-width: 20rem; }
+    .xs\:px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .xs\:px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .xs\:py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+    .xs\:py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+    .xs\:py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+    .xs\:py-12 { padding-top: 3rem; padding-bottom: 3rem; }
+    .xs\:py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+    .xs\:mb-3 { margin-bottom: 0.75rem; }
+    .xs\:mb-4 { margin-bottom: 1rem; }
+    .xs\:mb-6 { margin-bottom: 1.5rem; }
+    .xs\:mb-8 { margin-bottom: 2rem; }
+    .xs\:mb-12 { margin-bottom: 3rem; }
+    .xs\:mb-1 { margin-bottom: 0.25rem; }
+    .xs\:mb-2 { margin-bottom: 0.5rem; }
+    .xs\:gap-4 { gap: 1rem; }
+    .xs\:p-4 { padding: 1rem; }
+    .xs\:p-2 { padding: 0.5rem; }
+    .xs\:w-5 { width: 1.25rem; }
+    .xs\:h-5 { height: 1.25rem; }
+    .xs\:w-4 { width: 1rem; }
+    .xs\:h-4 { height: 1rem; }
+    .xs\:grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+  }
+  
+  /* Mobile-specific optimizations */
+  @media (max-width: 640px) {
+    .mobile-text-shadow { 
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); 
+    }
+    .mobile-backdrop { 
+      backdrop-filter: blur(8px) saturate(150%); 
+    }
+    .mobile-touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+  
+  /* Enhanced gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, #00d4ff, #00b8e6, #0ea5e9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 
@@ -152,3 +271,34 @@ body {
   }
 }
 */
+
+/* Hide Scrollbar Utility */
+.hide-scrollbar {
+  /* Firefox */
+  scrollbar-width: none;
+  /* Safari and Chrome */
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile Touch Optimization - Ensure main content has proper touch handling */
+@media (max-width: 767px) {
+  /* Ensure main content area has proper touch handling */
+  .music-room-main-content {
+    touch-action: manipulation !important;
+    pointer-events: auto !important;
+    z-index: 999 !important;
+    position: relative !important;
+  }
+  
+  /* Force all interactive elements to be touchable */
+  button, [role="button"], [data-testid*="button"], [onclick], [onTouchStart] {
+    touch-action: manipulation !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 1000 !important;
+  }
+}

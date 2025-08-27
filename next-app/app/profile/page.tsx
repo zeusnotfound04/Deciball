@@ -4,6 +4,8 @@ import { useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Edit3, Save, X, Camera, User, AtSign, Mail, Calendar, Shield, CheckCircle2, AlertCircle, Upload } from "lucide-react"
 import BeamsBackground from "@/components/Background"
+import { UploadButton } from "@/lib/uploadthing"
+import "../uploadthing.css"
 
 interface ProfileData {
   name: string
@@ -120,15 +122,24 @@ export default function ProfileSection() {
         setIsEditing(false)
         showNotification('success', 'Profile updated successfully!')
         
-        await update({
-          ...session,
-          user: {
-            ...session?.user,
-            name: data.name,
-            username: data.username,
-            pfpUrl: data.pfpUrl
+        // Force session refresh to get updated data
+        await update()
+        
+        // Additional fallback: refresh the page data
+        setTimeout(async () => {
+          const refreshedSession = await update()
+          if (refreshedSession?.user) {
+            const refreshedProfile: ProfileData = {
+              name: String(refreshedSession.user.name || ""),
+              username: refreshedSession.user.username || refreshedSession.user.email?.split('@')[0] || "",
+              pfpUrl: refreshedSession.user.pfpUrl || "",
+              email: refreshedSession.user.email || "",
+              createdAt: profile.createdAt || new Date().toISOString()
+            }
+            setProfile(refreshedProfile)
+            setEditForm(refreshedProfile)
           }
-        })
+        }, 1000)
       } else {
         showNotification('error', data.error || 'Failed to save profile')
       }
@@ -146,45 +157,70 @@ export default function ProfileSection() {
     setErrors({})
   }
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (file.size > 5 * 1024 * 1024) {
-      showNotification('error', 'Image size must be less than 5MB')
-      return
-    }
-
-    if (!file.type.startsWith('image/')) {
-      showNotification('error', 'Please select a valid image file')
-      return
-    }
-
+  const handleImageUpload = async (url: string) => {
     setIsUploadingImage(true)
     try {
-      const formData = new FormData()
-      formData.append('files', file)
-      formData.append('imageType', 'profile')
+      // Update the form with the new image URL
+      setEditForm({ ...editForm, pfpUrl: url })
+      
+      // Auto-save the profile image to database
+      try {
+        const saveResponse = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: editForm.name.trim(),
+            username: editForm.username.trim(),
+            pfpUrl: url,
+          }),
+        })
 
-      const response = await fetch('/api/pfpUpload', {
-        method: 'POST',
-        body: formData,
-      })
+        const saveData = await saveResponse.json()
 
-      const result = await response.json()
-
-      if (response.ok && result.success && result.fileUrls.length > 0) {
-        setEditForm({ ...editForm, pfpUrl: result.fileUrls[0] })
-        showNotification('success', 'Profile image uploaded successfully!')
-      } else {
-        showNotification('error', result.error || 'Failed to upload image')
+        if (saveResponse.ok) {
+          // Update the profile state with saved data
+          const updatedProfile = {
+            ...profile,
+            name: saveData.name,
+            username: saveData.username,
+            pfpUrl: saveData.pfpUrl || ""
+          }
+          setProfile(updatedProfile)
+          
+          // Force session refresh
+          await update()
+          
+          showNotification('success', 'Profile image uploaded successfully!')
+          
+          // Additional fallback to refresh session data
+          setTimeout(async () => {
+            const refreshedSession = await update()
+            if (refreshedSession?.user) {
+              const refreshedProfile: ProfileData = {
+                name: String(refreshedSession.user.name || ""),
+                username: refreshedSession.user.username || refreshedSession.user.email?.split('@')[0] || "",
+                pfpUrl: refreshedSession.user.pfpUrl || "",
+                email: refreshedSession.user.email || "",
+                createdAt: profile.createdAt || new Date().toISOString()
+              }
+              setProfile(refreshedProfile)
+              setEditForm(refreshedProfile)
+            }
+          }, 1000)
+        } else {
+          showNotification('error', 'Image uploaded but failed to save to profile. Please click Save to complete.')
+        }
+      } catch (saveError) {
+        console.error('Error saving profile after image upload:', saveError)
+        showNotification('error', 'Image uploaded but failed to save to profile. Please click Save to complete.')
       }
     } catch (error) {
       console.error('Error uploading image:', error)
-      showNotification('error', 'Failed to upload image')
+      showNotification('error', 'Network error occurred while uploading')
     } finally {
       setIsUploadingImage(false)
-      event.target.value = ''
     }
   }
 
@@ -412,42 +448,68 @@ export default function ProfileSection() {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="absolute inset-0 bg-black/60 flex items-center justify-center cursor-pointer group-hover:bg-black/70 transition-colors duration-300"
-                      onClick={() => document.getElementById('profile-image-input')?.click()}
+                      className="absolute inset-0 bg-black/60 hover:bg-black/70 transition-colors duration-300 rounded-full flex items-center justify-center profile-upload-button"
                     >
-                      <motion.div 
-                        whileHover={{ scale: 1.1 }} 
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ duration: 0.2 }}
-                        className="flex flex-col items-center space-y-1"
-                      >
-                        {isUploadingImage ? (
-                          <>
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                              className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
-                            />
-                            <span className="text-xs text-white/80">Uploading...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="w-6 h-6 text-white" />
-                            <span className="text-xs text-white/80">Change</span>
-                          </>
-                        )}
-                      </motion.div>
+                      <UploadButton
+                        endpoint="profileImageUploader"
+                        onClientUploadComplete={(res) => {
+                          if (res?.[0]?.url) {
+                            handleImageUpload(res[0].url);
+                          }
+                        }}
+                        onUploadError={(error: Error) => {
+                          console.error("Upload error:", error);
+                          showNotification('error', `Upload failed: ${error.message}`);
+                          setIsUploadingImage(false);
+                        }}
+                        onUploadBegin={() => {
+                          setIsUploadingImage(true);
+                        }}
+                        appearance={{
+                          button: "w-full h-full bg-transparent border-none rounded-full flex items-center justify-center cursor-pointer p-0 m-0 min-h-0",
+                          allowedContent: "hidden",
+                          container: "w-full h-full flex items-center justify-center",
+                        }}
+                        content={{
+                          button: ({ ready, isUploading }) => {
+                            if (isUploading || isUploadingImage) {
+                              return (
+                                <div className="flex flex-col items-center justify-center space-y-1 w-full h-full">
+                                  <motion.div
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                                    className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
+                                  />
+                                  <span className="text-xs text-white/80">Uploading...</span>
+                                </div>
+                              )
+                            }
+                            
+                            if (ready) {
+                              return (
+                                <motion.div 
+                                  whileHover={{ scale: 1.1 }} 
+                                  whileTap={{ scale: 0.9 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="flex flex-col items-center justify-center space-y-1 w-full h-full"
+                                >
+                                  <Upload className="w-6 h-6 text-white" />
+                                  <span className="text-xs text-white/80">Change</span>
+                                </motion.div>
+                              )
+                            }
+                            
+                            return (
+                              <div className="flex items-center justify-center w-full h-full">
+                                <span className="text-xs text-white/60">Ready...</span>
+                              </div>
+                            )
+                          }
+                        }}
+                      />
                     </motion.div>
                   )}
                 </div>
-                <input
-                  id="profile-image-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  disabled={isUploadingImage}
-                />
               </motion.div>
             </motion.div>
 

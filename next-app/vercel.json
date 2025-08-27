@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm ci && npx prisma generate",
+  "env": {
+    "SKIP_ENV_VALIDATION": "1",
+    "PRISMA_GENERATE_SKIP_AUTOINSTALL": "true"
+  },
+  "functions": {
+    "app/**/*.{js,ts}": {
+      "maxDuration": 30
+    }
+  }
+}

@@ -181,6 +181,18 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
           width: 0px;
           height: 0px;
         }
+        @media (max-width: 640px) {
+          .custom-scrollbar::-webkit-scrollbar {
+            height: 2px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+          }
+        }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
         }
@@ -195,30 +207,30 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
           -ms-overflow-style: none;
         }
       `}</style>
-      <div className={`border-[#424244] backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-6 w-full max-w-[39rem] ${className}`}>
-      <div className="flex items-center justify-between mb-4">
+      <div className={`border-[#424244] backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-4 sm:p-6 w-full max-w-[39rem] ${className}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2 sm:gap-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-purple-400" />
-          <h3 className="text-lg font-semibold text-gray-200">New Releases</h3>
+          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+          <h3 className="text-base sm:text-lg font-semibold text-gray-200">New Releases</h3>
         </div>
         <Button
           onClick={fetchNewReleases}
           disabled={loading}
           size="sm"
           variant="outline"
-          className="bg-transparent border-gray-500/30 hover:bg-gray-700/30 text-gray-300"
+          className="bg-transparent border-gray-500/30 hover:bg-gray-700/30 text-gray-300 w-fit self-end sm:self-auto"
         >
           {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
           ) : (
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           )}
         </Button>
       </div>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 mb-4">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 mb-3 sm:mb-4">
+          <p className="text-red-400 text-xs sm:text-sm">{error}</p>
           <Button
             onClick={fetchNewReleases}
             size="sm"
@@ -230,30 +242,30 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
         </div>
       )}
 
-      <div className="bg-[#1C1E1F] border border-gray-500/30 rounded-xl p-4 relative overflow-hidden">
-        {newReleases.length > 3 && (
+      <div className="bg-[#1C1E1F] border border-gray-500/30 rounded-xl p-3 sm:p-4 relative overflow-hidden">
+        {newReleases.length > 2 && (
           <div className="absolute top-2 right-2 text-xs text-gray-400 opacity-60 z-10">
             Scroll
           </div>
         )}
         {loading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-6 sm:py-8">
             <div className="text-center">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-400" />
-              <p className="text-sm text-gray-400">Loading new releases...</p>
+              <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto mb-2 text-purple-400" />
+              <p className="text-xs sm:text-sm text-gray-400">Loading new releases...</p>
             </div>
           </div>
         ) : newReleases.length > 0 ? (
           <div 
-            className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar -mx-1" 
+            className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 custom-scrollbar -mx-1" 
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none'
             }}
           >
             {newReleases.map((track: SpotifyTrack) => (
-              <div key={track.id} className="flex flex-col items-center gap-2 group hover:bg-gray-700/20 rounded-lg p-2 transition-colors min-w-[150px] max-w-[150px] flex-shrink-0">
-                <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+              <div key={track.id} className="flex flex-col items-center gap-1.5 sm:gap-2 group hover:bg-gray-700/20 rounded-lg p-1.5 sm:p-2 transition-colors min-w-[120px] sm:min-w-[150px] max-w-[120px] sm:max-w-[150px] flex-shrink-0">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0">
                   {track.album?.images?.[0]?.url ? (
                     <img 
                       src={track.album.images[0].url} 
@@ -262,7 +274,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
                     />
                   ) : (
                     <div className="w-full h-full bg-[#1C1E1F] border-[#424244] flex items-center justify-center">
-                      <Music className="w-6 h-6 text-gray-400" />
+                      <Music className="w-4 h-4 sm:w-6 sm:h-6 text-gray-400" />
                     </div>
                   )}
                 </div>
@@ -280,30 +292,30 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
                   onClick={() => addToQueue(track)}
                   disabled={!isAdmin || addingTrack === track.id}
                   size="sm"
-                  className="bg-[#1C1E1F] border-[#424244] hover:bg-gray-700 text-white opacity-0 group-hover:opacity-100 transition-opacity w-full h-7 text-xs"
+                  className="bg-[#1C1E1F] border-[#424244] hover:bg-gray-700 text-white opacity-0 group-hover:opacity-100 transition-opacity w-full h-6 sm:h-7 text-xs"
                   title={isAdmin ? "Add to queue" : "Only admins can add songs"}
                 >
                   {addingTrack === track.id ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <Loader2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 animate-spin" />
                   ) : (
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                   )}
                 </Button>
               </div>
             ))}
           </div>
         ) : !error ? (
-          <div className="text-center py-8">
-            <Music className="w-12 h-12 mx-auto mb-3 text-gray-500" />
-            <p className="text-gray-400 mb-2">No new releases available</p>
-            <p className="text-sm text-gray-500">
+          <div className="text-center py-6 sm:py-8">
+            <Music className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-gray-500" />
+            <p className="text-sm sm:text-base text-gray-400 mb-2">No new releases available</p>
+            <p className="text-xs sm:text-sm text-gray-500">
               Try refreshing to get the latest releases
             </p>
           </div>
         ) : null}
       </div>
       
-      <div className="mt-3 text-xs text-gray-500">
+      <div className="mt-2 sm:mt-3 text-xs text-gray-500">
         <p>Latest album releases</p>
       </div>
     </div>

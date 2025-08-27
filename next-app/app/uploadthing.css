@@ -1,0 +1,97 @@
+/* UploadThing custom styles for profile page */
+.ut-button {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 0 !important;
+  position: relative !important;
+}
+
+.ut-button:hover {
+  background: transparent !important;
+}
+
+.ut-button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ut-button:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ut-allowed-content {
+  display: none !important;
+}
+
+.ut-upload-icon {
+  display: none !important;
+}
+
+.ut-button-text {
+  display: none !important;
+}
+
+/* Hide the default UploadThing styling */
+.ut-label {
+  display: none !important;
+}
+
+.ut-button[data-state="ready"] {
+  background: transparent !important;
+  border: none !important;
+}
+
+.ut-button[data-state="uploading"] {
+  background: transparent !important;
+  border: none !important;
+}
+
+.ut-button[data-state="disabled"] {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Override any internal UploadThing container styles */
+.ut-button > * {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Ensure the button content is centered */
+.ut-button-content {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Profile upload button specific styles */
+.profile-upload-button {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.profile-upload-button .ut-button {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+}

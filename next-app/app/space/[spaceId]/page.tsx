@@ -1,15 +1,22 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { SocketContextProvider } from '@/context/socket-context';
 import { MusicRoom } from '@/components/MusicRoom';
 
 export default function SpacePage() {
   const params = useParams();
+  const router = useRouter();
   const { data: session, status } = useSession();
   const spaceId = params?.spaceId as string;
+
+  useEffect(() => {
+    if (status !== 'loading' && !session) {
+      router.push('/signin');
+    }
+  }, [status, session, router]);
 
   if (status === 'loading') {
     return (
@@ -23,11 +30,12 @@ export default function SpacePage() {
   }
 
   if (!session) {
+    // This will only render briefly before the redirect happens
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Please Sign In</h1>
-          <p>You need to be signed in to join a music room.</p>
+          <div className="animate-spin w-12 h-12 border-4 border-gray-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-lg">Redirecting to sign in...</p>
         </div>
       </div>
     );

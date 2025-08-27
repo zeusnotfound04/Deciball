@@ -1,13 +1,18 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from '@/context/socket-context';
+import { useToast } from '@/context/toast-context';
 import { useUserStore } from '@/store/userStore';
 import { useAudio, useAudioStore } from '@/store/audioStore';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
+import { Input } from '@/app/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
 import { PiArrowFatLineUpFill } from "react-icons/pi";
 import { LuArrowBigUpDash } from "react-icons/lu";
+import { Link, Plus, Loader2, MessageCircle, X, Trash2 } from 'lucide-react';
+import { Chat } from './Chat';
 import { 
   PlayIcon, 
   DeleteIcon, 
@@ -17,6 +22,20 @@ import {
   PlayListIcon,
   SearchIcon
 } from '@/components/icons';
+import { inter, outfit, manrope, spaceGrotesk } from '@/lib/font';
+import axios from 'axios';
+
+// Spotify Logo Component
+const SpotifyLogo = ({ className = "w-6 h-6" }: { className?: string }) => (
+  <svg 
+    className={className}
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.84-.179-.959-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.361 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.840c.361.181.48.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.301.421-1.02.599-1.559.3z"/>
+  </svg>
+);
 
 interface QueueItem {
   id: string;
@@ -45,6 +64,7 @@ interface QueueItem {
 interface QueueManagerProps {
   spaceId: string;
   isAdmin?: boolean;
+  className?: string;
 }
 
 const PlayingAnimation = () => {
@@ -149,7 +169,11 @@ const UpvoteButton = ({
   const [animationTrigger, setAnimationTrigger] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleClick = (e: any) => {
+  // Simple click handler that works on both desktop and mobile
+  const handleVoteClick = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     // Trigger particle animation
     setAnimationTrigger(true);
     setShowSuccess(true);
@@ -179,10 +203,11 @@ const UpvoteButton = ({
       </AnimatePresence>
 
       <motion.button
-        onClick={handleClick}
+        onClick={handleVoteClick}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.9 }}
-        className={`relative flex items-center space-x-2 px-3 py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl overflow-hidden ${
+        style={{ touchAction: 'manipulation' }}
+        className={`relative flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl overflow-hidden min-w-[44px] min-h-[44px] ${outfit.className} font-medium ${
           isVoted 
             ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30' 
             : 'bg-white/10 text-gray-300 border-white/20 hover:bg-white/15 hover:border-white/30 hover:text-white hover:shadow-2xl hover:ring-1 hover:ring-white/20'
@@ -228,23 +253,23 @@ const UpvoteButton = ({
               transition={{ duration: 0.5, repeat: 2 }}
             >
               <PiArrowFatLineUpFill 
-                size={16} 
+                size={14} 
+                className="sm:w-4 sm:h-4 text-blue-400"
                 style={{ color: '#60a5fa', display: 'block' }} 
-                className="text-blue-400"
               />
             </motion.div>
           ) : (
             <LuArrowBigUpDash 
-              size={16} 
+              size={14} 
+              className="sm:w-4 sm:h-4 text-gray-300"
               style={{ color: 'currentColor', display: 'block' }} 
-              className="text-gray-300"
             />
           )}
         </motion.div>
 
         {/* Vote count with enhanced animation */}
         <motion.span 
-          className="font-bold text-sm relative z-10"
+          className="font-bold text-xs sm:text-sm relative z-10"
           animate={
             isVoted 
               ? { scale: [1, 1.2, 1], color: ["#60a5fa", "#93c5fd", "#60a5fa"] } 
@@ -309,6 +334,58 @@ const SongCard = ({
   onRemove: () => void;
   onPlayInstant: () => void;
 }) => {
+  // Simple click handlers that work on both desktop and mobile
+  const handleCardClick = (e: any) => {
+    if (!isCurrentlyPlaying && isAdmin) {
+      e.preventDefault();
+      e.stopPropagation();
+      onPlayInstant();
+    }
+  };
+
+  const handleRemoveClick = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRemove();
+  };
+
+  // Height-based responsive logic (exclude sm/md)
+  const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 900);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowHeight(window.innerHeight);
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Height-based scaling only for lg and above (width >= 1024px)
+  const isLargeScreen = windowWidth >= 1024;
+  let albumArtSize = 64;
+  let titleFontSize = '1.5rem';
+  let artistFontSize = '1.125rem';
+  let verticalGap = '0.75rem';
+  if (isLargeScreen) {
+    if (windowHeight < 700) {
+      albumArtSize = 36;
+      titleFontSize = '0.95rem';
+      artistFontSize = '0.7rem';
+      verticalGap = '0.25rem';
+    } else if (windowHeight < 800) {
+      albumArtSize = 48;
+      titleFontSize = '1.1rem';
+      artistFontSize = '0.85rem';
+      verticalGap = '0.5rem';
+    } else if (windowHeight < 900) {
+      albumArtSize = 56;
+      titleFontSize = '1.25rem';
+      artistFontSize = '1rem';
+      verticalGap = '0.75rem';
+    }
+  }
+
   return (
     <motion.div
       layout
@@ -323,19 +400,24 @@ const SongCard = ({
       className="group"
     >
       <Card
-        onClick={!isCurrentlyPlaying ? onPlayInstant : undefined}
-        className={`transition-all duration-500 backdrop-blur-xl  shadow-xl ${
+        onClick={handleCardClick}
+        className={`transition-all duration-500 backdrop-blur-xl shadow-xl w-full max-w-full queue-card ${
           isCurrentlyPlaying 
             ? 'border-blue-500/40 bg-blue-900/20 shadow-2xl shadow-blue-500/25 ring-1 ring-blue-500/20' 
-            : 'bg-[#1C1E1F]   cursor-pointer hover:shadow-2xl hover:shadow-black/30  hover:ring-white/10'
+            : isAdmin 
+              ? 'bg-[#1C1E1F] cursor-pointer hover:shadow-2xl hover:shadow-black/30 hover:ring-white/10'
+              : 'bg-[#1C1E1F] cursor-not-allowed opacity-75'
         }`}
-        role={!isCurrentlyPlaying ? "button" : undefined}
-        tabIndex={!isCurrentlyPlaying ? 0 : undefined}
+        role={!isCurrentlyPlaying && isAdmin ? "button" : undefined}
+        tabIndex={!isCurrentlyPlaying && isAdmin ? 0 : undefined}
+        title={
+          !isCurrentlyPlaying 
+            ? (isAdmin ? "Click to play instantly (Admin only)" : "Play instantly (Admin only)")
+            : undefined
+        }
       >
-        <CardContent className="p-2">
-          <div className="flex items-center space-x-4">
-      
-            
+        <CardContent className="p-2 sm:p-3 w-full max-w-full">
+          <div className="flex items-center w-full max-w-full min-w-0" style={{ gap: verticalGap }}>
             <motion.div 
               className="relative flex-shrink-0"
               layout
@@ -344,41 +426,38 @@ const SongCard = ({
               <motion.img 
                 src={item.smallImg} 
                 alt={item.title}
-                className={`rounded-xl object-cover shadow-2xl   ${
-                  isCurrentlyPlaying ? 'w-16 h-16' : 'w-16 h-16'
-                }`}
+                style={{ width: albumArtSize, height: albumArtSize }}
+                className="rounded-xl object-cover shadow-2xl"
                 whileHover={!isCurrentlyPlaying ? { scale: 1.05 } : {}}
                 transition={{ duration: 0.3 }}
               />
               {isCurrentlyPlaying && <PlayingAnimation />}
             </motion.div>
-            
             <motion.div 
-              className="flex-1 min-w-0" 
+              className="flex-1 min-w-0 max-w-full overflow-hidden" 
               layout
               transition={{ duration: 0.6 }}
             >
               <motion.h4 
-                className={`font-semibold text-white truncate ${
-                  isCurrentlyPlaying ? 'text-lg' : 'text-base'
-                }`}
+                style={{ fontSize: titleFontSize }}
+                className="font-semibold text-white truncate w-full queue-text"
                 layout
               >
                 {item.title}
               </motion.h4>
               {item.artist && (
                 <motion.p 
-                  className="text-sm text-gray-400 truncate"
+                  style={{ fontSize: artistFontSize }}
+                  className="text-gray-400 truncate w-full queue-text"
                   layout
                 >
                   {item.artist}
                 </motion.p>
               )}
-             
             </motion.div>
             
             <motion.div 
-              className="flex items-center space-x-3"
+              className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0"
               layout
               transition={{ duration: 0.6 }}
             >
@@ -389,31 +468,16 @@ const SongCard = ({
                   transition={{ delay: 0.1, duration: 0.4 }}
                 >
                   <UpvoteButton
-                    onClick={(e: any) => {
-                      e?.stopPropagation?.();
-                      onVote();
-                    }}
+                    onClick={onVote}
                     isVoted={hasUserVoted}
                     voteCount={item.voteCount}
                   />
                 </motion.div>
               )}
               
-              {isCurrentlyPlaying && (
-                <motion.div 
-                  className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-xl border-2 border-white/20 shadow-xl ring-1 ring-white/10"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <PiArrowFatLineUpFill size={16} className="text-blue-400" style={{ color: '#60a5fa' }} />
-                  <span className="font-bold text-white text-sm">{item.voteCount}</span>
-                </motion.div>
-              )}
-              
               {isAdmin && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
+                  initial={{ opacity: 1, scale: 1 }}
                   animate={{ opacity: 1, scale: 1 }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -421,15 +485,11 @@ const SongCard = ({
                 >
                   <Button
                     size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemove();
-                    }}
-                    className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/30 hover:border-red-500/50 backdrop-blur-xl shadow-xl ring-1 ring-red-500/20 hover:ring-red-500/30"
+                    onClick={handleRemoveClick}
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/30 hover:border-red-500/50 backdrop-blur-xl shadow-xl ring-1 ring-red-500/20 hover:ring-red-500/30 min-w-[44px] min-h-[44px] flex items-center justify-center ${outfit.className} font-medium`}
+                    title="Remove song from queue"
                   >
-                    <div className="text-current">
-                      <DeleteIcon width={14} height={14} />
-                    </div>
+                    <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400" />
                   </Button>
                 </motion.div>
               )}
@@ -441,13 +501,68 @@ const SongCard = ({
   );
 };
 
-export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = false }) => {
+export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = false, className = "" }) => {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentPlaying, setCurrentPlaying] = useState<QueueItem | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [showChatOverlay, setShowChatOverlay] = useState(false);
+  
+  // Prevent body scroll when chat overlay is open
+  useEffect(() => {
+    if (showChatOverlay) {
+      // Store current scroll position
+      const scrollY = window.scrollY;
+      
+      // Lock scroll
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+    } else {
+      // Restore scroll position
+      const scrollY = document.body.style.top;
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || '0') * -1);
+      }
+    }
+    
+    return () => {
+      // Cleanup on unmount
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+    };
+  }, [showChatOverlay]);
+  
+  // New state for direct link and playlist features
+  const [directUrl, setDirectUrl] = useState('');
+  const [isAddingDirectUrl, setIsAddingDirectUrl] = useState(false);
+  const [showDirectUrlDialog, setShowDirectUrlDialog] = useState(false);
+  
+  const [playlistUrl, setPlaylistUrl] = useState('');
+  const [isProcessingPlaylist, setIsProcessingPlaylist] = useState(false);
+  const [showPlaylistDialog, setShowPlaylistDialog] = useState(false);
+  const [playlistProgress, setPlaylistProgress] = useState<{
+    current: number;
+    total: number;
+    percentage: number;
+    currentTrack: string;
+    status: string;
+  } | null>(null);
+  
   const { sendMessage, socket } = useSocket();
-  const { user } = useUserStore();
+  const { user, isAdmin: userIsAdmin } = useUserStore();
   const { voteOnSong, addToQueue, play, currentSong: audioCurrentSong } = useAudio();
+  const { showToast } = useToast();
+
+  // Use admin status from user store, fallback to prop for backward compatibility
+  const adminStatus = userIsAdmin || isAdmin;
 
   const sortedQueue = useMemo(() => {
     return [...queue].sort((a, b) => {
@@ -488,7 +603,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       return cleanedUrl;
     }
     
-    console.warn('Could not extract YouTube video ID from:', cleanedUrl);
     return cleanedUrl;
   };
 
@@ -537,29 +651,21 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
 
     const handleMessage = (event: MessageEvent) => {
       const { type, data } = JSON.parse(event.data);
-      console.log('QueueManager received message:', { type, data });
       
       switch (type) {
         case 'queue-update':
-          console.log('Queue update received:', data.queue);
           setQueue(data.queue || []);
           break;
         case 'current-song-update':
-          console.log('Current song update:', data.song);
           setCurrentPlaying(data.song || null);
           
           if (data.song) {
-            console.log('Starting playback of new current song:', data.song.title);
-            
             const isSameSong = audioCurrentSong?.id === data.song.id;
             const { isPlaying } = useAudioStore.getState();
             
             if (isSameSong && isPlaying) {
-              console.log('Same song already playing, skipping playback restart');
-              
               const { pendingSync } = useAudioStore.getState();
               if (pendingSync) {
-                console.log('Applying pending sync for existing song');
                 const { handleRoomSync } = useAudioStore.getState();
                 const youtubeVideoId = extractYouTubeVideoId(data.song.youtubeUrl || data.song.url);
                 const existingAudioSong = {
@@ -633,10 +739,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             setTimeout(() => {
               const { pendingSync, youtubePlayer } = useAudioStore.getState();
               if (pendingSync) {
-                console.log('Applying pending sync after song load for new user');
-                
                 if (youtubePlayer && youtubePlayer.seekTo) {
-                  console.log('YouTube player ready, applying sync directly');
                   youtubePlayer.seekTo(pendingSync.timestamp, true);
                   if (pendingSync.isPlaying) {
                     youtubePlayer.playVideo();
@@ -645,25 +748,18 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   }
                   const { handleRoomSync } = useAudioStore.getState();
                   handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong, true);
-                } else {
-                  console.log('YouTube player not ready yet, pending sync will be applied when ready');
                 }
               }
             }, 1500);
-          } else {
-            console.log('No current song to play');
           }
           break;
         case 'song-added':
-          console.log('Song added to queue:', data.song);
           setQueue(prev => {
             const newQueue = [...prev, data.song];
-            console.log('Updated queue length:', newQueue.length);
             return newQueue;
           });
           break;
         case 'vote-updated':
-          console.log('Vote updated:', { streamId: data.streamId, voteCount: data.voteCount });
           setQueue(prev => prev.map(item => 
             item.id === data.streamId 
               ? { ...item, voteCount: data.voteCount, upvotes: data.upvotes }
@@ -674,26 +770,16 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
     };
 
     socket.addEventListener('message', handleMessage);
-    
-    console.log('Requesting initial queue for space:', spaceId);
     sendMessage('get-queue', { spaceId });
 
     return () => {
       socket.removeEventListener('message', handleMessage);
     };
-  }, [socket, sendMessage, spaceId, currentPlaying, isAdmin]);
+  }, [socket, sendMessage, spaceId, currentPlaying, adminStatus]);
 
   const handleVote = (streamId: string) => {
     const item = queue.find(q => q.id === streamId);
     const hasVoted = item?.upvotes?.some(vote => vote.userId === user?.id) || false;
-    
-    console.log('Vote action:', { 
-      streamId, 
-      hasVoted, 
-      action: hasVoted ? 'downvote' : 'upvote',
-      userId: user?.id,
-      currentUpvotes: item?.upvotes 
-    });
     
     if (hasVoted) {
       voteOnSong(streamId, 'downvote');
@@ -703,93 +789,453 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   };
 
   const handlePlayInstant = (songId: string) => {
+    if (!adminStatus) {
+      return;
+    }
     sendMessage("play-instant", { spaceId, songId });
   };
 
   const handlePlayNext = () => {
-    if (!isAdmin) return;
-    console.log('Admin playing next song for space:', spaceId);
+    if (!adminStatus) return;
     sendMessage('play-next', { spaceId });
   };
 
   const handleRemoveSong = (streamId: string) => {
-    if (!isAdmin) return;
-    console.log('Admin removing song:', streamId);
-    sendMessage('remove-song', { spaceId, streamId });
+    if (!adminStatus) {
+      showToast('Only admins can remove songs', 'error');
+      return;
+    }
+    const success = sendMessage('remove-song', { spaceId, streamId });
+    if (success) {
+      showToast('Song removed from queue', 'success');
+    } else {
+      showToast('Failed to remove song', 'error');
+    }
   }
 
   const handleEmptyQueue = () => {
-    if (!isAdmin) return;
-    console.log('Admin emptying queue for space:', spaceId);
+    if (!adminStatus) return;
     sendMessage('empty-queue', { spaceId });
   };
 
   const hasUserVoted = (item: QueueItem) => {
-    const voted = item.upvotes?.some(vote => vote.userId === user?.id) || false;
-    console.log('hasUserVoted check:', { 
-      songId: item.id, 
-      songTitle: item.title,
-      voted, 
-      userId: user?.id, 
-      upvotes: item.upvotes 
-    });
-    return voted;
+    return item.upvotes?.some(vote => vote.userId === user?.id) || false;
   };
 
+  // Direct URL/Link adding functionality
+  const isValidYouTubeUrl = (url: string): boolean => {
+    const patterns = [
+      /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/,
+      /^(https?:\/\/)?(www\.)?youtube\.com\/embed\/[a-zA-Z0-9_-]{11}/,
+      /^[a-zA-Z0-9_-]{11}$/ // Direct video ID
+    ];
+    return patterns.some(pattern => pattern.test(url.trim()));
+  };
+
+  const isValidSpotifyUrl = (url: string): boolean => {
+    const patterns = [
+      /^(https?:\/\/)?(open\.)?spotify\.com\/track\/[a-zA-Z0-9]+/,
+      /^spotify:track:[a-zA-Z0-9]+$/
+    ];
+    return patterns.some(pattern => pattern.test(url.trim()));
+  };
+
+  const handleAddDirectUrl = async () => {
+    if (!directUrl.trim()) return;
+    if (!adminStatus) {
+      return;
+    }
+
+    setIsAddingDirectUrl(true);
+    try {
+      const trimmedUrl = directUrl.trim();
+      
+      if (isValidYouTubeUrl(trimmedUrl) || isValidSpotifyUrl(trimmedUrl)) {
+        const success = sendMessage('add-to-queue', {
+          spaceId,
+          url: trimmedUrl,
+          userId: user?.id,
+          autoPlay: false
+        });
+
+        if (success) {
+          showToast('Link added to queue successfully!', 'success');
+          setDirectUrl('');
+          setShowDirectUrlDialog(false);
+        } else {
+          throw new Error('Failed to send URL to server');
+        }
+      } else {
+        throw new Error('Invalid URL format. Please provide a valid YouTube or Spotify link.');
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Failed to add link', 'error');
+    } finally {
+      setIsAddingDirectUrl(false);
+    }
+  };
+
+  // Spotify Playlist processing functionality
+  const isValidSpotifyPlaylistUrl = (url: string): boolean => {
+    const patterns = [
+      /^(https?:\/\/)?(open\.)?spotify\.com\/playlist\/[a-zA-Z0-9]+/,
+      /^spotify:playlist:[a-zA-Z0-9]+$/,
+      /^[a-zA-Z0-9]+$/ // Direct playlist ID
+    ];
+    return patterns.some(pattern => pattern.test(url.trim()));
+  };
+
+  const handleProcessSpotifyPlaylist = async () => {
+    if (!playlistUrl.trim()) return;
+    if (!adminStatus) {
+      return;
+    }
+
+    setIsProcessingPlaylist(true);
+    setPlaylistProgress({ current: 0, total: 0, percentage: 0, currentTrack: '', status: 'Initializing...' });
+
+    try {
+      const trimmedUrl = playlistUrl.trim();
+      
+      if (!isValidSpotifyPlaylistUrl(trimmedUrl)) {
+        throw new Error('Invalid Spotify playlist URL. Please provide a valid Spotify playlist link.');
+      }
+      
+      // Step 1: Get playlist tracks
+      setPlaylistProgress(prev => prev ? { ...prev, status: 'Fetching playlist tracks...' } : null);
+      
+      const response = await axios.get(`/api/spotify/playlist?url=${encodeURIComponent(trimmedUrl)}`);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to fetch playlist');
+      }
+
+      const tracks = response.data.data.tracks;
+
+      if (tracks.length === 0) {
+        throw new Error('No tracks found in playlist');
+      }
+
+      // Step 2: Convert tracks to simplified format for backend worker pool processing
+      setPlaylistProgress(prev => prev ? { 
+        ...prev, 
+        total: tracks.length, 
+        status: 'Preparing tracks for worker pool processing...' 
+      } : null);
+
+      const songsForBatch = tracks.map((track: any, index: number) => ({
+        // Send minimal data - let backend worker pool handle YouTube search
+        title: track.name,
+        artist: track.artists.map((a: any) => a.name).join(', '),
+        album: track.album.name,
+        spotifyId: track.id,
+        spotifyUrl: `https://open.spotify.com/track/${track.id}`,
+        smallImg: track.album.images?.[track.album.images.length - 1]?.url || '',
+        bigImg: track.album.images?.[0]?.url || '',
+        duration: track.duration_ms,
+        source: 'Spotify' // Source is Spotify, backend will convert to YouTube
+      }));
+
+      // Step 3: Send batch request with worker pool processing
+      setPlaylistProgress(prev => prev ? { 
+        ...prev, 
+        status: 'Sending to optimized processing system...' 
+      } : null);
+
+      const success = sendMessage('add-batch-to-queue', {
+        spaceId,
+        songs: songsForBatch,
+        userId: user?.id,
+        autoPlay: false
+      });
+
+      if (success) {
+        setPlaylistProgress(prev => prev ? { 
+          ...prev, 
+          status: 'Processing playlist with worker pool...',
+          percentage: 0
+        } : null);
+      } else {
+        throw new Error('Failed to send playlist to processing system');
+      }
+      
+    } catch (error: any) {
+      showToast(error.message || 'Failed to process playlist', 'error');
+      setPlaylistProgress(prev => prev ? { 
+        ...prev, 
+        status: `Error: ${error.message}` 
+      } : null);
+      setTimeout(() => {
+        setIsProcessingPlaylist(false);
+        setPlaylistProgress(null);
+      }, 3000);
+    }
+  };
+
+  // Listen for playlist processing progress updates
+  useEffect(() => {
+    if (!socket || !isProcessingPlaylist) return;
+
+    const handleProgressUpdate = (event: MessageEvent) => {
+      const { type, data } = JSON.parse(event.data);
+      
+      if (type === 'processing-progress') {
+        setPlaylistProgress({
+          current: data.current || 0,
+          total: data.total || 0,
+          percentage: data.percentage || 0,
+          currentTrack: data.currentTrack || '',
+          status: data.status || 'Processing...'
+        });
+      } else if (type === 'batch-processing-result') {
+        const successCount = data.successful || 0;
+        const failedCount = data.failed || 0;
+        
+        setPlaylistProgress(prev => prev ? {
+          ...prev,
+          percentage: 100,
+          status: `Completed! ${successCount} tracks added successfully.`
+        } : null);
+        
+        // Show success toast
+        if (successCount > 0) {
+          showToast(
+            `Successfully added ${successCount} tracks from playlist!${failedCount > 0 ? ` (${failedCount} failed)` : ''}`, 
+            failedCount > 0 ? 'warning' : 'success'
+          );
+        } else {
+          showToast('No tracks were added from the playlist', 'error');
+        }
+        
+        setTimeout(() => {
+          setIsProcessingPlaylist(false);
+          setPlaylistProgress(null);
+          setPlaylistUrl('');
+          setShowPlaylistDialog(false);
+        }, 2000);
+      }
+    };
+
+    socket.addEventListener('message', handleProgressUpdate);
+    return () => socket.removeEventListener('message', handleProgressUpdate);
+  }, [socket, isProcessingPlaylist]);
+
   return (
-    <motion.div 
-      className="space-y-6 w-full max-w-4xl mx-auto"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
+<div className={`h-full w-full max-w-full flex-shrink-0 flex flex-col min-h-0 ${className}`}>
+      <motion.div 
+        className={`flex flex-col w-full h-full min-h-0 p-2 sm:p-3 ${showChatOverlay ? 'pointer-events-none' : ''}`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        {/* Header - Fixed */}
         <motion.div 
-          className="flex items-center justify-between"
+          className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 lg:gap-4 xl:gap-6 flex-shrink-0 mb-2 relative z-10"
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          <div className="flex items-center gap-3">
-          <motion.div
-            whileHover={{ rotate: 5, scale: 1.1 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="text-white">
-              <PlayListIcon width={28} height={28} className="text-white" />
-            </div>
-          </motion.div>
-          <h2 className="text-2xl font-bold text-white">Music Queue</h2>
-          <motion.div
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="px-3 py-1 rounded-full bg-blue-500/20 backdrop-blur-xl border border-blue-500/30 shadow-lg ring-1 ring-blue-500/20"
-          >
-            <span className="text-sm text-blue-300 font-medium">
-              {queue.length} songs
-            </span>
-          </motion.div>
-        </div>
-        
-       
-      </motion.div>
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0">
+            <motion.div
+              whileHover={{ rotate: 5, scale: 1.1 }}
+              transition={{ duration: 0.2 }}
+              className="flex-shrink-0"
+            >
+              <div className="text-white">
+                <PlayListIcon width={24} height={24} className="sm:w-7 sm:h-7 text-white" />
+              </div>
+            </motion.div>
+            <h2 className="text-xl sm:text-2xl font-bold text-white truncate">Music Queue</h2>
+          </div>
+          
+          {/* Admin Action Buttons - Add Direct URL and Playlist */}
+          <div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto justify-center lg:justify-end transition-all duration-300 ease-in-out relative z-10">
+            {/* Chat Button - Available to all users */}
+            <Button
+              onClick={() => setShowChatOverlay(true)}
+              variant="outline"
+              size="sm"
+              className="bg-cyan-500/20 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/30 hover:text-cyan-200 transition-all duration-200"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Chat
+            </Button>
+            
+            {/* Admin Only Buttons */}
+            {adminStatus && (
+              <>
+                {/* Direct URL/Link Button */}
+                <Dialog open={showDirectUrlDialog} onOpenChange={setShowDirectUrlDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-green-500/20 border-green-500/30 text-green-300 hover:bg-green-500/30 hover:text-green-200 transition-all duration-200"
+                  >
+                    <Link className="w-4 h-4 mr-2" />
+                    Add Link
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl p-0 max-w-md">
+                  <div className="p-8">
+                    <DialogHeader className="mb-8">
+                      <DialogTitle className={`text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-3 text-center ${spaceGrotesk.className}`}>
+                        Add Direct Link
+                      </DialogTitle>
+                      <p className={`text-white/70 text-base leading-relaxed text-center ${spaceGrotesk.className}`}>
+                        Paste a YouTube video or Spotify track URL to add it instantly to the queue
+                      </p>
+                    </DialogHeader>
+                    <div className="space-y-6">
+                      <Input
+                        value={directUrl}
+                        onChange={(e) => setDirectUrl(e.target.value)}
+                        placeholder="Paste YouTube video URL or Spotify track URL..."
+                        className={`w-full py-3 px-4 bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white placeholder-white/50 text-base h-12 rounded-xl focus:border-green-400/50 focus:ring-1 focus:ring-green-400/20 ${spaceGrotesk.className}`}
+                        disabled={isAddingDirectUrl}
+                      />
+                      <div className="flex justify-end gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowDirectUrlDialog(false);
+                            setDirectUrl('');
+                          }}
+                          disabled={isAddingDirectUrl}
+                          className={`bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl px-6 ${spaceGrotesk.className}`}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleAddDirectUrl}
+                          disabled={!directUrl.trim() || isAddingDirectUrl}
+                          className={`bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-base h-12 rounded-xl px-6 transition-all duration-300 shadow-lg hover:shadow-green-500/25 ${spaceGrotesk.className}`}
+                        >
+                          {isAddingDirectUrl && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          Add to Queue
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
-      <AnimatePresence mode="wait">
-        {currentPlaying && (
-          <motion.div
-            key="currently-playing"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.4 }}
-          >
-            <div className="mb-4">
+              {/* Spotify Playlist Button */}
+              <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-purple-500/20 border-purple-500/30 text-purple-300 hover:bg-purple-500/30 hover:text-purple-200 transition-all duration-200"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Playlist
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl p-0 max-w-md">
+                  <div className="p-8">
+                    <DialogHeader className="mb-8">
+                      <div className="flex items-center justify-center mb-4">
+                        <div className="p-3 bg-green-500/10 rounded-full border border-green-500/20">
+                          <SpotifyLogo className="w-8 h-8 text-green-500" />
+                        </div>
+                      </div>
+                      <DialogTitle className={`text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-3 text-center ${spaceGrotesk.className}`}>
+                        Add Spotify Playlist
+                      </DialogTitle>
+                      <p className={`text-white/70 text-base leading-relaxed text-center ${spaceGrotesk.className}`}>
+                        Import an entire Spotify playlist to the queue with optimized processing
+                      </p>
+                    </DialogHeader>
+                    <div className="space-y-6">
+                      <Input
+                        value={playlistUrl}
+                        onChange={(e) => setPlaylistUrl(e.target.value)}
+                        placeholder="Paste Spotify playlist URL..."
+                        className={`w-full py-3 px-4 bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white placeholder-white/50 text-base h-12 rounded-xl focus:border-green-400/50 focus:ring-1 focus:ring-green-400/20 ${spaceGrotesk.className}`}
+                        disabled={isProcessingPlaylist}
+                      />
+                      
+                      {/* Progress Display */}
+                      {playlistProgress && (
+                        <div className="space-y-3">
+                          <div className="flex justify-between text-sm">
+                            <span className={`text-white/80 ${spaceGrotesk.className}`}>{playlistProgress.status}</span>
+                            <span className={`text-white/60 ${spaceGrotesk.className}`}>
+                              {playlistProgress.total > 0 && 
+                                `${playlistProgress.current}/${playlistProgress.total}`
+                              }
+                            </span>
+                          </div>
+                          {playlistProgress.total > 0 && (
+                            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-300 shadow-lg"
+                                style={{ width: `${playlistProgress.percentage}%` }}
+                              />
+                            </div>
+                          )}
+                          {playlistProgress.currentTrack && (
+                            <div className="w-full min-w-0">
+                              <p className={`text-xs text-white/60 truncate ${spaceGrotesk.className}`}>
+                                Processing: {playlistProgress.currentTrack}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-end gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setShowPlaylistDialog(false);
+                            setPlaylistUrl('');
+                            setPlaylistProgress(null);
+                          }}
+                          disabled={isProcessingPlaylist}
+                          className={`bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl px-6 ${spaceGrotesk.className}`}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleProcessSpotifyPlaylist}
+                          disabled={!playlistUrl.trim() || isProcessingPlaylist}
+                          className={`bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-base h-12 rounded-xl px-6 transition-all duration-300 shadow-lg hover:shadow-green-500/25 ${spaceGrotesk.className}`}
+                        >
+                          {isProcessingPlaylist && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                          Process Playlist
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              </>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {/* Currently Playing - Fixed */}
+          <AnimatePresence mode="wait">
+          {currentPlaying && (
+            <motion.div
+              key="currently-playing"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.4 }}
+              className="flex-shrink-0 mb-4"
+            >
               <motion.h3 
-                className="text-lg font-semibold text-white mb-3 flex items-center gap-2"
+                className="text-base sm:text-lg font-semibold text-white mb-2 sm:mb-3 flex items-center gap-2"
                 initial={{ x: -10, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
               >
                 <div className="text-green-400">
-                  <PlayIcon width={20} height={20} className="text-green-400" />
+                  <PlayIcon width={18} height={18} className="sm:w-5 sm:h-5 text-green-400" />
                 </div>
                 Now Playing
               </motion.h3>
@@ -798,129 +1244,143 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                 item={currentPlaying}
                 index={0}
                 isCurrentlyPlaying={true}
-                isAdmin={isAdmin}
+                isAdmin={adminStatus}
                 hasUserVoted={hasUserVoted(currentPlaying)}
                 onVote={() => handleVote(currentPlaying.id)}
                 onRemove={() => handleRemoveSong(currentPlaying.id)}
                 onPlayInstant={() => {}}
               />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="space-y-4">
-        <motion.h3 
-          className="text-lg font-semibold text-white flex items-center gap-2"
-          initial={{ x: -10, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-        >
-          Up Next
-          <motion.span 
-            className="text-sm font-normal text-gray-400"
-            animate={{ opacity: [0.7, 1, 0.7] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            ({sortedQueue.length} songs)
-          </motion.span>
-        </motion.h3>
-        
-        <AnimatePresence mode="popLayout">
-          {sortedQueue.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.4 }}
-            >
-              <Card className="bg-[#1C1E1F] border-[#424244] ">
-                <CardContent className="py-12 text-center text-gray-400">
-                  <motion.div 
-                    className="flex flex-col items-center gap-4"
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <motion.div
-                      animate={{ 
-                        rotate: [0, 5, -5, 0],
-                        scale: [1, 1.05, 1]
-                      }}
-                      transition={{ 
-                        duration: 4, 
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                    >
-                      <div className="text-gray-600">
-                        <PlayListIcon width={64} height={64} className="text-gray-600" />
-                      </div>
-                    </motion.div>
-                    <div>
-                      <p className="text-lg font-medium mb-2">No songs in queue</p>
-                      <p className="text-sm">Add some music to get the party started!</p>
-                    </div>
-                    <motion.div 
-                      className="flex items-center gap-2 text-sm"
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <div className="text-current">
-                        <SearchIcon width={16} height={16} />
-                      </div>
-                      <span>Search and add your favorite tracks</span>
-                    </motion.div>
-                  </motion.div>
-                </CardContent>
-              </Card>
             </motion.div>
-          ) : (
-            <div className="space-y-3">
-              {sortedQueue.map((item, index) => (
-                <SongCard
-                  key={item.id}
-                  item={item}
-                  index={index}
-                  isCurrentlyPlaying={false}
-                  isAdmin={isAdmin}
-                  hasUserVoted={hasUserVoted(item)}
-                  onVote={() => handleVote(item.id)}
-                  onRemove={() => handleRemoveSong(item.id)}
-                  onPlayInstant={() => handlePlayInstant(item.id)}
-                />
-              ))}
-            </div>
           )}
-        </AnimatePresence>
-      </div>
+          </AnimatePresence>
+
+          {/* Up Next Header - Fixed */}
+          <motion.h3 
+            className="text-base sm:text-lg font-semibold text-white flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-shrink-0 mb-2"
+            initial={{ x: -10, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <span>Up Next</span>
+            <motion.span 
+              className="text-xs sm:text-sm font-normal text-gray-400"
+              animate={{ opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              ({sortedQueue.length} songs)
+            </motion.span>
+          </motion.h3>
+          
+          {/* Scrollable Queue Songs */}
+          <div className="flex-1 hide-scrollbar overflow-y-auto min-h-0 pr-1">
+            <AnimatePresence mode="popLayout">
+              {sortedQueue.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Card className="bg-[#1C1E1F] border-[#424244]">
+                    <CardContent className="py-8 sm:py-12 text-center text-gray-400">
+                      <motion.div 
+                        className="flex flex-col items-center gap-3 sm:gap-4"
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <motion.div
+                          animate={{ 
+                            rotate: [0, 5, -5, 0],
+                            scale: [1, 1.05, 1]
+                          }}
+                          transition={{ 
+                            duration: 4, 
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        >
+                          <div className="text-gray-600">
+                            <PlayListIcon width={48} height={48} className="sm:w-16 sm:h-16 text-gray-600" />
+                          </div>
+                        </motion.div>
+                        <div>
+                          <p className="text-base sm:text-lg font-medium mb-2">No songs in queue</p>
+                          <p className="text-sm">Add some music to get the party started!</p>
+                        </div>
+                        <motion.div 
+                          className="flex items-center gap-2 text-xs sm:text-sm"
+                          animate={{ opacity: [0.5, 1, 0.5] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <div className="text-current">
+                            <SearchIcon width={14} height={14} className="sm:w-4 sm:h-4" />
+                          </div>
+                          <span className="text-center">Search and add your favorite tracks</span>
+                        </motion.div>
+                      </motion.div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : (
+                <div className="space-y-2 sm:space-y-3 pb-2">
+                  {sortedQueue.map((item, index) => (
+                    <SongCard
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      isCurrentlyPlaying={false}
+                      isAdmin={adminStatus}
+                      hasUserVoted={hasUserVoted(item)}
+                      onVote={() => handleVote(item.id)}
+                      onRemove={() => handleRemoveSong(item.id)}
+                      onPlayInstant={() => handlePlayInstant(item.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </motion.div>
       
-      <style jsx>{`
-        .text-current svg path {
-          stroke: currentColor !important;
-        }
-        .text-green-400 svg path {
-          stroke: #4ade80 !important;
-        }
-        .text-gray-500 svg path {
-          stroke: #6b7280 !important;
-        }
-        .text-gray-600 svg path {
-          stroke: #4b5563 !important;
-        }
-        .text-white svg path {
-          stroke: #ffffff !important;
-        }
-        .text-blue-400 svg path {
-          stroke: #60a5fa !important;
-        }
-        button:hover .text-current svg path {
-          stroke: currentColor !important;
-        }
-        button:hover .text-white svg path {
-          stroke: #ffffff !important;
-        }
-      `}</style>
-    </motion.div>
+      {/* Chat Overlay */}
+      {showChatOverlay && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ 
+            overflow: 'hidden',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0
+          }}
+        >
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowChatOverlay(false)}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+          
+          {/* Chat Container */}
+          <div 
+            className="relative w-full max-w-md h-full max-h-[90vh] mx-4"
+            style={{ 
+              position: 'relative',
+              zIndex: 51
+            }}
+          >
+            <Chat 
+              spaceId={spaceId} 
+              className="w-full h-full"
+              isOverlay={true}
+              onClose={() => setShowChatOverlay(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   );
 };

@@ -4,7 +4,9 @@ interface ElectronAPI {
     artist: string;
     image?: string;
     duration?: number;
+    currentTime?: number;
     startTime?: number;
+    isPlaying?: boolean;
     spaceId?: string;
     spaceName?: string;
   }) => void;

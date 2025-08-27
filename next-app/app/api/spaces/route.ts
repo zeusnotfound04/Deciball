@@ -199,17 +199,22 @@ export async function GET(req:NextRequest) {
       
          
         const spaces = await prisma.space.findMany({
-            where:{
-                hostId:session.user.id
+            where: {
+                hostId: session.user.id
             },
             select: {
                 id: true,
                 name: true,
                 hostId: true,
-                isActive: true
+                isActive: true,
+                _count: {
+                    select: {
+                        streams: true
+                    }
+                }
             },
             orderBy: {
-                id: 'desc'
+                name: 'asc'
             }
         });
 

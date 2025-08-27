@@ -49,6 +49,7 @@ interface AudioState {
     setSynchronized: (synchronized: boolean) => void;
     setLastSyncTimestamp: (timestamp: number) => void;
     setCurrentSpaceId: (spaceId: string | null) => void;
+    setIsSeeking: (seeking: boolean) => void;
     
     syncPlaybackToTimestamp: (timestamp: number) => void;
     handleRoomSync: (currentTime: number, isPlaying: boolean, currentSong: any, isInitialSync: boolean) => void;
@@ -123,6 +124,7 @@ interface AudioState {
           setSynchronized: (isSynchronized) => set({ isSynchronized }),
           setLastSyncTimestamp: (lastSyncTimestamp) => set({ lastSyncTimestamp }),
           setCurrentSpaceId: (currentSpaceId) => set({ currentSpaceId }),
+          setIsSeeking: (isSeeking) => set({ isSeeking }),
           
           syncPlaybackToTimestamp: (timestamp) => {
             const state = get();
@@ -326,12 +328,12 @@ interface AudioState {
   const skipCountRef = useRef(0);
   const lastEmittedTimeRef = useRef(0);
     
-  const { user, isAdminOnline } = useUserStore();
+  const { user,  } = useUserStore();
     
   const { socket: wsFromContext, sendMessage: sendMessageFromContext } = useSocket();
     
-  const ws = wsFromContext || useUserStore.getState().ws;
-    const emitMessage = sendMessageFromContext || useUserStore.getState().emitMessage;
+  const ws = wsFromContext
+    const emitMessage = sendMessageFromContext;
     
     const {
       isPlaying,
@@ -806,9 +808,52 @@ interface AudioState {
       setYoutubePlayerInStore(player);
       
       if (player) {
+        // Clear any existing interval
         if ((player as any)._progressInterval) {
           clearInterval((player as any)._progressInterval);
         }
+        
+        // Set up onStateChange event handler to detect song ending
+        player.addEventListener('onStateChange', (event: any) => {
+          console.log("[YouTube] Player state changed:", event.data);
+          
+          // YT.PlayerState.ENDED = 0
+          if (event.data === 0) {
+            console.log("[YouTube] Song ended, triggering next song");
+            
+            // Get current state
+            const { currentSpaceId } = useAudioStore.getState();
+            const { user } = useUserStore.getState();
+            
+            if (currentSpaceId && user?.id) {
+              // Send song-ended message to server
+              if (sendMessageFromContext) {
+                console.log("[YouTube] Sending song-ended via context");
+                sendMessageFromContext("song-ended", {
+                  spaceId: currentSpaceId,
+                  userId: user.id,
+                  action: "songEnded"
+                });
+              } else if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log("[YouTube] Sending song-ended via fallback WebSocket");
+                try {
+                  ws.send(JSON.stringify({
+                    type: "song-ended",
+                    data: {
+                      spaceId: currentSpaceId,
+                      userId: user.id,
+                      action: "songEnded"
+                    }
+                  }));
+                } catch (error) {
+                  console.error("[YouTube] Error sending song-ended message:", error);
+                }
+              }
+            } else {
+              console.error("[YouTube] Cannot send song-ended - missing spaceId or user");
+            }
+          }
+        });
         
         const updateProgress = () => {
           try {
@@ -1109,11 +1154,11 @@ interface AudioState {
       
       const interval = setInterval(() => {
         if (!audioRef.current || audioRef.current.paused) return;
-        
-        if (isAdminOnline && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ 
-            type: "progress", 
-            data: audioRef.current.currentTime 
+
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "progress",
+            data: audioRef.current.currentTime
           }));
         }
         
@@ -1135,7 +1180,7 @@ interface AudioState {
       }, 3000);
       
       return () => clearInterval(interval);
-    }, [currentVolume, isAdminOnline, ws]);
+    }, [currentVolume, ws]);
 
     useEffect(() => {
       const audioElement = audioRef.current;
@@ -1163,16 +1208,30 @@ interface AudioState {
         
         const handleEnd = () => {
           if (!youtubePlayer) {
-          const customSongEndedCallback = (window as any).__songEndedCallback;
-          if (customSongEndedCallback) {
-            customSongEndedCallback();
-          } else {
-            if (sendMessageFromContext) {
-              sendMessageFromContext("songEnded", { action: "songEnded" });
+            console.log("[Audio] Audio element ended, triggering next song");
+            
+            const { currentSpaceId } = useAudioStore.getState();
+            const { user } = useUserStore.getState();
+            
+            if (currentSpaceId && user?.id) {
+              if (sendMessageFromContext) {
+                console.log("[Audio] Sending song-ended via context");
+                sendMessageFromContext("song-ended", {
+                  spaceId: currentSpaceId,
+                  userId: user.id,
+                  action: "songEnded"
+                });
+              } else if (emitMessage) {
+                console.log("[Audio] Sending song-ended via emitMessage");
+                emitMessage("song-ended", {
+                  spaceId: currentSpaceId,
+                  userId: user.id,
+                  action: "songEnded"
+                });
+              }
             } else {
-              emitMessage("songEnded", { action: "songEnded" });
+              console.error("[Audio] Cannot send song-ended - missing spaceId or user");
             }
-          }
           }
         };
 
@@ -1236,6 +1295,18 @@ interface AudioState {
 
       const handlePlaybackResumedEvent = (event: CustomEvent) => {
         console.log("Playback resumed event received:", event.detail);
+        console.log("Auto-play flag:", event.detail?.autoPlay);
+        
+        // For auto-play, we need to ensure the user has interacted with the page
+        if (event.detail?.autoPlay) {
+          console.log("[Audio] Auto-playing next song from queue");
+          const { isSynchronized } = useAudioStore.getState();
+          if (!isSynchronized) {
+            console.log("[Audio] User hasn't interacted yet, marking as synchronized for auto-play");
+            useAudioStore.setState({ isSynchronized: true });
+          }
+        }
+        
         handlePlaybackResume();
       };
 
@@ -1246,6 +1317,22 @@ interface AudioState {
 
       const handlePlaybackStateUpdateEvent = (event: CustomEvent) => {
         console.log("Playback state update event received:", event.detail);
+        const { currentTime, isPlaying, timestamp, songId, isInitialSync } = event.detail;
+        
+        // Handle timestamp synchronization
+        if (typeof currentTime === 'number' && typeof isPlaying === 'boolean') {
+          console.log("[AudioStore] Processing timestamp sync:", {
+            currentTime,
+            isPlaying,
+            timestamp,
+            songId,
+            isInitialSync
+          });
+          
+          handleRoomSync(currentTime, isPlaying, { id: songId }, isInitialSync || false);
+        } else {
+          console.warn("[AudioStore] Invalid playback state data:", event.detail);
+        }
       };
 
       const handleCurrentSongUpdateEvent = (event: CustomEvent) => {
@@ -1368,6 +1455,47 @@ interface AudioState {
               window.dispatchEvent(new CustomEvent('playback-seeked', {
                 detail: { seekTime: data.seekTime, timestamp: data.timestamp, controlledBy: data.controlledBy }
               }));
+              break;
+              
+            case 'playback-state-update':
+              console.log("Received playback state update message:", data);
+              window.dispatchEvent(new CustomEvent('playback-state-update', {
+                detail: data
+              }));
+              break;
+              
+            case 'micro-sync':
+              // Handle high-frequency micro-sync for ultra-fast synchronization
+              console.log("Received micro-sync:", data);
+              const { ct: currentTime, ts: timestamp, si: songId } = data;
+              
+              // Calculate network latency and report back to server
+              const networkDelay = Date.now() - timestamp;
+              const compensatedTime = currentTime + (networkDelay / 1000);
+              
+              // Report latency for adaptive sync optimization (every 10th sync to avoid spam)
+              if (Math.random() < 0.1) {
+                window.dispatchEvent(new CustomEvent('report-latency', {
+                  detail: { latency: networkDelay }
+                }));
+              }
+              
+              // Only apply micro-sync if user is synchronized and not seeking
+              const state = useAudioStore.getState();
+              if (state.isSynchronized && !state.isSeeking && state.youtubePlayer) {
+                try {
+                  const playerCurrentTime = state.youtubePlayer.getCurrentTime();
+                  const timeDiff = Math.abs(playerCurrentTime - compensatedTime);
+                  
+                  // Only sync if difference is significant (>0.5s) to avoid constant adjustments
+                  if (timeDiff > 0.5) {
+                    console.log(`[MicroSync] Correcting ${timeDiff.toFixed(2)}s drift (latency: ${networkDelay}ms)`);
+                    state.youtubePlayer.seekTo(compensatedTime, true);
+                  }
+                } catch (error) {
+                  console.error("[MicroSync] Error applying micro-sync:", error);
+                }
+              }
               break;
               
             default:

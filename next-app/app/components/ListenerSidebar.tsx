@@ -27,11 +27,23 @@ interface ListenerSidebarProps {
 const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
   const { state } = useSidebar(); 
   
+  // Deduplicate listeners to prevent duplicate keys
+  const uniqueListeners = useMemo(() => {
+    const seen = new Set();
+    return listeners.filter(listener => {
+      if (seen.has(listener.userId)) {
+        return false;
+      }
+      seen.add(listener.userId);
+      return true;
+    });
+  }, [listeners]);
+  
   useEffect(() => {
    
-  }, [listeners, state]);
+  }, [uniqueListeners, state]);
   
-  console.log('ListenerSidebar - rendering with state:', listeners);
+  console.log('ListenerSidebar - rendering with state:', uniqueListeners);
 
   const isExpanded = state === "expanded";
   
@@ -40,6 +52,14 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
     duration: 0.4,
     ease: [0.25, 0.46, 0.45, 0.94] as const
   };
+
+  // Emit sidebar width changes to parent layout
+  useEffect(() => {
+    const event = new CustomEvent('sidebar-resize', { 
+      detail: { width: sidebarWidth } 
+    });
+    window.dispatchEvent(event);
+  }, [sidebarWidth]);
 
   const itemVariants = {
     expanded: {
@@ -56,7 +76,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
     }
   };
 
-  const listenersCount = useMemo(() => listeners.length, [listeners.length]);
+  const listenersCount = useMemo(() => uniqueListeners.length, [uniqueListeners.length]);
 
   const emptyListenersContent = useMemo(() => {
     if (listenersCount > 0) return null;
@@ -148,7 +168,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             >
               <Avatar className={`transition-all duration-300 flex-shrink-0 ring-2 ring-gray-600/20 group-hover:ring-blue-500/30 ${
-                !isExpanded ? "h-9 w-9" : "h-9 w-9"
+                !isExpanded ? "h-8 w-8 lg:h-9 lg:w-9" : "h-8 w-8 lg:h-9 lg:w-9"
               }`}>
                 {listener.imageUrl && (
                   <AvatarImage
@@ -173,7 +193,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
                   className="flex flex-col min-w-0 flex-1 overflow-hidden"
                 >
                   <motion.span 
-                    className="truncate font-medium text-white text-sm"
+                    className="truncate font-medium text-white text-xs lg:text-sm"
                     initial={{ y: 5, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
@@ -185,7 +205,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
                       initial={{ opacity: 0, y: 5, scale: 0.9 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       transition={{ delay: 0.15, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-                      className="text-xs text-blue-400 bg-blue-900/20 px-2 py-0.5 rounded-full font-medium w-fit border border-blue-700/20"
+                      className="text-xs text-blue-400 bg-blue-900/20 px-1.5 lg:px-2 py-0.5 rounded-full font-medium w-fit border border-blue-700/20"
                     >
                       Creator
                     </motion.span>
@@ -204,14 +224,14 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
       return emptyListenersContent;
     }
 
-    return listeners.map((listener, index) => (
+    return uniqueListeners.map((listener, index) => (
       <ListenerItem
         key={listener.userId}
         listener={listener}
         index={index}
       />
     ));
-  }, [listeners, listenersCount, emptyListenersContent]);
+  }, [uniqueListeners, listenersCount, emptyListenersContent]);
 
   const sidebarContent = useMemo(() => (
     <motion.div
@@ -228,64 +248,64 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
 
   return (
     <div
-      className="fixed left-0 top-0 bottom-0 z-50"
+      className="fixed left-0 top-0 bottom-0 z-50 lg:relative lg:left-auto lg:top-auto lg:bottom-auto"
       style={{ 
         padding: '5px',
+        pointerEvents: isExpanded ? 'auto' : 'none'
       }}
     >
       <motion.div
         initial={{ x: -50, opacity: 0 }}
         animate={{ x: 0, opacity: 1, width: sidebarWidth }}
         transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-        className="h-full"
-        style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px`, maxWidth: `${sidebarWidth}px` }}
+        className="h-full lg:h-auto"
+        style={{ 
+          width: `${sidebarWidth}px`, 
+          minWidth: `${sidebarWidth}px`, 
+          maxWidth: `${sidebarWidth}px`
+        }}
       >
         <Sidebar
           side="left"
-          className="dark bg-transparent text-white border-none h-full transition-all duration-500 ease-out overflow-hidden"
+          className="dark bg-transparent text-white border-none h-full lg:h-auto transition-all duration-500 ease-out overflow-hidden"
           collapsible="icon"
           style={{ width: `${sidebarWidth}px` }}
         >
-          <SidebarHeader className="flex flex-col p-4 relative h-auto min-h-16 bg-[#1C1E1F] backdrop-blur-md rounded-t-2xl border-b border-[#424244]/50 shadow-lg">
+          <SidebarHeader className={`flex p-3 sm:p-4 relative bg-[#1C1E1F] backdrop-blur-md rounded-t-2xl border-b border-[#424244]/50 shadow-lg min-h-[3rem] sm:min-h-[3.5rem] lg:min-h-[4rem] ${isExpanded ? 'flex-row items-center justify-between' : 'flex-col gap-2 items-center justify-center'}`}>
+            {isExpanded && (
+              <div className="flex-1 flex items-center h-full">
+                <AnimatePresence mode="wait">
+                  {isExpanded && (
+                    <motion.div
+                      key="header-content"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
+                      className="space-y-3"
+                    >
+                      <motion.h2 
+                        className="text-lg lg:text-xl font-bold text-white tracking-tight"
+                        initial={{ y: 10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
+                      >
+                        Listeners
+                      </motion.h2>
+                     
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+            
             <motion.div 
-              className="absolute right-3 top-3 z-10"
+              className="z-10 flex-shrink-0"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <SidebarTrigger className="transition-all duration-300 hover:bg-gray-700/50 rounded-xl p-2 w-12 h- flex items-center justify-center backdrop-blur-sm border border-gray-600/20 hover:border-gray-500/40 shadow-sm hover:shadow-md" />
+              <SidebarTrigger className="transition-all duration-300 hover:bg-gray-700/50 rounded-xl p-1.5 lg:p-2 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 flex items-center justify-center backdrop-blur-sm border border-gray-600/20 hover:border-gray-500/40 shadow-sm hover:shadow-md" />
             </motion.div>
-            
-            <div className="flex-1 pr-12 flex flex-col justify-center h-full">
-              <AnimatePresence mode="wait">
-                {isExpanded && (
-                  <motion.div
-                    key="header-content"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-                    className="space-y-3"
-                  >
-                    <motion.h2 
-                      className="text-xl font-bold text-white tracking-tight"
-                      initial={{ y: 10, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-                    >
-                      Listeners
-                    </motion.h2>
-                    <motion.div 
-                      className="text-sm text-gray-400 font-medium"
-                      initial={{ y: 10, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.15, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-                    >
-                      {listenersCount} Connected
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
             
             <motion.div 
               className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-500/40 to-transparent"
@@ -301,7 +321,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
             />
           </SidebarHeader>
           
-          <SidebarContent className="bg-[#101010] backdrop-blur-md rounded-b-2xl overflow-hidden shadow-lg">
+          <SidebarContent className="bg-[#101010] backdrop-blur-md rounded-b-2xl overflow-hidden shadow-lg lg:max-h-none sm:max-h-[70vh] md:max-h-[75vh] max-h-[60vh] flex flex-col">
             {sidebarContent}
           </SidebarContent>
         </Sidebar>

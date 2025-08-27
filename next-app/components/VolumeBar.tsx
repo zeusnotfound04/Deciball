@@ -234,7 +234,7 @@ const Slider: React.FC<SliderProps> = ({
 
         <div
           ref={sliderRef}
-          className="relative flex w-full max-w-32 flex-grow cursor-grab touch-none select-none items-center py-2"
+          className="relative flex w-full min-w-16 sm:min-w-20 md:min-w-24 lg:min-w-32 max-w-16 sm:max-w-20 md:max-w-24 lg:max-w-32 flex-grow cursor-grab touch-none select-none items-center py-2"
           onPointerMove={handlePointerMove}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
@@ -292,7 +292,7 @@ const Slider: React.FC<SliderProps> = ({
           {rightIcon}
         </motion.div>
       </motion.div>
-      <p className={`absolute text-xs font-medium tracking-wide transform -translate-y-6 transition-colors duration-200 ${
+      <p className={`absolute text-xs font-medium tracking-wide transform -translate-y-6 transition-colors duration-200 hidden sm:block ${
         isMuted ? 'text-red-400' : 'text-gray-400'
       }`}>
         {isMuted ? 'Muted' : Math.round(value)}

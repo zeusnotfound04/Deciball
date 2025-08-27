@@ -108,7 +108,7 @@ const BlurText: React.FC<BlurTextProps> = ({
   );
 
   return (
-    <Component ref={ref} className={`blur-text ${className} flex flex-wrap`}>
+    <Component ref={ref} className={`blur-text ${className} `}>
       {elements.map((element, index) => {
         const animateKeyframes = buildKeyframes(fromSnapshot, toSnapshots);
 
@@ -139,8 +139,9 @@ const BlurText: React.FC<BlurTextProps> = ({
               index === elements.length - 1 ? onAnimationComplete : undefined
             }
             style={{
-              display: "inline-block",
+              display: className.includes('block') ? "block" : "inline-block",
               willChange: "transform, filter, opacity",
+              width: className.includes('w-full') || className.includes('block') ? "100%" : undefined,
             }}
           >
             {content}
