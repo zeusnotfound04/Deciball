@@ -1,28 +1,43 @@
 import { MusicHandler, MusicSource, MusicTrack } from "../types";
 //@ts-ignore
 import youtubesearchapi from "youtube-search-api";
-
-
+import * as crypto from 'crypto';
 export class YoutubeHandler implements MusicHandler {
     validateURL(URL: string): boolean {
         if (!URL) return false;
         
-        const urlPattern = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/;
-        if (urlPattern.test(URL)) return true;
+        // Support various YouTube URL formats
+        const urlPatterns = [
+            /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/,
+            /^(https?:\/\/)?(www\.)?youtube\.com\/embed\/[a-zA-Z0-9_-]{11}/,
+            /^(https?:\/\/)?(www\.)?youtube\.com\/v\/[a-zA-Z0-9_-]{11}/,
+            /^[a-zA-Z0-9_-]{11}$/ // Direct video ID
+        ];
         
-        const videoIdPattern = /^[a-zA-Z0-9_-]{11}$/;
-        return videoIdPattern.test(URL);
+        return urlPatterns.some(pattern => pattern.test(URL));
     }
 
     extractId(URL: string): string | null {
         if (!URL) return null;
         
+        // Direct video ID (11 characters)
         if (/^[a-zA-Z0-9_-]{11}$/.test(URL)) {
             return URL;
         }
         
-        const match = URL.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-        return match ? match[1] : null;
+        // Various YouTube URL patterns
+        const patterns = [
+            /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+            /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+            /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/
+        ];
+        
+        for (const pattern of patterns) {
+            const match = URL.match(pattern);
+            if (match) return match[1];
+        }
+        
+        return null;
     }
  async getTrackDetails(id: string): Promise<MusicTrack | null> {
   try {
@@ -112,6 +127,88 @@ export class YoutubeHandler implements MusicHandler {
     return null;
   }
 }
+
+    // New method for searching YouTube by query
+    async searchTrack(query: string): Promise<MusicTrack | null> {
+        try {
+            console.log(`[YoutubeHandler] 🔍 Searching YouTube for: "${query}"`);
+            
+            if (!query || query.trim().length === 0) {
+                console.warn(`[YoutubeHandler] Empty search query provided`);
+                return null;
+            }
+            
+            const finalQuery = `${query.trim()} (Audio)`
+            console.log("Final Query 👀👀" , finalQuery)
+            const searchResult = await youtubesearchapi.GetListByKeyword(finalQuery, false, 1);
+            
+            if (!searchResult || !searchResult.items || searchResult.items.length === 0) {
+                console.warn(`[YoutubeHandler] No search results found for: "${query}"`);
+                return null;
+            }
+
+            const video = searchResult.items[0];
+            console.log(`[YoutubeHandler] 📺 Found video: "${video.title}" (${video.id})`);
+
+            // Extract video ID from the result
+            const videoId = video.id;
+            if (!videoId || videoId.length !== 11) {
+                console.warn(`[YoutubeHandler] Invalid video ID in search result: ${videoId}`);
+                return null;
+            }
+
+            const title = video.title;
+
+            // Handle thumbnail extraction
+            let smallImage = "";
+            let bigImage = "";
+
+            if (video.thumbnail && Array.isArray(video.thumbnail.thumbnails)) {
+                const thumbnails = video.thumbnail.thumbnails;
+                smallImage = thumbnails[0]?.url || "";
+                bigImage = thumbnails[thumbnails.length - 1]?.url || smallImage;
+            }
+
+            // Fallback thumbnails
+            if (!smallImage && !bigImage) {
+                const fallback = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+                smallImage = fallback;
+                bigImage = fallback;
+            }
+
+            // Parse duration if available
+            let duration: number | undefined;
+            if (video.length && video.length.simpleText) {
+                // Convert duration from "4:32" format to seconds
+                const timeStr = video.length.simpleText;
+                const timeParts = timeStr.split(':').map((part: string) => parseInt(part));
+                if (timeParts.length === 2) {
+                    duration = timeParts[0] * 60 + timeParts[1]; // minutes:seconds
+                } else if (timeParts.length === 3) {
+                    duration = timeParts[0] * 3600 + timeParts[1] * 60 + timeParts[2]; // hours:minutes:seconds
+                }
+            }
+
+            const result: MusicTrack = {
+                id: crypto.randomUUID(),
+                source: "Youtube",
+                extractedId: videoId,
+                url: `https://youtube.com/watch?v=${videoId}`,
+                title,
+                artist: video.channelTitle || 'Unknown Artist',
+                smallImg: smallImage,
+                bigImg: bigImage,
+                duration
+            };
+
+            console.log(`[YoutubeHandler] ✅ Successfully found: "${title}" by ${video.channelTitle}`);
+            return result;
+            
+        } catch (error) {
+            console.error(`[YoutubeHandler] ❌ Error searching for "${query}":`, error);
+            return null;
+        }
+    }
 
     getSource(): MusicSource {
     return "Youtube";

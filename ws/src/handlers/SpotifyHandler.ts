@@ -7,14 +7,24 @@ export class SpotifyHandler implements MusicHandler {
 //     // this.spotifyToken = spotifyToken;
 //   }
 
-  validateURL
-  (URL: string): boolean {
-    return /^https:\/\/open\.spotify\.com\/track\//.test(URL);
+  validateURL(URL: string): boolean {
+    // Support both track and playlist URLs
+    const trackPattern = /^https:\/\/open\.spotify\.com\/track\/[a-zA-Z0-9]+/;
+    const playlistPattern = /^https:\/\/open\.spotify\.com\/playlist\/[a-zA-Z0-9]+/;
+    const directTrackId = /^[a-zA-Z0-9]{22}$/; // Spotify track IDs are 22 characters
+    
+    return trackPattern.test(URL) || playlistPattern.test(URL) || directTrackId.test(URL);
   }
 
   extractId(url: string): string | null {
-    const match = url.match(/track\/([a-zA-Z0-9]+)/);
-    return match ? match[1] : null;
+    // Extract track ID from various Spotify URL formats
+    const trackMatch = url.match(/track\/([a-zA-Z0-9]+)/);
+    if (trackMatch) return trackMatch[1];
+    
+    // Direct track ID
+    if (/^[a-zA-Z0-9]{22}$/.test(url)) return url;
+    
+    return null;
   }
 
   async getTrackDetails(id: string): Promise<MusicTrack | null> {

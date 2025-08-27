@@ -6,10 +6,16 @@
   "scripts": {
     "dev": "nodemon",
     "start": "node dist/app.js",
+    "start:optimized": "node startup.js",
     "build": "npm run postinstall && tsc -b",
     "postinstall": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "flush-cache": "npx ts-node scripts/flush-cache.ts",
+    "flush-cache:force": "npx ts-node scripts/flush-cache.ts --force",
+    "flush-cache:all": "npx ts-node scripts/flush-cache.ts --all",
+    "flush-cache:shell": "bash scripts/flush-cache.sh",
+    "cache-manager": "npx ts-node scripts/cache-manager.ts"
   },
   "keywords": [],
   "author": "",

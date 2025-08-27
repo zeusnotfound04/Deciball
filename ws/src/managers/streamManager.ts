@@ -1,8 +1,12 @@
+
 import jwt from 'jsonwebtoken';
 import { createClient, RedisClientType } from "redis";
 import { WebSocket } from "ws";
 import crypto from "crypto";
 import { MusicSourceManager } from "../handlers/index";
+import { MusicCache } from "../cache/MusicCache";
+import { MusicWorkerPool } from "../workers/MusicWorkerPool";
+import { MusicTrack } from "../types";
 
 const redisUrl = process.env.REDIS_URL
 
@@ -22,6 +26,7 @@ interface UserTokenInfo {
     username?: string;
     email?: string;
     name?: string;
+    pfpUrl?: string;
 }
 type PlaybackState = {
     currentSong: {
@@ -50,8 +55,8 @@ type TimestampBroadcast = {
 type QueueSong = {
     id: string;
     title: string;
-    artist?: string;
-    album?: string;
+    artist: string;
+    album: string;
     url: string;
     addedByUser: string;
     // artists?: string[];
@@ -61,10 +66,10 @@ type QueueSong = {
     bigImg: string;
     userId: string; 
     addedAt: number; 
-    duration?: number;
+    duration: number;
     voteCount: number;
-    spotifyId?: string;
-    youtubeId?: string;
+    spotifyId: string;
+    youtubeId: string;
 };
 
 type User = {
@@ -84,6 +89,8 @@ type Space = {
 
 export class RoomManager {
     private musicSourceManager: MusicSourceManager;
+    private musicCache!: MusicCache; // Use definite assignment assertion
+    private workerPool!: MusicWorkerPool; // Use definite assignment assertion
     private static instance : RoomManager;
     public spaces : Map<string , Space>;
     public users : Map<string , User>
@@ -92,7 +99,7 @@ export class RoomManager {
     public subscriber : RedisClientType;
     public wsToSpace : Map<WebSocket, string>
     private timestampIntervals: Map<string, NodeJS.Timeout> = new Map();
-    private readonly TIMESTAMP_BROADCAST_INTERVAL = 5000; // Broadcast every 5 seconds
+    private readonly TIMESTAMP_BROADCAST_INTERVAL = 5000; // 5 seconds for smooth sync
 
     
     private constructor() {
@@ -125,6 +132,9 @@ export class RoomManager {
         
         this.musicSourceManager = new MusicSourceManager();
         this.wsToSpace = new Map();
+        
+        // Initialize optimizations after Redis connection
+        console.log('[RoomManager] Initializing optimized music processing...');
     }
 
     static getInstance() {
@@ -137,9 +147,730 @@ export class RoomManager {
 
 
     async initRedisClient () {
+        console.log('[RoomManager] Connecting to Redis...');
         await this.redisClient.connect();
         await this.publisher.connect();
         await this.subscriber.connect();
+        console.log('[RoomManager] ✅ Redis connections established');
+        
+        // Initialize cache and worker pool after Redis is connected
+        this.musicCache = new MusicCache(this.redisClient);
+        
+        // Use optimized worker count for production stability
+        // For t2.small instances, this will automatically use 1 worker
+        // For t2.medium and larger, it will scale appropriately
+        this.workerPool = new MusicWorkerPool(); // Auto-detect optimal worker count
+        
+        console.log('[RoomManager] ✅ Music cache and worker pool initialized');
+        
+        // Start health monitoring
+        this.startHealthMonitoring();
+    }
+
+    private startHealthMonitoring(): void {
+        // Simple health monitoring without extensive stats
+        setInterval(async () => {
+            try {
+                const workerStats = this.workerPool.getStats();
+                
+                // Auto-scale workers based on queue size
+                if (workerStats.queuedTasks > 10 && workerStats.totalWorkers < 8) {
+                    await this.workerPool.scaleWorkers(workerStats.totalWorkers + 2);
+                    console.log('[RoomManager] ⬆️ Scaled up workers due to high queue');
+                } else if (workerStats.queuedTasks === 0 && workerStats.totalWorkers > 4) {
+                    await this.workerPool.scaleWorkers(Math.max(4, workerStats.totalWorkers - 2));
+                    console.log('[RoomManager] ⬇️ Scaled down workers due to low queue');
+                }
+            } catch (error) {
+                console.error('[RoomManager] ❌ Health monitoring error:', error);
+            }
+        }, 5 * 60 * 1000); // 5 minutes
+    }
+
+    // Get worker pool statistics for monitoring
+    getWorkerPoolStats() {
+        return this.workerPool?.getStats() || {
+            totalWorkers: 0,
+            availableWorkers: 0,
+            activeWorkers: 0,
+            queuedTasks: 0,
+            totalTasksProcessed: 0,
+            averageTaskTime: 0,
+            errorRate: 0
+        };
+    }
+
+    // Enhanced song processing with cache + workers
+    async processNewStream(
+        spaceId: string,
+        url: string,
+        userId: string,
+        trackData?: any,
+        autoPlay: boolean = false
+    ): Promise<any> {
+        const processingStart = Date.now();
+        console.log(`[RoomManager] 🎵 Processing new stream: ${url}`);
+        
+        try {
+            // 1. Extract source information
+            const { source, extractedId } = await this.extractSourceInfo(url);
+            const normalizedQuery = this.normalizeQuery(url, trackData);
+            
+            // 2. Check cache first (fastest path) - include Spotify ID if available
+            const spotifyId = trackData?.spotifyId;
+            console.log(`[RoomManager] 🔍 Checking cache for: ${normalizedQuery} ${spotifyId ? `(Spotify ID: ${spotifyId})` : ''}`);
+            const cachedSong = await this.musicCache.searchCache(normalizedQuery, source, spotifyId);
+            
+            if (cachedSong && !(cachedSong as any).failed) {
+                console.log(`[RoomManager] ⚡ Cache HIT: "${cachedSong.title}" (${Date.now() - processingStart}ms)`);
+                return await this.addSongToQueue(spaceId, cachedSong, userId, autoPlay, true);
+            }
+            
+            // 3. Use worker to fetch details (parallel processing)
+            console.log(`[RoomManager] 🚀 Cache MISS - Using worker to fetch: ${source} - ${extractedId || url}`);
+            const songData = {
+                source,
+                query: normalizedQuery,
+                extractedId,
+                url,
+                trackData
+            };
+            
+            const songDetails = await this.workerPool.processSong(songData, 'high'); // High priority for real-time requests
+            
+            if (songDetails && !(songDetails as any).failed) {
+                // 4. Cache the result for future requests with Spotify ID
+                await this.musicCache.cacheSong(songDetails, normalizedQuery, spotifyId);
+                console.log(`[RoomManager] ✅ Song processed and cached: "${songDetails.title}" (${Date.now() - processingStart}ms)`);
+                
+                // 5. Add to queue
+                return await this.addSongToQueue(spaceId, songDetails, userId, autoPlay, false);
+            } else {
+                throw new Error((songDetails as any)?.error || 'Failed to fetch song details');
+            }
+            
+        } catch (error: any) {
+            console.error(`[RoomManager] ❌ Error processing stream: ${error.message} (${Date.now() - processingStart}ms)`);
+            throw error;
+        }
+    }
+
+    // New method for processing simplified track metadata (playlist batch processing)
+    async processSimplifiedBatch(
+        spaceId: string,
+        tracks: Array<{ 
+            title: string; 
+            artist: string; 
+            album?: string; 
+            spotifyId?: string; 
+            spotifyUrl?: string; 
+            smallImg?: string; 
+            bigImg?: string; 
+            duration?: number; 
+            source: string;
+        }>,
+        userId: string,
+        autoPlay: boolean = false
+    ): Promise<{successful: number, failed: number}> {
+        const batchStart = Date.now();
+        console.log(`[RoomManager] 🎵 Processing simplified batch of ${tracks.length} tracks for YouTube search`);
+
+        let successful = 0;
+        let failed = 0;
+
+        try {
+            // Process tracks in batches using worker pool
+            const batchSize = 6; // Match worker pool size
+            const batches = [];
+            
+            for (let i = 0; i < tracks.length; i += batchSize) {
+                batches.push(tracks.slice(i, i + batchSize));
+            }
+
+            for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                const batch = batches[batchIndex];
+                console.log(`[RoomManager] 📦 Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} tracks)`);
+
+                // Process all tracks in this batch in parallel
+                const promises = batch.map(async (track, index) => {
+                    const overallIndex = batchIndex * batchSize + index;
+                    
+                    // Send progress update
+                    this.broadcastProgressUpdate(spaceId, userId, {
+                        current: overallIndex + 1,
+                        total: tracks.length,
+                        percentage: Math.round(((overallIndex + 1) / tracks.length) * 100),
+                        currentTrack: `${track.title} - ${track.artist}`,
+                        status: `Searching YouTube for track ${overallIndex + 1}/${tracks.length}...`
+                    });
+
+                    try {
+                        // Create search query for YouTube
+                        const searchQuery = `${track.title} ${track.artist}`.trim();
+                        console.log(`[RoomManager] 🔍 Searching YouTube for: "${searchQuery}"`);
+
+                        // Check cache first with Spotify ID priority
+                        const cachedSong = await this.musicCache.searchCache(searchQuery, 'Youtube', track.spotifyId);
+                        
+                        let processedSong;
+                        if (cachedSong && !(cachedSong as any).failed) {
+                            console.log(`[RoomManager] ⚡ Cache HIT for: ${track.title}`);
+                            // Even with cache hits, ensure we preserve original Spotify metadata
+                            processedSong = {
+                                ...cachedSong,
+                                title: track.title, // Always use original Spotify title
+                                artist: track.artist, // Always use original Spotify artist
+                                album: track.album || cachedSong.album, // Prefer Spotify album
+                                smallImg: track.smallImg || cachedSong.smallImg, // Prefer Spotify image
+                                bigImg: track.bigImg || cachedSong.bigImg, // Prefer Spotify image
+                                duration: track.duration || cachedSong.duration, // Prefer Spotify duration
+                                spotifyId: track.spotifyId,
+                                spotifyUrl: track.spotifyUrl
+                            };
+                            console.log(`[RoomManager] ✅ Cache hit with preserved Spotify metadata: "${processedSong.title}" (was: "${cachedSong.title}")`);
+                        } else {
+                            console.log(`[RoomManager] 🚀 Cache MISS - Searching YouTube with worker`);
+                            
+                            // Use worker pool to search YouTube
+                            const songData = {
+                                source: 'Youtube',
+                                query: searchQuery,
+                                extractedId: '', // Will be found by YouTube search
+                                url: '', // Will be generated from search result
+                                // Keep original Spotify data as completeTrackData to preserve metadata
+                                completeTrackData: {
+                                    id: track.spotifyId || crypto.randomUUID(),
+                                    source: 'Youtube', // Use YouTube for playback but preserve Spotify metadata
+                                    extractedId: '', // Will be populated by YouTube search
+                                    url: '', // Will be populated by YouTube search
+                                    title: track.title, // Keep original Spotify title
+                                    artist: track.artist, // Keep original Spotify artist
+                                    album: track.album || '', // Keep original Spotify album
+                                    smallImg: track.smallImg || '', // Keep original Spotify small image
+                                    bigImg: track.bigImg || '', // Keep original Spotify big image
+                                    duration: track.duration || 0 // Keep original Spotify duration
+                                }
+                            };
+
+                            processedSong = await this.workerPool.processSong(songData, 'normal');
+                            
+                            if (processedSong && !(processedSong as any).failed) {
+                                // Ensure we preserve the original Spotify metadata in the processed song
+                                processedSong = {
+                                    ...processedSong,
+                                    title: track.title, // Override with original Spotify title
+                                    artist: track.artist, // Override with original Spotify artist
+                                    album: track.album || processedSong.album, // Prefer Spotify album
+                                    smallImg: track.smallImg || processedSong.smallImg, // Prefer Spotify image
+                                    bigImg: track.bigImg || processedSong.bigImg, // Prefer Spotify image
+                                    duration: track.duration || processedSong.duration, // Prefer Spotify duration
+                                    spotifyId: track.spotifyId,
+                                    spotifyUrl: track.spotifyUrl
+                                };
+                                
+                                // Cache the successful result with Spotify ID
+                                await this.musicCache.cacheSong(processedSong, searchQuery, track.spotifyId);
+                                console.log(`[RoomManager] ✅ YouTube search successful with preserved Spotify metadata: ${processedSong.title}`);
+                            }
+                        }
+
+                        if (processedSong && !(processedSong as any).failed) {
+                            // Add song to queue
+                            await this.addSongToQueue(spaceId, processedSong, userId, autoPlay && successful === 0, !!cachedSong);
+                            successful++;
+                            console.log(`[RoomManager] ✅ Added to queue: ${track.title} (${successful}/${tracks.length})`);
+                        } else {
+                            failed++;
+                            console.warn(`[RoomManager] ❌ Failed to process: ${track.title}`);
+                        }
+
+                    } catch (error: any) {
+                        failed++;
+                        console.error(`[RoomManager] ❌ Error processing track "${track.title}":`, error.message);
+                    }
+                });
+
+                // Wait for current batch to complete before starting next
+                await Promise.all(promises);
+            }
+
+            const processingTime = Date.now() - batchStart;
+            console.log(`[RoomManager] ✅ Simplified batch completed: ${successful} successful, ${failed} failed (${processingTime}ms)`);
+
+            // Send final progress update
+            this.broadcastProgressUpdate(spaceId, userId, {
+                current: tracks.length,
+                total: tracks.length,
+                percentage: 100,
+                currentTrack: '',
+                status: `Completed! ${successful} tracks added successfully.`
+            });
+
+            return { successful, failed };
+
+        } catch (error) {
+            console.error(`[RoomManager] ❌ Simplified batch processing error:`, error);
+            throw error;
+        }
+    }
+
+    // Helper method to broadcast progress updates
+    private broadcastProgressUpdate(spaceId: string, userId: string, progress: {
+        current: number;
+        total: number;
+        percentage: number;
+        currentTrack: string;
+        status: string;
+    }) {
+        try {
+            const user = this.users.get(userId);
+            if (user) {
+                user.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "processing-progress",
+                            data: progress
+                        }));
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('[RoomManager] Error broadcasting progress update:', error);
+        }
+    }
+
+    // Batch processing for multiple songs with fallback logic (super fast with workers)
+    async processBatchStreams(
+        spaceId: string,
+        songs: Array<{ 
+            url: string; 
+            source?: string; 
+            extractedId?: string; 
+            trackData?: any;
+            completeTrackData?: {
+                id: string;
+                source: string;
+                extractedId: string;
+                url: string;
+                title: string;
+                artist?: string;
+                album?: string;
+                smallImg?: string;
+                bigImg?: string;
+                duration?: number;
+            };
+            fallbackData?: any;
+        }>,
+        userId: string,
+        autoPlay: boolean = false
+    ): Promise<{processed: number, cached: number, fetched: number, failed: number}> {
+        const batchStart = Date.now();
+        console.log(`[RoomManager] 📦 Processing batch of ${songs.length} songs with fallback logic`);
+
+        try {
+            // Filter out invalid songs and validate required fields
+            const validSongs = songs.filter(song => {
+                if (!song.source || !song.extractedId) {
+                    console.warn(`[RoomManager] Filtering out invalid song:`, song);
+                    return false;
+                }
+                return true;
+            });
+
+            if (validSongs.length === 0) {
+                console.warn(`[RoomManager] No valid songs found in batch`);
+                return { processed: 0, cached: 0, fetched: 0, failed: songs.length };
+            }
+
+            console.log(`[RoomManager] Processing ${validSongs.length} valid songs out of ${songs.length} total`);
+
+            // 1. Group songs by their Spotify ID (original track) to handle fallbacks
+            const songGroups = new Map<string, Array<any>>();
+            
+            for (const song of validSongs) {
+                const spotifyId = song.trackData?.id || song.fallbackData?.originalTrack?.id;
+                if (spotifyId) {
+                    if (!songGroups.has(spotifyId)) {
+                        songGroups.set(spotifyId, []);
+                    }
+                    songGroups.get(spotifyId)!.push(song);
+                } else {
+                    // Handle songs without Spotify ID separately
+                    const uniqueKey = `${song.extractedId}-${song.source}`;
+                    if (!songGroups.has(uniqueKey)) {
+                        songGroups.set(uniqueKey, []);
+                    }
+                    songGroups.get(uniqueKey)!.push(song);
+                }
+            }
+
+            console.log(`[RoomManager] 📊 Grouped ${validSongs.length} songs into ${songGroups.size} track groups`);
+
+            // 2. Process each group with fallback logic
+            const processedSongs = [];
+            const failedTracks = [];
+            let cachedCount = 0;
+            let fetchedCount = 0;
+
+            for (const [trackId, variations] of songGroups) {
+                console.log(`[RoomManager] 🎵 Processing track group ${trackId} with ${variations.length} variations`);
+                
+                // Sort variations by preference (primary variation first, then fallbacks)
+                const sortedVariations = variations.sort((a, b) => {
+                    // If both have fallback data, sort by variation index (0 = primary, 1+ = fallbacks)
+                    if (a.fallbackData && b.fallbackData) {
+                        const aIndex = a.fallbackData.variationIndex || 0;
+                        const bIndex = b.fallbackData.variationIndex || 0;
+                        return aIndex - bIndex;
+                    }
+                    // If only one has fallback data, prioritize the one without (legacy support)
+                    if (a.fallbackData && !b.fallbackData) return 1;
+                    if (!a.fallbackData && b.fallbackData) return -1;
+                    return 0;
+                });
+
+                let successfulSong = null;
+                let fromCache = false;
+
+                // Try each variation until one succeeds
+                for (let i = 0; i < sortedVariations.length; i++) {
+                    const song = sortedVariations[i];
+                    const isLastVariation = i === sortedVariations.length - 1;
+                    const variationIndex = song.fallbackData?.variationIndex || 0;
+                    const isSecondary = song.fallbackData?.isSecondaryVariation || false;
+                    
+                    console.log(`[RoomManager] 🔍 Trying ${isSecondary ? 'FALLBACK' : 'PRIMARY'} variation ${i + 1}/${sortedVariations.length} (index ${variationIndex}) for track ${trackId}: ${song.extractedId}`);
+
+                    try {
+                        // Create synthetic URL for normalization
+                        const syntheticUrl = song.extractedId ? 
+                            (song.source?.toLowerCase() === 'youtube' ? 
+                                `https://youtube.com/watch?v=${song.extractedId}` : 
+                                `https://open.spotify.com/track/${song.extractedId}`) : 
+                            '';
+                        
+                        const normalizedQuery = this.normalizeQuery(syntheticUrl, song.trackData);
+                        
+                        // Check cache first with Spotify ID if available
+                        const spotifyId = song.trackData?.spotifyId || song.completeTrackData?.spotifyId;
+                        const cachedSong = await this.musicCache.searchCache(normalizedQuery, song.source, spotifyId);
+                        
+                        if (cachedSong && !(cachedSong as any).failed) {
+                            console.log(`[RoomManager] ⚡ Cache HIT for ${isSecondary ? 'FALLBACK' : 'PRIMARY'} variation ${i + 1}: ${cachedSong.title}`);
+                            successfulSong = cachedSong;
+                            fromCache = true;
+                            cachedCount++;
+                            break;
+                        }
+
+                        // If not in cache, try to fetch
+                        console.log(`[RoomManager] 🚀 Cache MISS - Fetching ${isSecondary ? 'FALLBACK' : 'PRIMARY'} variation ${i + 1} with worker`);
+                        
+                        const songData = {
+                            source: song.source,
+                            query: normalizedQuery,
+                            extractedId: song.extractedId,
+                            url: syntheticUrl,
+                            trackData: song.trackData,
+                            completeTrackData: song.completeTrackData
+                        };
+
+                        const fetchedSong = await this.workerPool.processSong(songData, 'normal');
+                        
+                        if (fetchedSong && !(fetchedSong as any).failed) {
+                            console.log(`[RoomManager] ✅ Successfully fetched ${isSecondary ? 'FALLBACK' : 'PRIMARY'} variation ${i + 1}: ${fetchedSong.title}`);
+                            
+                            // Cache the successful result with Spotify ID
+                            await this.musicCache.cacheSong(fetchedSong, normalizedQuery, spotifyId);
+                            
+                            successfulSong = fetchedSong;
+                            fetchedCount++;
+                            break;
+                        } else {
+                            console.warn(`[RoomManager] ❌ Variation ${i + 1} failed: ${(fetchedSong as any)?.error || 'Unknown error'}`);
+                            
+                            // If this is the last variation, we've exhausted all options
+                            if (isLastVariation) {
+                                console.error(`[RoomManager] � All variations failed for track ${trackId}`);
+                            }
+                        }
+                        
+                    } catch (error: any) {
+                        console.error(`[RoomManager] ❌ Error processing variation ${i + 1} for track ${trackId}:`, error.message);
+                        
+                        // If this is the last variation and it failed, mark the track as failed
+                        if (isLastVariation) {
+                            console.error(`[RoomManager] 💀 All variations exhausted for track ${trackId}`);
+                        }
+                    }
+                }
+
+                // Add successful song to queue or track failure
+                if (successfulSong) {
+                    processedSongs.push({ song: successfulSong, fromCache });
+                    console.log(`[RoomManager] ✅ Track ${trackId} processed successfully${fromCache ? ' (from cache)' : ''}`);
+                } else {
+                    failedTracks.push(trackId);
+                    console.error(`[RoomManager] ❌ Track ${trackId} completely failed - no valid variations found`);
+                }
+            }
+
+            // 3. Add all successful songs to queue
+            let addedCount = 0;
+            
+            for (const { song, fromCache } of processedSongs) {
+                try {
+                    // const finalSong = { ...song, 
+                    //     duration: 
+                    //  };
+                    await this.addSongToQueue(spaceId, song, userId, autoPlay && addedCount === 0, fromCache);
+                    addedCount++;
+                } catch (error: any) {
+                    console.error(`[RoomManager] ❌ Error adding song "${song.title}" to queue:`, error.message);
+                }
+            }
+
+            const processingTime = Date.now() - batchStart;
+            const stats = {
+                processed: addedCount,
+                cached: cachedCount,
+                fetched: fetchedCount,
+                failed: failedTracks.length
+            };
+
+            console.log(`[RoomManager] ✅ Fallback batch completed: ${JSON.stringify(stats)} (${processingTime}ms)`);
+            console.log(`[RoomManager] 🎯 Successfully processed ${addedCount}/${songGroups.size} unique tracks`);
+            
+            if (failedTracks.length > 0) {
+                console.warn(`[RoomManager] ⚠️ Failed tracks: ${failedTracks.join(', ')}`);
+            }
+            
+            return stats;
+            
+        } catch (error) {
+            console.error(`[RoomManager] ❌ Batch processing error:`, error);
+            throw error;
+        }
+    }
+
+    // Helper methods for the enhanced processing
+    private async extractSourceInfo(url: string): Promise<{source: string, extractedId?: string}> {
+        // Add null/undefined check
+        if (!url || typeof url !== 'string') {
+            console.warn(`[StreamManager] Invalid URL provided: ${url}`);
+            return { source: 'Youtube', extractedId: undefined };
+        }
+
+        // Determine source from URL
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            const handler = this.musicSourceManager.getHandler('Youtube');
+            return {
+                source: 'Youtube',
+                extractedId: handler?.extractId(url) || undefined
+            };
+        } else if (url.includes('spotify.com')) {
+            const handler = this.musicSourceManager.getHandler('Spotify');
+            return {
+                source: 'Spotify',
+                extractedId: handler?.extractId ? (handler.extractId(url) || undefined) : undefined
+            };
+        } else {
+            // Default to YouTube for unknown URLs
+            console.warn(`[StreamManager] Unknown URL format, defaulting to YouTube: ${url}`);
+            return { source: 'Youtube', extractedId: url };
+        }
+    }
+
+    private normalizeQuery(url: string, trackData?: any): string {
+        if (trackData?.title && trackData?.artist) {
+            const names = trackData.artistes.all.map((obj: any) => obj.name).join(" , ")
+            return `${trackData.title} by ${names}`.toLowerCase().trim();
+        }
+        return url.trim();
+    }
+
+    private async addSongToQueue(   
+        spaceId: string, 
+        song: any, 
+        userId: string, 
+        autoPlay: boolean, 
+        fromCache: boolean
+    ): Promise<any> {
+        try {
+            console.log(`[RoomManager] 🔧 Debug addSongToQueue received data:`, {
+                title: song.title,
+                duration: song.duration,
+                completeTrackDataDuration: song.completeTrackData?.duration,
+                hasCompleteTrackData: !!song.completeTrackData
+            });
+
+            // Handle duration - it might come from different sources
+            let duration = 0;
+            if (song.duration !== undefined && song.duration !== null) {
+                duration = parseInt(song.duration);
+                // If duration is in milliseconds (> 1000 seconds = ~16 minutes), convert to seconds
+                if (duration > 1000) {
+                    duration = Math.floor(duration / 1000);
+                }
+            } else if (song.completeTrackData?.duration !== undefined) {
+                duration = parseInt(song.completeTrackData.duration);
+                // If duration is in milliseconds, convert to seconds
+                if (duration > 1000) {
+                    duration = Math.floor(duration / 1000);
+                }
+            }
+
+            console.log(`[RoomManager] 🔧 Processing duration for "${song.title}": original=${song.duration}, final=${duration} seconds`);
+
+            // Convert to the QueueSong format expected by Redis queue system
+            const queueItem: QueueSong = {
+                id: song.id || crypto.randomUUID(),
+                title: song.title || 'Unknown Title',
+                artist: song.artist || 'Unknown Artist',
+                album: song.album || '',
+                smallImg: song.smallImg || '',
+                bigImg: song.bigImg || '',
+                url: song.originalUrl || song.url || '',
+                source: (song.source as 'Youtube' | 'Spotify') || 'Youtube',
+                voteCount: 0,
+                addedByUser: await this.getUsernameById(userId) || 'Unknown',
+                extractedId: song.extractedId || '',
+                duration: duration, // Use the processed duration
+                userId: userId,
+                addedAt: Date.now(),
+                spotifyId: song.source === 'Spotify' ? (song.extractedId || '') : '',
+                youtubeId: song.source === 'Youtube' ? (song.extractedId || '') : ''
+            };
+
+            // Add to Redis queue using your existing method
+            await this.addSongToRedisQueue(spaceId, queueItem);
+
+            // Broadcast to room
+            await this.broadcastRedisQueueUpdate(spaceId);
+
+            // Auto-play if requested and no song is currently playing
+            if (autoPlay) {
+                const space = this.spaces.get(spaceId);
+                if (space && !space.playbackState.currentSong) {
+                    await this.playNextFromRedisQueue(spaceId, userId);
+                }
+            }
+
+            console.log(`[RoomManager] ✅ Added "${song.title}" to queue${fromCache ? ' (from cache)' : ''}`);
+            
+            // Return frontend-compatible format for broadcasting
+            return {
+                id: queueItem.id,
+                title: queueItem.title,
+                artist: queueItem.artist,
+                album: queueItem.album,
+                smallImg: queueItem.smallImg,
+                bigImg: queueItem.bigImg,
+                url: queueItem.url,
+                type: queueItem.source,  // Frontend expects 'type'
+                voteCount: queueItem.voteCount,
+                createAt: new Date(queueItem.addedAt).toISOString(),
+                addedByUser: {
+                    id: userId,
+                    username: queueItem.addedByUser
+                },
+                upvotes: [],
+                extractedId: queueItem.extractedId,
+                duration: queueItem.duration,
+                spotifyId: queueItem.spotifyId,
+                youtubeId: queueItem.youtubeId
+            };
+            
+        } catch (error) {
+            console.error('[RoomManager] ❌ Error adding song to queue:', error);
+            throw error;
+        }
+    }
+
+    private async getUsernameById(userId: string): Promise<string | null> {
+        try {
+            const user = this.users.get(userId);
+            if (user?.username) {
+                return user.username;
+            }
+            
+            // Fallback: check Redis for user info
+            const userInfo = await this.redisClient.get(`user-info:${userId}`);
+            if (userInfo) {
+                const parsed = JSON.parse(userInfo);
+                return parsed.username || null;
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('[RoomManager] Error getting username:', error);
+            return null;
+        }
+    }
+
+    // Cache warmup utility - preload popular songs
+    async warmupCache(popularSongs: Array<{url: string, trackData?: any}>): Promise<void> {
+        console.log(`[RoomManager] 🔥 Starting cache warmup with ${popularSongs.length} songs`);
+        
+        try {
+            const warmupStart = Date.now();
+            const results = await this.workerPool.processBatch(
+                popularSongs.map((song, index) => ({
+                    source: song.url.includes('spotify.com') ? 'Spotify' : 'Youtube',
+                    query: this.normalizeQuery(song.url, song.trackData),
+                    url: song.url,
+                    trackData: song.trackData,
+                    batchIndex: index,
+                    batchTotal: popularSongs.length
+                })),
+                'low' // Low priority for warmup
+            );
+            
+            // Cache all successful results
+            const validSongs = results.filter((song: any) => !song.failed);
+            if (validSongs.length > 0) {
+                const cachePromises = validSongs.map((song: any) => ({
+                    song,
+                    searchQuery: song.originalQuery || song.title
+                }));
+                await this.musicCache.batchCache(cachePromises);
+            }
+            
+            const warmupTime = Date.now() - warmupStart;
+            console.log(`[RoomManager] ✅ Cache warmup completed: ${validSongs.length}/${popularSongs.length} songs cached in ${warmupTime}ms`);
+        } catch (error) {
+            console.error('[RoomManager] ❌ Cache warmup failed:', error);
+        }
+    }
+
+    // Graceful shutdown
+    async shutdown(): Promise<void> {
+        console.log('[RoomManager] 🛑 Starting graceful shutdown...');
+        
+        try {
+            // Stop timestamp broadcasts
+            for (const [spaceId, interval] of this.timestampIntervals) {
+                clearInterval(interval);
+            }
+            this.timestampIntervals.clear();
+
+            // Shutdown worker pool
+            if (this.workerPool) {
+                await this.workerPool.shutdown();
+            }
+
+            // Close Redis connections
+            await Promise.all([
+                this.redisClient.quit(),
+                this.publisher.quit(),
+                this.subscriber.quit()
+            ]);
+
+            console.log('[RoomManager] ✅ Graceful shutdown completed');
+        } catch (error) {
+            console.error('[RoomManager] ❌ Error during shutdown:', error);
+            throw error;
+        }
     }
     onSubscribeRoom(message: string, spaceId: string) {
         const { type, data } = JSON.parse(message);
@@ -198,8 +929,8 @@ export class RoomManager {
             await this.storeUserInfo(userId, {
               username: userTokenInfo.username,
               email: userTokenInfo.email,
-              name : userTokenInfo.name
-        
+              name : userTokenInfo.name,
+              pfpUrl: userTokenInfo.pfpUrl
             });
           }
           
@@ -273,13 +1004,15 @@ export class RoomManager {
           
           await this.sendRoomInfoToUser(spaceId, userId);
           
+          // Send current playing song first before other updates
+          await this.sendCurrentPlayingSongToUser(spaceId, userId);
+          
           await this.broadcastUserUpdate(spaceId);
           
           await this.sendCurrentQueueToUser(spaceId, userId);
           
+          // Sync playback state after song is loaded
           await this.syncNewUserToPlayback(spaceId, userId);
-          
-          await this.sendCurrentPlayingSongToUser(spaceId, userId);
         } else {
           throw new Error("Failed to add user to space");
         }
@@ -424,8 +1157,8 @@ export class RoomManager {
                 duration: nextSong.duration || undefined,
                 extractedId: nextSong.extractedId
             },
-            startedAt: 0, // Will be set when admin starts playback
-            pausedAt: null,
+            startedAt: now, // Start tracking time immediately
+            pausedAt: now,  // But start paused
             isPlaying: false, // Always start paused
             lastUpdated: now
         };
@@ -584,6 +1317,7 @@ export class RoomManager {
         }
     }
     private startTimestampBroadcast(spaceId: string) {
+        console.log(`[Timestamp] Starting 5-second timestamp broadcast for space ${spaceId}`);
         this.stopTimestampBroadcast(spaceId);
         
         const interval = setInterval(async () => {
@@ -591,11 +1325,13 @@ export class RoomManager {
         }, this.TIMESTAMP_BROADCAST_INTERVAL);
         
         this.timestampIntervals.set(spaceId, interval);
+        console.log(`[Timestamp] 5-second timestamp broadcast started for space ${spaceId}`);
     }
 
     private stopTimestampBroadcast(spaceId: string) {
         const interval = this.timestampIntervals.get(spaceId);
         if (interval) {
+            console.log(`[Timestamp] Stopping timestamp broadcast for space ${spaceId}`);
             clearInterval(interval);
             this.timestampIntervals.delete(spaceId);
         }
@@ -604,6 +1340,7 @@ export class RoomManager {
     private async broadcastCurrentTimestamp(spaceId: string) {
         const space = this.spaces.get(spaceId);
         if (!space || !space.playbackState.currentSong) {
+            console.log(`[Timestamp] No space or current song for ${spaceId}, skipping broadcast`);
             return;
         }
 
@@ -616,7 +1353,6 @@ export class RoomManager {
             if (playbackState.isPlaying) {
                 currentTime = (now - playbackState.startedAt) / 1000;
             } else {
-                // If paused, use the time when we paused
                 if (playbackState.pausedAt) {
                     currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
                 } else {
@@ -633,23 +1369,22 @@ export class RoomManager {
             totalDuration: playbackState.currentSong?.duration
         };
 
+        console.log(`[Timestamp] 5-second sync broadcast to ${space.users.size} users:`, {
+            currentTime: timestampData.currentTime,
+            isPlaying: timestampData.isPlaying,
+            songId: timestampData.songId
+        });
+
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
-                        type: "timestamp-sync",
+                        type: "playback-sync",
                         data: timestampData
                     }));
                 }
             });
         });
-
-        // Also store in Redis for new users joining
-        await this.redisClient.set(
-            `timestamp-${spaceId}`,
-            JSON.stringify(timestampData),
-            { EX: 10 } // Expire after 10 seconds
-        );
     }
 
     async sendCurrentTimestampToUser(spaceId: string, userId: string) {
@@ -688,7 +1423,7 @@ export class RoomManager {
         user.ws.forEach((ws: WebSocket) => {
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
-                    type: "timestamp-sync",
+                    type: "playback-state-update",
                     data: {
                         ...timestampData,
                         isInitialSync: true // Flag for new joiners
@@ -719,8 +1454,8 @@ export class RoomManager {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
-                        type: "play",
-                        data: { spaceId, userId }
+                        type: "playback-resumed",
+                        data: { spaceId, userId, timestamp: now }
                     }));
                 }
             });
@@ -728,7 +1463,22 @@ export class RoomManager {
 
         this.startTimestampBroadcast(spaceId);
 
-        await this.broadcastCurrentTimestamp(spaceId);
+        // Send immediate play command for instant response
+        space.users.forEach((user) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "playback-play",
+                        data: { 
+                            spaceId, 
+                            userId, 
+                            timestamp: now,
+                            currentTime: (now - space.playbackState.startedAt) / 1000
+                        }
+                    }));
+                }
+            });
+        });
     }
 
     async handlePlaybackPause(spaceId: string, userId: string) {
@@ -741,69 +1491,291 @@ export class RoomManager {
         space.playbackState.pausedAt = now;
         space.playbackState.lastUpdated = now;
 
+        // Send immediate pause command
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
-                        type: "pause",
-                        data: { spaceId, userId }
-                    }));
-                }
-            });
-        });
-
-        this.stopTimestampBroadcast(spaceId);
-
-        await this.broadcastCurrentTimestamp(spaceId);
-    }
-
-    async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {        
-        const space = this.spaces.get(spaceId);
-        if (!space) {
-            return;
-        }
-
-        const now = Date.now();
-        
-        this.stopTimestampBroadcast(spaceId);
-        
-        // Update playback state to the new seek position
-        space.playbackState.startedAt = now - (seekTime * 1000);
-        space.playbackState.pausedAt = null;
-        space.playbackState.isPlaying = true; // Ensure playing state
-        space.playbackState.lastUpdated = now;
-
-        space.users.forEach((user, userIdInSpace) => {
-            user.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "seek",
+                        type: "playback-pause",
                         data: { 
-                            currentTime: seekTime,
-                            spaceId: spaceId,
-                            triggeredBy: userId,
-                            forceSync: true // Flag to indicate this is a forced sync
+                            spaceId, 
+                            userId, 
+                            timestamp: now,
+                            currentTime: (space.playbackState.pausedAt! - space.playbackState.startedAt) / 1000
                         }
                     }));
                 }
             });
         });
 
-        setTimeout(async () => {
-            this.startTimestampBroadcast(spaceId);
+        this.stopTimestampBroadcast(spaceId);
+    }
+
+    async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {        
+        const space = this.spaces.get(spaceId);
+        if (!space) return;
+
+        const now = Date.now();
+        
+        console.log(`[Seek] Processing seek request from user ${userId} to ${seekTime}s in space ${spaceId}`);
+        
+        // Temporarily stop broadcasts during seek - extended period
+        this.stopTimestampBroadcast(spaceId);
+        
+        space.playbackState.startedAt = now - (seekTime * 1000);
+        space.playbackState.pausedAt = null;
+        space.playbackState.isPlaying = true;
+        space.playbackState.lastUpdated = now;
+
+        console.log(`[Seek] Updated playback state - startedAt: ${space.playbackState.startedAt}, seekTime: ${seekTime}`);
+
+        // Send immediate seek command to all users except the one who initiated it
+        space.users.forEach((user) => {
+            // Skip the user who initiated the seek to prevent conflicts
+            if (user.userId === userId) return;
             
-            await this.broadcastCurrentTimestamp(spaceId);
-        }, 2000); // Wait 2 seconds before resuming broadcasts - longer than frontend seeking duration
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "playback-seek",
+                        data: { 
+                            seekTime: seekTime,
+                            spaceId: spaceId,
+                            triggeredBy: userId,
+                            timestamp: now
+                        }
+                    }));
+                }
+            });
+        });
+
+        // Resume broadcasts after seek stabilizes - increased delay for better stability
+        setTimeout(() => {
+            console.log(`[Seek] Resuming timestamp broadcasts for space ${spaceId} after seek stabilization`);
+            this.startTimestampBroadcast(spaceId);
+        }, 8000); // Increased to 8 seconds to allow client-side seek to complete
     }
 
     async syncNewUserToPlayback(spaceId: string, userId: string) {
         try {
-            // Small delay to ensure current song is sent first
+            console.log(`[Sync] Starting playbook sync for new user ${userId} in space ${spaceId}`);
+            
+            const space = this.spaces.get(spaceId);
+            if (!space || !space.playbackState.currentSong) {
+                console.log(`[Sync] No current song to sync for user ${userId}`);
+                return;
+            }
+
+            // Get the admin's exact current timestamp to sync new joiner
+            await this.syncNewJoinerToAdminTimestamp(spaceId, userId);
+            
+            // Also trigger image update after a short delay
             setTimeout(async () => {
-                await this.sendCurrentTimestampToUser(spaceId, userId);
-            }, 100);
+                const imageUrl = await this.getCurrentSpaceImage(spaceId);
+                if (imageUrl) {
+                    const user = this.users.get(userId);
+                    if (user) {
+                        user.ws.forEach((ws: WebSocket) => {
+                            if (ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({
+                                    type: "space-image-response",
+                                    data: { 
+                                        spaceId: spaceId,
+                                        imageUrl: imageUrl
+                                    }
+                                }));
+                            }
+                        });
+                    }
+                }
+            }, 200);
         } catch (error) {
             console.error(`Error syncing user ${userId} to playback:`, error);
+        }
+    }
+
+    // New method to sync joiner to admin's exact timestamp without affecting others
+    async syncNewJoinerToAdminTimestamp(spaceId: string, newUserId: string) {
+        try {
+            const space = this.spaces.get(spaceId);
+            const newUser = this.users.get(newUserId);
+            
+            if (!space || !newUser || !space.creatorId) {
+                console.log(`[AdminSync] Cannot sync - missing space, user, or admin for ${spaceId}`);
+                return;
+            }
+
+            const adminUser = this.users.get(space.creatorId);
+            if (!adminUser || adminUser.ws.length === 0) {
+                console.log(`[AdminSync] Admin not found or not connected, falling back to calculated sync`);
+                await this.sendCurrentTimestampToUser(spaceId, newUserId);
+                return;
+            }
+
+            console.log(`[AdminSync] Requesting real-time timestamp from admin ${space.creatorId} for new joiner ${newUserId}`);
+
+            // Create a unique request ID to track the response
+            const requestId = `sync_${newUserId}_${Date.now()}`;
+            
+            // Store the new joiner's info for when admin responds
+            await this.redisClient.setEx(`admin-sync-request:${requestId}`, 30, JSON.stringify({
+                spaceId,
+                newUserId,
+                requestedAt: Date.now()
+            }));
+
+            // Ask admin for their current timestamp (only admin receives this)
+            adminUser.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "request-current-timestamp",
+                        data: {
+                            spaceId,
+                            requestId,
+                            purpose: "new-joiner-sync",
+                            newJoinerUserId: newUserId
+                        }
+                    }));
+                }
+            });
+
+            // Fallback: if admin doesn't respond within 3 seconds, use calculated sync
+            setTimeout(async () => {
+                const requestExists = await this.redisClient.exists(`admin-sync-request:${requestId}`);
+                if (requestExists) {
+                    console.log(`[AdminSync] Admin didn't respond, falling back to calculated sync for ${newUserId}`);
+                    await this.redisClient.del(`admin-sync-request:${requestId}`);
+                    await this.sendCurrentTimestampToUser(spaceId, newUserId);
+                }
+            }, 3000);
+
+        } catch (error) {
+            console.error(`[AdminSync] Error requesting admin timestamp:`, error);
+            // Fallback to regular sync
+            await this.sendCurrentTimestampToUser(spaceId, newUserId);
+        }
+    }
+
+    // Handle admin's response with their current timestamp
+    async handleAdminTimestampResponse(requestId: string, adminCurrentTime: number, adminIsPlaying: boolean, respondingUserId: string) {
+        try {
+            const requestData = await this.redisClient.get(`admin-sync-request:${requestId}`);
+            if (!requestData) {
+                console.log(`[AdminSync] Request ${requestId} expired or already handled`);
+                return;
+            }
+
+            const { spaceId, newUserId, requestedAt } = JSON.parse(requestData);
+            
+            // Clean up the request
+            await this.redisClient.del(`admin-sync-request:${requestId}`);
+
+            // Verify the response is from the actual admin
+            const space = this.spaces.get(spaceId);
+            if (!space || space.creatorId !== respondingUserId) {
+                console.log(`[AdminSync] Response from non-admin user, ignoring`);
+                return;
+            }
+
+            const newUser = this.users.get(newUserId);
+            if (!newUser) {
+                console.log(`[AdminSync] New joiner ${newUserId} no longer connected`);
+                return;
+            }
+
+            // Calculate network delay compensation
+            const responseDelay = Date.now() - requestedAt;
+            const compensatedTime = adminCurrentTime + (responseDelay / 1000); // Add network delay in seconds
+
+            console.log(`[AdminSync] Syncing new joiner ${newUserId} to admin's timestamp:`, {
+                adminTime: adminCurrentTime,
+                responseDelay,
+                compensatedTime,
+                adminIsPlaying
+            });
+
+            // Send the exact timestamp to the new joiner only
+            newUser.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "admin-timestamp-sync",
+                        data: {
+                            currentTime: compensatedTime,
+                            isPlaying: adminIsPlaying,
+                            timestamp: Date.now(),
+                            songId: space.playbackState.currentSong?.id,
+                            totalDuration: space.playbackState.currentSong?.duration,
+                            isInitialSync: true,
+                            syncSource: "admin-realtime"
+                        }
+                    }));
+                }
+            });
+
+            console.log(`[AdminSync] ✅ Successfully synced new joiner ${newUserId} to admin's real-time position`);
+
+        } catch (error) {
+            console.error(`[AdminSync] Error handling admin timestamp response:`, error);
+        }
+    }
+
+    // Chat message broadcasting
+    async broadcastChatMessage(
+        spaceId: string, 
+        userId: string, 
+        message: string, 
+        username: string, 
+        userImage?: string, 
+        timestamp?: number
+    ) {
+        try {
+            const space = this.spaces.get(spaceId);
+            if (!space) {
+                console.log(`[Chat] Space ${spaceId} not found`);
+                return;
+            }
+
+            // Get user info to determine if they're admin
+            const user = this.users.get(userId);
+            const isAdmin = space.creatorId === userId;
+
+            // Sanitize message (basic protection)
+            const sanitizedMessage = message.trim().substring(0, 500); // Max 500 chars
+            
+            if (!sanitizedMessage) {
+                console.log(`[Chat] Empty message from user ${userId}, ignoring`);
+                return;
+            }
+
+            const chatData = {
+                id: `${Date.now()}-${userId}-${Math.random()}`,
+                userId,
+                username: username || 'Unknown User',
+                message: sanitizedMessage,
+                timestamp: timestamp || Date.now(),
+                userImage: userImage || '',
+                isAdmin,
+                spaceId
+            };
+
+            console.log(`[Chat] Broadcasting message from ${username} (${userId}) in space ${spaceId}: "${sanitizedMessage.substring(0, 50)}${sanitizedMessage.length > 50 ? '...' : ''}"`);
+
+            // Broadcast to all users in the space
+            space.users.forEach((spaceUser) => {
+                spaceUser.ws.forEach((ws: WebSocket) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: "chat-message",
+                            data: chatData
+                        }));
+                    }
+                });
+            });
+
+            console.log(`[Chat] Message broadcasted to ${space.users.size} users in space ${spaceId}`);
+
+        } catch (error) {
+            console.error(`[Chat] Error broadcasting chat message:`, error);
         }
     }
     destroySpace(spaceId: string) {
@@ -828,12 +1800,49 @@ export class RoomManager {
                 return false;
             }
 
+            // Check if the leaving user is the admin/creator
+            const isAdmin = space.creatorId === userId;
+
             space.users.delete(userId);
 
             if (space.users.size === 0) {
                 this.stopTimestampBroadcast(spaceId);
                 this.destroySpace(spaceId);
+            } else if (isAdmin) {
+                // Admin is leaving but there are still users in the space
+                console.log(`[RoomManager] Admin ${userId} leaving space ${spaceId}, broadcasting space end`);
+                
+                // Broadcast space ended message to remaining users
+                space.users.forEach((user) => {
+                    user.ws.forEach((userWs: WebSocket) => {
+                        if (userWs.readyState === WebSocket.OPEN) {
+                            userWs.send(JSON.stringify({
+                                type: "space-ended",
+                                data: {
+                                    spaceId,
+                                    reason: "admin-left",
+                                    message: "The space admin has left. You can create a new space or join another one."
+                                }
+                            }));
+                        }
+                    });
+                });
+                
+                // Clean up the space since admin left
+                this.stopTimestampBroadcast(spaceId);
+                this.destroySpace(spaceId);
+                
+                // Clear Redis data for this space
+                try {
+                    await this.clearRedisQueue(spaceId);
+                    await this.redisClient.del(`currentSong:${spaceId}`);
+                    await this.redisClient.del(`spaceImage:${spaceId}`);
+                    await this.redisClient.del(`spaceName:${spaceId}`);
+                } catch (error) {
+                    console.error(`Error clearing Redis data for space ${spaceId}:`, error);
+                }
             } else {
+                // Regular user leaving, just broadcast user update
                 await this.broadcastUserUpdate(spaceId);
             }
 
@@ -865,12 +1874,51 @@ export class RoomManager {
         if (spaceId && disconnectedUserId) {
             const space = this.spaces.get(spaceId);
             if (space) {
+                // Check if the disconnected user was the admin/creator
+                const wasAdmin = space.creatorId === disconnectedUserId;
+                
                 space.users.delete(disconnectedUserId);
                 
                 if (space.users.size === 0) {
                     this.stopTimestampBroadcast(spaceId);
                 } else {
-                    await this.broadcastUserUpdate(spaceId);
+                    // If admin left and there are still users, broadcast admin leave event
+                    if (wasAdmin) {
+                        console.log(`[RoomManager] Admin ${disconnectedUserId} left space ${spaceId}, broadcasting space end`);
+                        
+                        // Broadcast space ended message to remaining users
+                        space.users.forEach((user) => {
+                            user.ws.forEach((userWs: WebSocket) => {
+                                if (userWs.readyState === WebSocket.OPEN) {
+                                    userWs.send(JSON.stringify({
+                                        type: "space-ended",
+                                        data: {
+                                            spaceId,
+                                            reason: "admin-left",
+                                            message: "The space admin has left. You can create a new space or join another one."
+                                        }
+                                    }));
+                                }
+                            });
+                        });
+                        
+                        // Clean up the space since admin left
+                        this.stopTimestampBroadcast(spaceId);
+                        this.destroySpace(spaceId);
+                        
+                        // Clear Redis data for this space
+                        try {
+                            await this.clearRedisQueue(spaceId);
+                            await this.redisClient.del(`currentSong:${spaceId}`);
+                            await this.redisClient.del(`spaceImage:${spaceId}`);
+                            await this.redisClient.del(`spaceName:${spaceId}`);
+                        } catch (error) {
+                            console.error(`Error clearing Redis data for space ${spaceId}:`, error);
+                        }
+                    } else {
+                        // Regular user left, just broadcast user update
+                        await this.broadcastUserUpdate(spaceId);
+                    }
                 }
             }
         }
@@ -916,7 +1964,7 @@ export class RoomManager {
                 return {
                     userId,
                     name: userInfo?.name || `User ${userId.slice(0, 8)}`,
-                    imageUrl: '',
+                    imageUrl: userInfo?.pfpUrl || '',
                     isCreator: userId === space.creatorId
                 };
             })
@@ -968,29 +2016,122 @@ export class RoomManager {
 
     async sendCurrentPlayingSongToUser(spaceId: string, userId: string) {
         const user = this.users.get(userId);
-        if (!user) return;
+        const space = this.spaces.get(spaceId);
+        if (!user || !space) return;
         
         try {
-            const currentSong = await this.getCurrentPlayingSong(spaceId);
+            // First check in-memory playback state
+            let currentSong = null;
+            let isPlaying = false;
+            let currentTime = 0;
+            
+            if (space.playbackState.currentSong) {
+                // Get current song from in-memory state
+                const now = Date.now();
+                const { playbackState } = space;
+                const currentSongState = playbackState.currentSong; // Store reference for null safety
+                
+                if (!currentSongState) {
+                    // Double check - if null, skip to Redis fallback
+                    const redisSong = await this.getCurrentPlayingSong(spaceId);
+                    if (redisSong) {
+                        currentSong = {
+                            ...redisSong,
+                            voteCount: await this.getSongVoteCount(spaceId, redisSong.id)
+                        };
+                    }
+                } else {
+                    if (playbackState.startedAt > 0) {
+                        if (playbackState.isPlaying) {
+                            currentTime = (now - playbackState.startedAt) / 1000;
+                        } else if (playbackState.pausedAt) {
+                            currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
+                        }
+                    }
+                    
+                    // Get full song data from Redis to ensure we have all details including images
+                    const redisSong = await this.getCurrentPlayingSong(spaceId);
+                    
+                    currentSong = {
+                        id: currentSongState.id,
+                        title: currentSongState.title,
+                        artist: currentSongState.artist,
+                        url: currentSongState.url,
+                        duration: currentSongState.duration,
+                        extractedId: currentSongState.extractedId,
+                        // Include image data from Redis if available
+                        smallImg: redisSong?.smallImg || '',
+                        bigImg: redisSong?.bigImg || '',
+                        userId: redisSong?.userId || '',
+                        addedByUser: redisSong?.addedByUser || 'Unknown',
+                        source: redisSong?.source || 'Youtube',
+                        addedAt: redisSong?.addedAt || Date.now(),
+                        voteCount: await this.getSongVoteCount(spaceId, currentSongState.id)
+                    };
+                    
+                    isPlaying = playbackState.isPlaying;
+                }
+            } else {
+                // Fallback to Redis if no in-memory state
+                const redisSong = await this.getCurrentPlayingSong(spaceId);
+                if (redisSong) {
+                    currentSong = {
+                        ...redisSong,
+                        voteCount: await this.getSongVoteCount(spaceId, redisSong.id)
+                    };
+                }
+            }
             
             if (currentSong) {
                 const songData = {
                     ...currentSong,
-                    voteCount: await this.getSongVoteCount(spaceId, currentSong.id),
                     addedByUser: {
                         id: currentSong.userId,
                         name: currentSong.addedByUser
                     }
                 };
                 
+                console.log(`[CurrentSong] Sending current song to new user ${userId}:`, {
+                    songId: currentSong.id,
+                    title: currentSong.title,
+                    hasImages: !!(currentSong.smallImg || currentSong.bigImg),
+                    isPlaying: isPlaying,
+                    currentTime: Math.max(0, currentTime)
+                });
+                
                 user.ws.forEach((ws: WebSocket) => {
                     if (ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({
                             type: "current-song-update",
-                            data: { song: songData }
+                            data: { 
+                                song: songData,
+                                playbackState: {
+                                    isPlaying: isPlaying,
+                                    currentTime: Math.max(0, currentTime),
+                                    timestamp: Date.now()
+                                }
+                            }
                         }));
                     }
                 });
+                
+                // Also send image update separately to ensure it's received
+                const imageUrl = currentSong.bigImg || currentSong.smallImg;
+                if (imageUrl) {
+                    user.ws.forEach((ws: WebSocket) => {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({
+                                type: "space-image-response",
+                                data: { 
+                                    spaceId: spaceId,
+                                    imageUrl: imageUrl
+                                }
+                            }));
+                        }
+                    });
+                }
+            } else {
+                console.log(`[CurrentSong] No current song found for space ${spaceId}`);
             }
         } catch (error) {
             console.error("Error sending current playing song to user:", error);
@@ -1035,19 +2176,24 @@ export class RoomManager {
             
             await this.redisClient.rPush(queueKey, songData);
             const songKey = `song:${song.id}`;
+            
+            // Ensure all values are strings and handle null/undefined values
             await this.redisClient.hSet(songKey, {
-                id: song.id,
-                title: song.title,
-                artist: song.artist || '',
-                url: song.url,
-                extractedId: song.extractedId,
-                source: song.source,
-                smallImg: song.smallImg,
-                bigImg: song.bigImg,
-                userId: song.userId,
-                addedAt: song.addedAt.toString(),
-                voteCount: song.voteCount.toString(),
-                duration: song.duration?.toString() || '0'
+                id: String(song.id || ''),
+                title: String(song.title || ''),
+                artist: String(song.artist || ''),
+                url: String(song.url || ''),
+                extractedId: String(song.extractedId || ''),
+                source: String(song.source || 'Youtube'),
+                smallImg: String(song.smallImg || ''),
+                bigImg: String(song.bigImg || ''),
+                userId: String(song.userId || ''),
+                addedByUser: String(song.addedByUser || ''),
+                addedAt: String(song.addedAt || Date.now()),
+                voteCount: String(song.voteCount || 0),
+                duration: String(song.duration || 0),
+                spotifyId: String(song.spotifyId || ''),
+                youtubeId: String(song.youtubeId || '')
             });
 
             // Set expiration for song data (24 hours)
@@ -1233,16 +2379,32 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
 
     async getCurrentSpaceImage(spaceId: string): Promise<string | null> {
         try {
-            const currentSong = await this.getCurrentPlayingSong(spaceId);
+            // First check in-memory state for current song
+            const space = this.spaces.get(spaceId);
+            if (space?.playbackState.currentSong) {
+                // Check if we have image in in-memory state, but get from Redis for full data
+                const currentSong = await this.getCurrentPlayingSong(spaceId);
+                if (currentSong && (currentSong.bigImg || currentSong.smallImg)) {
+                    console.log(`[SpaceImage] Found image from current song: ${currentSong.title}`);
+                    return currentSong.bigImg || currentSong.smallImg;
+                }
+            }
             
+            // Fallback to Redis current song
+            const currentSong = await this.getCurrentPlayingSong(spaceId);
             if (currentSong && (currentSong.bigImg || currentSong.smallImg)) {
+                console.log(`[SpaceImage] Found image from Redis current song: ${currentSong.title}`);
                 return currentSong.bigImg || currentSong.smallImg;
             }
+            
+            // Last resort: check the queue
             const queue = await this.getRedisQueue(spaceId);
             if (queue.length > 0 && (queue[0].bigImg || queue[0].smallImg)) {
+                console.log(`[SpaceImage] Found image from queue first song: ${queue[0].title}`);
                 return queue[0].bigImg || queue[0].smallImg;
             }
             
+            console.log(`[SpaceImage] No image found for space ${spaceId}`);
             return null;
         } catch (error) {
             console.error('Error getting current space image:', error);
@@ -1382,26 +2544,26 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             });
             return;
         }
-        const primaryImage = trackData?.image || trackDetails.smallImg;
-        const secondaryImage = trackData?.image || trackDetails.bigImg;
+        const primaryImage = trackData?.image || trackDetails.smallImg || '';
+        const secondaryImage = trackData?.image || trackDetails.bigImg || '';
         console.log("Artists 😎😎" , trackData.artist)
         const queueSong: QueueSong = {
             id: crypto.randomUUID(),
-            title: trackData.title,
-            artist: trackData.artist,
-            album: trackDetails.album,
-            url: trackDetails.url,
-            extractedId: trackDetails.extractedId,
-            source: trackDetails.source as 'Youtube' | 'Spotify',
+            title: trackData.title || 'Unknown Title',
+            artist: trackData.artist || 'Unknown Artist',
+            album: trackDetails.album || '',
+            url: trackDetails.url || '',
+            extractedId: trackDetails.extractedId || '',
+            source: (trackDetails.source as 'Youtube' | 'Spotify') || 'Youtube',
             smallImg: primaryImage,
             bigImg: secondaryImage,
-            addedByUser :  trackData.addedByUser,
+            addedByUser: trackData.addedByUser || 'Unknown',
             userId: userId,
             addedAt: Date.now(),
-            duration: trackDetails.duration,
+            duration: trackDetails.duration || 0,
             voteCount: 0,
-            spotifyId: trackDetails.source === 'Spotify' ? trackDetails.extractedId : undefined,
-            youtubeId: trackDetails.source === 'Youtube' ? trackDetails.extractedId : undefined
+            spotifyId: trackDetails.source === 'Spotify' ? (trackDetails.extractedId || '') : '',
+            youtubeId: trackDetails.source === 'Youtube' ? (trackDetails.extractedId || '') : ''
         };
 
         // Add to Redis queue
@@ -1547,9 +2709,9 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 duration: nextSong.duration,
                 extractedId: nextSong.extractedId
             },
-            startedAt: 0, // Will be set when admin starts playback
+            startedAt: now, // Start immediately for auto-play
             pausedAt: null,
-            isPlaying: false, // Always start paused
+            isPlaying: true, // Auto-start the next song
             lastUpdated: now
         };
 
@@ -1570,6 +2732,23 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                     ws.send(JSON.stringify({
                         type: "current-song-update",
                         data: { song: songData }
+                    }));
+                }
+            });
+        });
+
+        // Send playback-resumed message to auto-start the song
+        space.users.forEach((user) => {
+            user.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: "playback-resumed",
+                        data: { 
+                            spaceId, 
+                            userId,
+                            timestamp: now,
+                            autoPlay: true // Flag to indicate this is auto-play
+                        }
                     }));
                 }
             });
@@ -1714,7 +2893,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
     }
 
     // Helper method to store user info in Redis
-    async storeUserInfo(userId: string, userInfo: { username?: string; email?: string; name?: string }): Promise<void> {
+    async storeUserInfo(userId: string, userInfo: { username?: string; email?: string; name?: string, pfpUrl?: string }): Promise<void> {
         try {
             console.log("Storing user info in Redis cache...🤣🤣🤣", userInfo);
             await this.redisClient.set(
@@ -1728,7 +2907,19 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
     }
 
     // Helper method to get user info from Redis
-    async getUserInfo(userId: string): Promise<{ username?: string; email?: string; name?: string } | null> {
+    // Handle latency feedback from frontend - simplified version
+    async reportLatency(spaceId: string, userId: string, latency: number) {
+        const space = this.spaces.get(spaceId);
+        if (!space) {
+            console.log(`[Latency] Space ${spaceId} not found for latency report`);
+            return;
+        }
+
+        // Just log latency for monitoring - no complex adaptive logic
+        console.log(`[Latency] User ${userId} in space ${spaceId} reported ${latency}ms latency`);
+    }
+
+    async getUserInfo(userId: string): Promise<{ username?: string; email?: string; name?: string, pfpUrl?: string } | null> {
         try {
             const userInfo = await this.redisClient.get(`user-info-${userId}`);
             if (userInfo) {
