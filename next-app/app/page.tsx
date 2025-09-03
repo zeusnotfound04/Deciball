@@ -233,7 +233,7 @@ export default function Page() {
                 transition={{ duration: 0.8, delay: 1.4 }}
                 className="fixed bottom-0 left-0 right-0 pb-4 xs:pb-6 sm:pb-8 pt-3 xs:pt-4 sm:pt-6 bg-gradient-to-t from-black/30 via-black/10 to-transparent mobile-backdrop px-3 xs:px-4"
               >
-                <div className="flex justify-center">
+                <div className="flex justify-center items-center w-full">
                   {status === 'authenticated' ? (
                     <motion.button
                       whileHover={{ 
@@ -248,7 +248,7 @@ export default function Page() {
                           prefetchUserSpaces();
                         }
                       }}
-                      className={`${poppins.className} text-white/80 hover:text-white transition-all duration-300 text-sm xs:text-base sm:text-lg font-medium group bg-white/10 backdrop-blur-md px-4 xs:px-6 sm:px-8 py-2 xs:py-2.5 sm:py-3 rounded-full border border-white/20 hover:border-white/40 hover:bg-white/20 w-full sm:w-auto max-w-xs xs:max-w-sm text-center`}
+                      className={`${poppins.className} text-white/80 hover:text-white transition-all duration-300 text-sm xs:text-base sm:text-lg font-medium group bg-white/10 backdrop-blur-md px-4 xs:px-6 sm:px-8 py-2 xs:py-2.5 sm:py-3 rounded-full border border-white/20 hover:border-white/40 hover:bg-white/20 w-full sm:w-auto max-w-xs xs:max-w-sm text-center mx-auto`}
                     >
                       <div className="flex items-center justify-center gap-2">
                         <span className="text-xs xs:text-sm sm:text-base">View Past Created Spaces</span>
@@ -263,7 +263,7 @@ export default function Page() {
                     <motion.div
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className="w-full sm:w-auto max-w-sm mx-auto"
+                      className="w-full sm:w-auto flex justify-center"
                     >
                       <Button
                         onClick={() => setShowSignInDialog(true)}
