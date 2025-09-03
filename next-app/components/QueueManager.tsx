@@ -1021,9 +1021,32 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   }, [socket, isProcessingPlaylist]);
 
   return (
-<div className={`h-full w-full max-w-full flex-shrink-0 flex flex-col min-h-0 ${className}`}>
+    <>
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #6b7280;
+          border-radius: 3px;
+          border: none;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #9ca3af;
+        }
+        .custom-scrollbar::-webkit-scrollbar-button {
+          display: none;
+        }
+        .custom-scrollbar::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+      `}</style>
+      <div className={`h-full w-full max-w-full flex flex-col min-h-0 ${className}`}>
       <motion.div 
-        className={`flex flex-col w-full h-full min-h-0 p-2 sm:p-3 ${showChatOverlay ? 'pointer-events-none' : ''}`}
+        className={`flex flex-col h-full min-h-0 p-2 sm:p-3 ${showChatOverlay ? 'pointer-events-none' : ''}`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -1216,7 +1239,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           </div>
         </motion.div>
 
-        {/* Scrollable Content Area */}
+        {/* Scrollable Content Area with Enhanced Height Control */}
         <div className="flex-1 min-h-0 flex flex-col">
           {/* Currently Playing - Fixed */}
           <AnimatePresence mode="wait">
@@ -1271,8 +1294,15 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             </motion.span>
           </motion.h3>
           
-          {/* Scrollable Queue Songs */}
-          <div className="flex-1 hide-scrollbar overflow-y-auto min-h-0 pr-1">
+          {/* Enhanced Scrollable Queue Songs Container */}
+          <div 
+            className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#6b7280 transparent',
+              maxHeight: 'calc(100vh - 440px)'
+            }}
+          >
             <AnimatePresence mode="popLayout">
               {sortedQueue.length === 0 ? (
                 <motion.div
@@ -1280,8 +1310,9 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.4 }}
+                  className="h-full flex items-center justify-center min-h-[200px]"
                 >
-                  <Card className="bg-[#1C1E1F] border-[#424244]">
+                  <Card className="bg-[#1C1E1F] border-[#424244] w-full">
                     <CardContent className="py-8 sm:py-12 text-center text-gray-400">
                       <motion.div 
                         className="flex flex-col items-center gap-3 sm:gap-4"
@@ -1323,7 +1354,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   </Card>
                 </motion.div>
               ) : (
-                <div className="space-y-2 sm:space-y-3 pb-2">
+                <div className="space-y-2 sm:space-y-3 pb-4">
                   {sortedQueue.map((item, index) => (
                     <SongCard
                       key={item.id}
@@ -1382,5 +1413,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         </div>
       )}
     </div>
+    </>
   );
 };

@@ -176,12 +176,12 @@ export const Player: React.FC<PlayerProps> = ({
             transition={{ duration: 0.7, delay: 0.2 }}
           >
             <div className="rounded-xl p-3 sm:p-4 bg-[#1C1E1F] backdrop-blur-md flex-1 flex flex-col min-h-0">
-              <div className={`grid gap-4 sm:gap-6 flex-1 min-h-0 ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-                <div className="space-y-3 sm:space-y-4 flex flex-col justify-center">
+              <div className={`grid gap-4 sm:gap-6 flex-1 min-h-0 max-h-full overflow-hidden ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+                <div className="space-y-3 sm:space-y-4 flex flex-col justify-center min-h-0">
                   {activeTab === 'cover' && (
-                    <div className="flex flex-col items-center h-full justify-center">
+                    <div className="flex flex-col items-center h-full justify-center sm:h-full sm:w-full max-h-full overflow-hidden">
                       <motion.div
-                        className="w-full max-w-md sm:max-w-lg lg:max-w-xl"
+                        className="max-w-md sm:max-w-lg lg:max-w-xl"
                         initial={{ scale: 0.95, boxShadow: '0 0 0 0 #0000' }}
                         animate={{ scale: 1, }}
                         transition={{ duration: 0.6, ease: 'easeInOut' }}
@@ -190,7 +190,7 @@ export const Player: React.FC<PlayerProps> = ({
                         <PLayerCover spaceId={spaceId} userId={user?.id} />
                       </motion.div>
                       <motion.div
-                        className="mt-4 sm:mt-6 text-center px-2"
+                        className="mt-4 sm:mt-6 text-center px-2 max-md:hidden"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.7, delay: 0.3 }}

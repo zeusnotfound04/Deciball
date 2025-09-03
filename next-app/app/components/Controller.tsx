@@ -988,9 +988,9 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
               {/* Horizontal Volume Slider Popup for Mobile */}
               {showVolumeSlider && (
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-gray-800/90 backdrop-blur-sm rounded-lg border border-gray-600/30 p-3 shadow-xl z-50">
+                <div className="absolute bottom-full right-0 mb-2 bg-gray-800/90 backdrop-blur-sm rounded-lg border border-gray-600/30 px-8 py-5 shadow-xl z-50">
                   <div className="flex items-center gap-3">
-                    <div className="text-xs text-gray-400 font-medium min-w-[2rem]">
+                    <div className="text-xs text-gray-400 font-medium min-w-[2rem] max-lg:hidden">
                       {Math.round(volume * 100)}%
                     </div>
                     <div className="w-24">

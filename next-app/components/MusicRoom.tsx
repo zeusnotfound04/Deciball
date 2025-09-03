@@ -482,7 +482,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
 
   return (
     <MusicRoomLayout userDetails={userDetails} connectedUsers={connectedUsers}>
-      <div className="flex-1 h-full w-full flex flex-col overflow-hidden">
+      <div className="flex-1 h-full w-full flex flex-col overflow-hidden md:overflow-hidden">
         {/* Header Section */}
         <div className="flex items-center justify-center p-2 sm:p-3 md:p-4 w-full overflow-hidden flex-shrink-0">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 md:gap-6 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl px-3 sm:px-4 md:px-8 py-3 sm:py-3 md:py-3 shadow-2xl w-full max-w-[98%] sm:max-w-[95%] md:max-w-[96%] lg:max-w-6xl">
@@ -681,19 +681,19 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       </div>
 
       {/* Main Content Section */}
-      <div className="flex-1 flex justify-center w-full overflow-hidden min-h-0 lg:min-h-[calc(100vh-120px)]">
-        <div className="w-full h-full max-w-none mx-auto flex-1">
-          <div className="relative w-full min-h-0 flex-1 rounded-none sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-2 xl:p-6 2xl:p-8 overflow-hidden flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 sm:gap-2 md:gap-3 lg:gap-1 xl:gap-5 2xl:gap-8 md:min-h-0">
+      <div className="flex-1 flex justify-center w-full min-h-0 lg:min-h-[calc(100vh-120px)] overflow-y-auto md:overflow-hidden">
+        <div className="w-full h-full max-w-none mx-auto flex-1 sm:h-auto">
+          <div className="relative w-full min-h-0 flex-1 rounded-none sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-2 xl:p-6 2xl:p-8 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 sm:gap-2 md:gap-3 lg:gap-1 xl:gap-5 2xl:gap-8 md:min-h-0 sm:flex sm:flex-col sm:h-auto md:place-items-center md:justify-items-center">
             {/* Left Column - Player */}
-            <div className="flex flex-col gap-1 sm:gap-2 md:gap-4 order-1 w-full max-w-full min-w-0 overflow-hidden flex-shrink-0 sm:h-[60vh] md:h-full md:min-h-0">
+            <div className="flex flex-col gap-1 sm:gap-2 md:gap-4 order-1 w-full max-w-full min-w-0 flex-shrink-0 sm:h-[60vh] md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
               <BlurComponent 
                 delay={500} 
                 direction="top"
-                className="w-full max-w-full overflow-hidden flex-1 h-full block"
+                className="w-full max-w-full flex-1 h-full block"
                 stepDuration={0.4}
               >
                 {showPlayer && (
-                  <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 overflow-hidden h-[50vh] sm:h-[45vh] md:h-full flex flex-col">
+                  <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl flex flex-col">
                     <Player 
                       spaceId={spaceId}
                       isAdmin={isAdmin}
@@ -720,15 +720,15 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             </div>
 
             {/* Right Column - QueueManager */}
-            <div className="w-full max-w-full order-2 overflow-hidden min-w-0 flex-shrink-0 md:h-full md:min-h-0">
+            <div className="w-full max-w-full order-2 min-w-0 flex-shrink-0 md:h-full md:min-h-0">
               <BlurComponent
                 delay={600}
                 direction="top"
-                className="h-full w-full max-w-full overflow-hidden block"
+                className="h-full w-full max-w-full block"
                 stepDuration={0.4}
               >
                 {showQueue && (
-                  <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full min-w-0 max-w-full h-[50vh] sm:h-[45vh] md:h-full lg:min-h-fit lg:max-h-full flex flex-col">
+                  <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col">
                     <QueueManager 
                       spaceId={spaceId} 
                       isAdmin={isAdmin}
