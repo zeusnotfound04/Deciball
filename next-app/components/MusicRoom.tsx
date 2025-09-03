@@ -728,7 +728,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                 stepDuration={0.4}
               >
                 {showQueue && (
-                  <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col">
+                  <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[60vh] sm:h-[65vh] md:h-[70vh] lg:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col">
                     <QueueManager 
                       spaceId={spaceId} 
                       isAdmin={isAdmin}

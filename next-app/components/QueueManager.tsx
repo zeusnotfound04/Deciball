@@ -1043,6 +1043,13 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         .custom-scrollbar::-webkit-scrollbar-corner {
           background: transparent;
         }
+        
+        /* Responsive height increase for sm and md devices */
+        @media (min-width: 640px) and (max-width: 1023px) {
+          .queue-container-height {
+            max-height: calc(100vh - 300px) !important;
+          }
+        }
       `}</style>
       <div className={`h-full w-full max-w-full flex flex-col min-h-0 ${className}`}>
       <motion.div 
@@ -1296,11 +1303,11 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           
           {/* Enhanced Scrollable Queue Songs Container */}
           <div 
-            className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar"
+            className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar queue-container-height"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: '#6b7280 transparent',
-              maxHeight: 'calc(100vh - 440px)'
+              maxHeight: 'calc(100vh - 440px)',
             }}
           >
             <AnimatePresence mode="popLayout">
@@ -1378,7 +1385,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       {/* Chat Overlay */}
       {showChatOverlay && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
           style={{ 
             overflow: 'hidden',
             position: 'fixed',
@@ -1400,7 +1407,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
             className="relative w-full max-w-md h-full max-h-[90vh] mx-4"
             style={{ 
               position: 'relative',
-              zIndex: 51
+              zIndex: 10000
             }}
           >
             <Chat 

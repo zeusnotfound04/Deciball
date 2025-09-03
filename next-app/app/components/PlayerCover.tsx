@@ -124,6 +124,19 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
 
   return (
     <>
+      <style jsx>{`
+        .song-cover-responsive {
+          height: 90%;
+          width: 90%;
+        }
+        
+        @media (min-width: 640px) {
+          .song-cover-responsive {
+            height: 100%;
+            width: 100%;
+          }
+        }
+      `}</style>
       <div className="-z-10 opacity-0 aspect-square absolute">
         <YouTube
           key={currentSong?.downloadUrl?.[0]?.url || 'no-song'}
@@ -173,7 +186,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
 
       <div
         draggable
-        className="relative w-full aspect-square max-w-[280px] sm:max-w-sm mx-auto overflow-hidden rounded-xl bg-[#1C1E1F] shadow-lg border border-[#424244] transition-all duration-300 hover:shadow-xl hover:border-gray-600"
+        className="relative h-1/2 sm:h-full w-auto aspect-square max-h-full mx-auto overflow-hidden rounded-xl bg-[#1C1E1F] shadow-lg border border-[#424244] transition-all duration-300 hover:shadow-xl hover:border-gray-600"
       >
         {!currentSong?.video ? (
           <div className="relative">
@@ -192,7 +205,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
               alt={currentSong?.name || ""}
               height={300}
               width={300}
-              className="cover aspect-square h-full object-cover w-full rounded-xl transition-transform duration-300 hover:scale-105"
+              className="cover aspect-square object-cover rounded-xl transition-transform duration-300 hover:scale-105 mx-auto song-cover-responsive"
               src={
                 cleanImageUrl(currentSong?.image?.[currentSong.image.length - 1]?.url || '')
               }

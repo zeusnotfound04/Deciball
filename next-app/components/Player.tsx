@@ -175,49 +175,47 @@ export const Player: React.FC<PlayerProps> = ({
             animate={{ opacity: 1 }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
-            <div className="rounded-xl p-3 sm:p-4 bg-[#1C1E1F] backdrop-blur-md flex-1 flex flex-col min-h-0">
-              <div className={`grid gap-4 sm:gap-6 flex-1 min-h-0 max-h-full overflow-hidden ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
-                <div className="space-y-3 sm:space-y-4 flex flex-col justify-center min-h-0">
-                  {activeTab === 'cover' && (
-                    <div className="flex flex-col items-center h-full justify-center sm:h-full sm:w-full max-h-full overflow-hidden">
-                      <motion.div
-                        className="max-w-md sm:max-w-lg lg:max-w-xl"
-                        initial={{ scale: 0.95, boxShadow: '0 0 0 0 #0000' }}
-                        animate={{ scale: 1, }}
-                        transition={{ duration: 0.6, ease: 'easeInOut' }}
-                        whileHover={{ scale: 1.03, boxShadow: '0 12px 40px 0 rgba(0,0,0,0.4)' }}
+            <div className="rounded-xl p-3 sm:p-4 bg-[#1C1E1F] backdrop-blur-md flex-1 flex flex-col min-h-0 h-full">
+              <div className={`grid gap-4 sm:gap-6 flex-1 min-h-0 h-full overflow-hidden ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
+                {activeTab === 'cover' && (
+                  <div className="flex flex-col items-center h-full justify-center w-full overflow-hidden">
+                    <motion.div
+                      className="w-auto flex items-center justify-center"
+                      initial={{ scale: 0.95, boxShadow: '0 0 0 0 #0000' }}
+                      animate={{ scale: 1, }}
+                      transition={{ duration: 0.6, ease: 'easeInOut' }}
+                      whileHover={{ scale: 1.03, boxShadow: '0 12px 40px 0 rgba(0,0,0,0.4)' }}
+                    >
+                      <PLayerCover spaceId={spaceId} userId={user?.id} />
+                    </motion.div>
+                    <motion.div
+                      className="mt-4 sm:mt-6 text-center px-2 max-md:hidden flex-shrink-0"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.7, delay: 0.3 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                    >
+                      <motion.h1
+                        className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-2 drop-shadow-lg line-clamp-2"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.7, delay: 0.4 }}
                       >
-                        <PLayerCover spaceId={spaceId} userId={user?.id} />
-                      </motion.div>
-                      <motion.div
-                        className="mt-4 sm:mt-6 text-center px-2 max-md:hidden"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.7, delay: 0.3 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                      >
-                        <motion.h1
-                          className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-2 drop-shadow-lg line-clamp-2"
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ duration: 0.7, delay: 0.4 }}
+                        {currentSong.name}
+                      </motion.h1>
+                      {currentSong.artistes?.primary?.[0]?.name && (
+                        <motion.p
+                          className="text-sm sm:text-base lg:text-lg text-gray-400 mb-3 line-clamp-1"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.7, delay: 0.5 }}
                         >
-                          {currentSong.name}
-                        </motion.h1>
-                        {currentSong.artistes?.primary?.[0]?.name && (
-                          <motion.p
-                            className="text-sm sm:text-base lg:text-lg text-gray-400 mb-3 line-clamp-1"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.7, delay: 0.5 }}
-                          >
-                            {currentSong.artistes.primary[0].name}
-                          </motion.p>
-                        )}
-                      </motion.div>
-                    </div>
-                  )}
-                </div>
+                          {currentSong.artistes.primary[0].name}
+                        </motion.p>
+                      )}
+                    </motion.div>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
