@@ -6,7 +6,7 @@ import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
 import { Button } from '@/app/components/ui/button';
 import { Menu } from 'lucide-react';
-import HalftoneWavesBackground from './Background';
+import DarkGradientBackground from './Background';
 import { DiscordPresence } from './DiscordPresence';
 import { ElectronDetector } from './ElectronDetector';
 
@@ -68,7 +68,7 @@ export default function MusicRoomLayout({
   }, []);
 
   return (
-    <HalftoneWavesBackground>
+    <DarkGradientBackground>
       <div className="h-screen w-screen text-white overflow-hidden">
         <DiscordPresence />
         <ElectronDetector />
@@ -134,7 +134,7 @@ export default function MusicRoomLayout({
           </main>
         </div>
       </div>
-    </HalftoneWavesBackground>
+    </DarkGradientBackground>
   );
 }
 

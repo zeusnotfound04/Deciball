@@ -1,6 +1,6 @@
 "use client";
 
-import BeamsBackground from '@/components/Background';
+import DarkGradientBackground from '@/components/Background';
 import AuthCard from '@/components/ui/AuthCard';
 import { useSearchParams } from 'next/navigation';
 import React, { Suspense } from 'react';
@@ -10,7 +10,7 @@ const SignInContent = () => {
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   return (
-    <BeamsBackground>
+    <DarkGradientBackground>
       <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
         <AuthCard
           title="Welcome Back"
@@ -19,14 +19,14 @@ const SignInContent = () => {
           className="w-full max-w-md"
         />
       </div>
-    </BeamsBackground>
+    </DarkGradientBackground>
   );
 };
 
 const SignInCard = () => {
   return (
     <Suspense fallback={
-      <BeamsBackground>
+      <DarkGradientBackground>
         <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
           <div className="relative z-10 w-full max-w-md">
             <div className="bg-gray-900 bg-opacity-90 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-gray-800">
@@ -37,7 +37,7 @@ const SignInCard = () => {
             </div>
           </div>
         </div>
-      </BeamsBackground>
+      </DarkGradientBackground>
     }>
       <SignInContent />
     </Suspense>

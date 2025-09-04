@@ -3,18 +3,13 @@
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { signikaNegative, lexend } from "@/lib/font";
+import DarkGradientBackground from "@/components/Background";
 
 export default function TermsOfService() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative overflow-hidden">
-      {/* Background Animation */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-72 h-72 bg-yellow-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2000"></div>
-        <div className="absolute -bottom-20 left-40 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-4000"></div>
-      </div>
-
-      <div className="relative z-10 container mx-auto px-4 py-8">
+    <DarkGradientBackground>
+      <div className="min-h-screen relative overflow-hidden">
+        <div className="relative z-10 container mx-auto px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -231,7 +226,8 @@ export default function TermsOfService() {
             </CardContent>
           </Card>
         </motion.div>
+        </div>
       </div>
-    </div>
+    </DarkGradientBackground>
   );
 }

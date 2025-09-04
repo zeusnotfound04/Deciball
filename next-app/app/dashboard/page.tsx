@@ -11,6 +11,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/app/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Loader2, Music, Users, Headphones } from "lucide-react"
+import DarkGradientBackground from "@/components/Background"
 import axios from "axios"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -56,17 +57,20 @@ export default function Page() {
 
   if (!session || !session.user) {  
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-black to-zinc-900">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">Please Sign In</h1>
-          <p className="text-zinc-400">You need to be signed in to create a space.</p>
+      <DarkGradientBackground>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-white mb-4">Please Sign In</h1>
+            <p className="text-zinc-400">You need to be signed in to create a space.</p>
+          </div>
         </div>
-      </div>
+      </DarkGradientBackground>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-zinc-900 py-8">
+    <DarkGradientBackground>
+      <div className="min-h-screen py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         <div className="text-center mb-12">
           <motion.h1 
@@ -191,6 +195,7 @@ export default function Page() {
           </p>
         </motion.div>
       </div>
-    </div>
+      </div>
+    </DarkGradientBackground>
   )
 }

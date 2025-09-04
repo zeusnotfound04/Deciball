@@ -1,92 +1,66 @@
 "use client"
 
-import { useEffect, useRef, type ReactNode } from "react"
+import { type ReactNode } from "react"
 
-interface HalftoneWavesBackgroundProps {
+interface DarkGradientBackgroundProps {
   children?: ReactNode
 }
 
-export default function HalftoneWavesBackground({ children }: HalftoneWavesBackgroundProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    let animationFrameId: number
-    let time = 0
-
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-    }
-
-    const drawHalftoneWave = () => {
-      const gridSize = 18
-      const rows = Math.ceil(canvas.height / gridSize)
-      const cols = Math.ceil(canvas.width / gridSize)
-
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const centerX = x * gridSize
-          const centerY = y * gridSize
-          const distanceFromCenter = Math.sqrt(
-            Math.pow(centerX - canvas.width / 2, 2) + Math.pow(centerY - canvas.height / 2, 2),
-          )
-          const maxDistance = Math.sqrt(Math.pow(canvas.width / 2, 2) + Math.pow(canvas.height / 2, 2))
-          const normalizedDistance = distanceFromCenter / maxDistance
-
-          const wave = Math.sin(normalizedDistance * 5 - time) * 0.5 + 0.5
-          const smoothWave = wave * wave * (3 - 2 * wave)
-          const size = gridSize * smoothWave * 0.7
-
-          ctx.beginPath()
-          ctx.arc(centerX, centerY, size / 2, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(128, 128, 128, ${smoothWave * 0.6})`
-          ctx.fill()
-        }
-      }
-    }
-
-    const animate = () => {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.08)"
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      drawHalftoneWave()
-
-      time += 0.015
-      animationFrameId = requestAnimationFrame(animate)
-    }
-
-    resizeCanvas()
-    window.addEventListener("resize", resizeCanvas)
-
-    animate()
-
-    return () => {
-      cancelAnimationFrame(animationFrameId)
-      window.removeEventListener("resize", resizeCanvas)
-    }
-  }, [])
-
+export default function DarkGradientBackground({ children }: DarkGradientBackgroundProps) {
   return (
     <div className="relative min-h-screen">
-      <canvas ref={canvasRef} className="fixed inset-0 w-full h-full bg-black -z-10 pointer-events-none" />
-
+      {/* Pure Black Base */}
+      <div className="fixed inset-0 bg-black -z-20" />
+      
+      {/* Very Dark Grey Gradients */}
       <div 
-        className="fixed inset-0 -z-5 pointer-events-none"
+        className="fixed inset-0 -z-15"
         style={{
           background: `
-            linear-gradient(135deg, rgba(30, 30, 30, 0.15) 0%, rgba(10, 10, 10, 0.25) 100%),
-            radial-gradient(circle at 25% 25%, rgba(60, 60, 60, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 75% 75%, rgba(40, 40, 40, 0.08) 0%, transparent 50%),
-            linear-gradient(45deg, rgba(20, 20, 20, 0.1) 25%, transparent 25%, transparent 50%, rgba(20, 20, 20, 0.1) 50%, rgba(20, 20, 20, 0.1) 75%, transparent 75%)
+            radial-gradient(circle at 20% 20%, rgba(18, 18, 18, 0.6) 0%, transparent 60%),
+            radial-gradient(circle at 80% 80%, rgba(25, 25, 25, 0.5) 0%, transparent 65%),
+            radial-gradient(circle at 60% 40%, rgba(12, 12, 12, 0.55) 0%, transparent 55%),
+            linear-gradient(135deg, rgba(0, 0, 0, 0.99) 0%, rgba(8, 8, 8, 0.98) 25%, rgba(3, 3, 3, 0.99) 50%, rgba(5, 5, 5, 0.98) 75%, rgba(0, 0, 0, 1) 100%)
           `,
-          backgroundSize: '100% 100%, 200px 200px, 150px 150px, 20px 20px',
-          backdropFilter: 'blur(3px) saturate(150%)',
-          WebkitBackdropFilter: 'blur(3px) saturate(150%)',
+        }}
+      />
+
+      {/* More Subtle Purple & Pink Creative Accents */}
+      <div 
+        className="fixed inset-0 -z-12"
+        style={{
+          background: `
+            radial-gradient(ellipse at 15% 25%, rgba(139, 69, 219, 0.03) 0%, transparent 75%),
+            radial-gradient(ellipse at 85% 75%, rgba(236, 72, 153, 0.04) 0%, transparent 70%),
+            radial-gradient(circle at 70% 20%, rgba(168, 85, 247, 0.02) 0%, transparent 65%),
+            radial-gradient(circle at 30% 80%, rgba(219, 39, 119, 0.025) 0%, transparent 60%)
+          `,
+        }}
+      />
+
+      {/* Darker Grey Texture */}
+      <div 
+        className="fixed inset-0 -z-10 opacity-20"
+        style={{
+          background: `
+            radial-gradient(circle at 25% 25%, rgba(22, 22, 22, 0.12) 0%, transparent 50%),
+            radial-gradient(circle at 75% 75%, rgba(18, 18, 18, 0.10) 0%, transparent 50%),
+            radial-gradient(circle at 50% 50%, rgba(139, 69, 219, 0.008) 0%, transparent 40%),
+            linear-gradient(45deg, rgba(10, 10, 10, 0.08) 25%, transparent 25%, transparent 50%, rgba(10, 10, 10, 0.08) 50%, rgba(10, 10, 10, 0.08) 75%, transparent 75%)
+          `,
+          backgroundSize: '100% 100%, 350px 350px, 500px 500px, 40px 40px',
+        }}
+      />
+
+      {/* Enhanced Dark Vignette */}
+      <div 
+        className="fixed inset-0 -z-5"
+        style={{
+          background: `
+            radial-gradient(ellipse at center, transparent 25%, rgba(0, 0, 0, 0.4) 65%, rgba(0, 0, 0, 0.8) 100%),
+            radial-gradient(ellipse at 20% 80%, rgba(139, 69, 219, 0.008) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 20%, rgba(236, 72, 153, 0.006) 0%, transparent 50%)
+          `,
         }}
       />
 

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Edit3, Save, X, Camera, User, AtSign, Mail, Calendar, Shield, CheckCircle2, AlertCircle, Upload } from "lucide-react"
-import BeamsBackground from "@/components/Background"
+import DarkGradientBackground from "@/components/Background"
 import { UploadButton } from "@/lib/uploadthing"
 import "../uploadthing.css"
 
@@ -226,7 +226,7 @@ export default function ProfileSection() {
 
   if (status === "loading") {
     return (
-      <BeamsBackground>
+      <DarkGradientBackground>
         <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
           <div className="w-full max-w-md relative z-10">
             <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl shadow-2xl p-8 text-center">
@@ -239,13 +239,13 @@ export default function ProfileSection() {
             </div>
           </div>
         </div>
-      </BeamsBackground>
+      </DarkGradientBackground>
     )
   }
 
   if (status === "unauthenticated") {
     return (
-      <BeamsBackground>
+      <DarkGradientBackground>
         <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
           <div className="w-full max-w-md relative z-10">
             <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl shadow-2xl p-8 text-center">
@@ -253,7 +253,7 @@ export default function ProfileSection() {
             </div>
           </div>
         </div>
-      </BeamsBackground>
+      </DarkGradientBackground>
     )
   }
 
@@ -348,7 +348,7 @@ export default function ProfileSection() {
   return (
     <>
       <NotificationToast />
-      <BeamsBackground>
+      <DarkGradientBackground>
       <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
       <div className="absolute inset-0">
         <motion.div
@@ -769,7 +769,7 @@ export default function ProfileSection() {
         </motion.div>
       </motion.div>
     </div>
-    </BeamsBackground>
+    </DarkGradientBackground>
     </>
   )
 }

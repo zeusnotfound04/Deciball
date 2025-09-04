@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Loader2, Play } from "lucide-react";
-import BackgroundAnimation from "@/components/Background";
+import DarkGradientBackground from "@/components/Background";
 import { signikaNegative, lexend, poppins, spaceGrotesk } from "@/lib/font";
 import GlitchText from "@/components/ui/glitch-text";
 import SignInDialog from "@/components/ui/SignInDialog";
@@ -123,11 +123,7 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 z-0">
-        <BackgroundAnimation />
-      </div>
-      
+    <DarkGradientBackground>
       <div className="relative z-10 min-h-screen">
         {/* Show loading during initial authentication and space fetch */}
         {(status === 'loading' || (status === 'authenticated' && !initialLoadComplete)) && (
@@ -415,6 +411,6 @@ export default function Page() {
         description="Sign in to create and join music spaces with your friends!"
         callbackURL="/"
       />
-    </div>
+    </DarkGradientBackground>
   );
 }

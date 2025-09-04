@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./provider";
-import BeamsBackground from "@/components/Background";
+import DarkGradientBackground from "@/components/Background";
 import { Trademark } from "@/components/Trademark";
 
 

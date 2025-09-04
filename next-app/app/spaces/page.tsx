@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Loader2, Play } from "lucide-react";
-import BackgroundAnimation from "@/components/Background";
+import DarkGradientBackground from "@/components/Background";
 import { signikaNegative, lexend, poppins } from "@/lib/font";
 import axios from "axios";
 import GlitchText from "@/components/ui/glitch-text";
@@ -103,11 +103,7 @@ export default function SpacesPage() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      <div className="fixed inset-0 z-0">
-        <BackgroundAnimation />
-      </div>
-      
+    <DarkGradientBackground>
       <div className="relative z-10 min-h-screen">
         <AnimatePresence mode="wait">
           {!showPastSpaces ? (
@@ -343,6 +339,6 @@ export default function SpacesPage() {
         title="Sign In to Continue"
         description="Create your music space and start jamming with friends!"
       />
-    </div>
+    </DarkGradientBackground>
   );
 }
