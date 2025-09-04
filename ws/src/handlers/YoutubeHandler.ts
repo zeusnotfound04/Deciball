@@ -6,7 +6,6 @@ export class YoutubeHandler implements MusicHandler {
     validateURL(URL: string): boolean {
         if (!URL) return false;
         
-        // Support various YouTube URL formats
         const urlPatterns = [
             /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]{11}/,
             /^(https?:\/\/)?(www\.)?youtube\.com\/embed\/[a-zA-Z0-9_-]{11}/,
@@ -19,13 +18,10 @@ export class YoutubeHandler implements MusicHandler {
 
     extractId(URL: string): string | null {
         if (!URL) return null;
-        
-        // Direct video ID (11 characters)
         if (/^[a-zA-Z0-9_-]{11}$/.test(URL)) {
             return URL;
         }
         
-        // Various YouTube URL patterns
         const patterns = [
             /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
             /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
@@ -43,7 +39,6 @@ export class YoutubeHandler implements MusicHandler {
   try {
 
     if (!id || id.length !== 11 || !/^[a-zA-Z0-9_-]+$/.test(id)) {
-      console.warn(`[YoutubeHandler] Invalid YouTube video ID format: ${id}`);
       return null;
     }
 
@@ -139,7 +134,7 @@ export class YoutubeHandler implements MusicHandler {
             }
             
             const finalQuery = `${query.trim()} (Audio)`
-            console.log("Final Query 👀👀" , finalQuery)
+            console.log("Final Query" , finalQuery)
             const searchResult = await youtubesearchapi.GetListByKeyword(finalQuery, false, 1);
             
             if (!searchResult || !searchResult.items || searchResult.items.length === 0) {
@@ -200,9 +195,7 @@ export class YoutubeHandler implements MusicHandler {
                 bigImg: bigImage,
                 duration
             };
-
-            console.log(`[YoutubeHandler] ✅ Successfully found: "${title}" by ${video.channelTitle}`);
-            return result;
+     return result;
             
         } catch (error) {
             console.error(`[YoutubeHandler] ❌ Error searching for "${query}":`, error);

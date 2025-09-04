@@ -18,7 +18,6 @@ async function handleDownload(youtubeId: string) {
   }
 
   const downloadUrl = `${downloadBaseUrl}${youtubeId}`;
-  console.log('Fetching download link from:', downloadUrl);
 
   const response = await fetch(downloadUrl, {
     method: 'GET',
@@ -32,7 +31,6 @@ async function handleDownload(youtubeId: string) {
   }
 
   const data: DownloadResponse = await response.json();
-  console.log('Download API response:', data);
 
   return data;
 }
@@ -65,7 +63,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log('POST request body:', body);
     // Support multiple parameter names: id, youtubeId, videoId
     const youtubeId = body.id || body.youtubeId || body.videoId;
 

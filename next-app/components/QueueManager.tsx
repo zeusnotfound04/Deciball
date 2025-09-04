@@ -1,17 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  DndContext, 
-  DragOverlay, 
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragStartEvent,
-  DragEndEvent,
-  DragOverEvent
-} from '@dnd-kit/core';
+
 import {
   arrayMove,
   SortableContext,
@@ -674,7 +663,6 @@ const SongCard = ({
   onRemove: () => void;
   onPlayInstant: () => void;
 }) => {
-  // Simple click handlers that work on both desktop and mobile
   const handleCardClick = (e: any) => {
     if (!isCurrentlyPlaying && isAdmin) {
       e.preventDefault();
@@ -920,7 +908,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   artistes: {
                     primary: [{
                       id: 'youtube',
-                      name: data.song.artist || (data.song.type === 'Youtube' ? '📺 YouTube' : 'Unknown Artist'),
+                      name: data.song.artist || (data.song.type === 'Youtube' ? ' YouTube' : 'Unknown Artist'),
                       role: 'primary_artist',
                       image: [] as any,
                       type: 'artist' as const,

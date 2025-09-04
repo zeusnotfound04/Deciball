@@ -20,9 +20,7 @@ export class MusicCache {
         this.redisClient = redisClient;
     }
 
-    // Generate normalized cache key from song metadata
     private generateCacheKey(query: string, source: string): string {
-        // Check if it's a URL (YouTube, Spotify, etc.)
         if (query.includes('://') || query.includes('youtube.com') || query.includes('spotify.com')) {
             // For URLs, use the full URL as the key (just normalize case and whitespace)
             const normalized = query.toLowerCase().trim();
@@ -30,7 +28,6 @@ export class MusicCache {
             return `${this.CACHE_PREFIX}${source.toLowerCase()}:url:${hash}`;
         }
         
-        // For search queries (song titles, artist names, etc.)
         const normalized = query.toLowerCase()
             .trim()
             .replace(/\s+/g, ' ')
@@ -41,12 +38,10 @@ export class MusicCache {
         return `${this.CACHE_PREFIX}${source.toLowerCase()}:search:${hash}`;
     }
 
-    // Generate cache key for specific IDs
     private generateIdCacheKey(id: string, source: string): string {
         return `${this.CACHE_PREFIX}id:${source.toLowerCase()}:${id}`;
     }
 
-    // Cache song with multiple identifiers for maximum hit rate
     async cacheSong(song: MusicTrack, searchQuery: string, spotifyId?: string): Promise<void> {
         const cacheData: CachedMusicTrack = {
             ...song,
@@ -60,52 +55,41 @@ export class MusicCache {
         const ttl = this.CACHE_TTL;
         
         try {
-            // Check if searchQuery is a URL
             const isUrl = searchQuery.includes('://') || searchQuery.includes('youtube.com') || searchQuery.includes('spotify.com');
             
             if (isUrl) {
-                // For URLs, only cache by the exact URL and extracted ID
                 const queryKey = this.generateCacheKey(searchQuery, song.source);
                 promises.push(this.redisClient.setEx(queryKey, ttl, JSON.stringify(cacheData)));
                 
-                // Cache by specific ID if available
                 if (song.extractedId) {
                     const idKey = this.generateIdCacheKey(song.extractedId, song.source);
                     promises.push(this.redisClient.setEx(idKey, ttl, JSON.stringify(cacheData)));
                 }
             } else {
-                // For search queries (song titles, etc.), cache by multiple identifiers
-                // 1. Cache by search query
                 const queryKey = this.generateCacheKey(searchQuery, song.source);
                 promises.push(this.redisClient.setEx(queryKey, ttl, JSON.stringify(cacheData)));
                 
-                // 2. Cache by song title
                 if (song.title) {
                     const titleKey = this.generateCacheKey(song.title, song.source);
                     promises.push(this.redisClient.setEx(titleKey, ttl, JSON.stringify(cacheData)));
                 }
                 
-                // 3. Cache by song title + artist combination
                 if (song.title && song.artist) {
                     const combinedQuery = `${song.title} ${song.artist}`;
                     const combinedKey = this.generateCacheKey(combinedQuery, song.source);
                     promises.push(this.redisClient.setEx(combinedKey, ttl, JSON.stringify(cacheData)));
                 }
                 
-                // 4. Cache by specific IDs
                 if (song.extractedId) {
                     const idKey = this.generateIdCacheKey(song.extractedId, song.source);
                     promises.push(this.redisClient.setEx(idKey, ttl, JSON.stringify(cacheData)));
                 }
 
-                // 5. PRIORITY: Cache by Spotify ID if provided (most important for frontend integration)
                 if (spotifyId) {
                     const spotifyKey = this.generateIdCacheKey(spotifyId, 'Spotify');
                     promises.push(this.redisClient.setEx(spotifyKey, ttl, JSON.stringify(cacheData)));
-                    console.log(`[MusicCache] 🎯 Caching with Spotify ID: ${spotifyId}`);
                 }
 
-                // 6. Add to search index for fuzzy matching (only for search queries, not URLs)
                 const searchIndexKey = `${this.CACHE_PREFIX}search-index:${song.source.toLowerCase()}`;
                 const searchData = {
                     key: queryKey,
@@ -122,57 +106,43 @@ export class MusicCache {
 
             await Promise.all(promises);
             
-            // Update cache statistics
             await this.updateCacheStats('songs_cached', 1);
             
-            console.log(`[MusicCache] ✅ Cached song: "${song.title}" ${spotifyId ? `(Spotify ID: ${spotifyId})` : ''} with ${promises.length - 1} keys (${isUrl ? 'URL' : 'Search'} type)`);
         } catch (error) {
-            console.error(`[MusicCache] ❌ Error caching song:`, error);
             throw error;
         }
     }
 
-    // Smart search in cache with Spotify ID priority, then fuzzy matching
-    async searchCache(query: string, source?: string, spotifyId?: string): Promise<CachedMusicTrack | null> {
+async searchCache(query: string, source?: string, spotifyId?: string): Promise<CachedMusicTrack | null> {
         const searchStart = Date.now();
         
         try {
-            // PRIORITY 1: Search by Spotify ID if provided (most reliable)
             if (spotifyId) {
-                console.log(`[MusicCache] 🎯 Searching by Spotify ID: ${spotifyId}`);
                 const spotifyResult = await this.getBySpotifyId(spotifyId);
                 if (spotifyResult) {
                     await this.updateHitStats(spotifyResult, Date.now() - searchStart);
-                    console.log(`[MusicCache] ✅ SPOTIFY ID HIT: "${spotifyId}" -> "${spotifyResult.title}" (${Date.now() - searchStart}ms)`);
                     return spotifyResult;
                 }
-                console.log(`[MusicCache] ❌ No cache entry found for Spotify ID: ${spotifyId}`);
             }
 
-            // PRIORITY 2: Direct search by query
-            const directResult = await this.directSearch(query, source);
+                const directResult = await this.directSearch(query, source);
             if (directResult) {
                 await this.updateHitStats(directResult, Date.now() - searchStart);
-                console.log(`[MusicCache] ✅ DIRECT HIT: "${query}" -> "${directResult.title}" (${Date.now() - searchStart}ms)`);
                 return directResult;
             }
 
-            // PRIORITY 3: Fuzzy search only for non-URL queries (fallback)
             const isUrl = query.includes('://') || query.includes('youtube.com') || query.includes('spotify.com');
             
             if (!isUrl) {
-                console.log(`[MusicCache] 🔍 Trying fuzzy search for: "${query}"`);
                 const fuzzyResult = await this.fuzzySearch(query, source);
                 if (fuzzyResult) {
                     await this.updateHitStats(fuzzyResult, Date.now() - searchStart);
-                    console.log(`[MusicCache] ✅ FUZZY HIT: "${query}" -> "${fuzzyResult.title}" (${Date.now() - searchStart}ms)`);
                     return fuzzyResult;
                 }
             }
 
             await this.updateCacheStats('cache_misses', 1);
-            console.log(`[MusicCache] ❌ Cache MISS for: "${query}" ${spotifyId ? `(Spotify ID: ${spotifyId})` : ''} (${Date.now() - searchStart}ms)`);
-            return null;
+     return null;
         } catch (error) {
             console.error(`[MusicCache] Error searching cache for "${query}":`, error);
             return null;
@@ -185,7 +155,6 @@ export class MusicCache {
         if (source) {
             searchKeys.push(this.generateCacheKey(query, source));
         } else {
-            // Search in all sources
             searchKeys.push(this.generateCacheKey(query, 'Youtube'));
             searchKeys.push(this.generateCacheKey(query, 'Spotify'));
         }
@@ -196,11 +165,7 @@ export class MusicCache {
                 if (cached) {
                     const song = JSON.parse(cached) as CachedMusicTrack;
                     song.lastAccessed = Date.now();
-                    // Update last accessed time
                     await this.redisClient.setEx(key, this.CACHE_TTL, JSON.stringify(song));
-                    
-                    // Add detailed logging to debug cache hits
-                    console.log(`[MusicCache] 🎯 Direct cache hit for query: "${query}" -> Found song: "${song.title}" (ID: ${song.id || song.extractedId})`);
                     
                     return song;
                 }
@@ -216,43 +181,35 @@ export class MusicCache {
         const sources = source ? [source] : ['Youtube', 'Spotify'];
         const queryLower = query.toLowerCase();
         
-        console.log(`[MusicCache] 🔍 Starting fuzzy search for: "${query}" in sources: [${sources.join(', ')}]`);
         
         for (const src of sources) {
             try {
                 const searchIndexKey = `${this.CACHE_PREFIX}search-index:${src.toLowerCase()}`;
                 const results = await this.redisClient.zRange(searchIndexKey, 0, -1);
-                
-                console.log(`[MusicCache] 📋 Found ${results.length} cached songs in ${src} to check`);
-                
+                   
                 for (const result of results) {
                     try {
                         const searchData = JSON.parse(result);
                         const { title, artist, searchQuery } = searchData;
                         
-                        // Simple fuzzy matching with detailed logging
-                        if (this.isFuzzyMatch(queryLower, title, artist, searchQuery)) {
+                            if (this.isFuzzyMatch(queryLower, title, artist, searchQuery)) {
                             const cached = await this.redisClient.get(searchData.key);
                             if (cached) {
                                 const song = JSON.parse(cached) as CachedMusicTrack;
-                                console.log(`[MusicCache] ✅ Fuzzy match accepted and song retrieved: "${song.title}"`);
                                 return song;
                             } else {
-                                console.log(`[MusicCache] ⚠️ Fuzzy match found but cache entry missing for key: ${searchData.key}`);
+                                console.log(` Fuzzy match found but cache entry missing for key: ${searchData.key}`);
                             }
                         }
                     } catch (parseError) {
-                        // Skip invalid entries
-                        console.log(`[MusicCache] ⚠️ Skipping invalid search index entry`);
                         continue;
                     }
                 }
             } catch (error) {
-                console.error(`[MusicCache] Error in fuzzy search for ${src}:`, error);
+                console.error(`Error in fuzzy search for ${src}:`, error);
             }
         }
         
-        console.log(`[MusicCache] ❌ No fuzzy matches found for: "${query}"`);
         return null;
     }
 
@@ -262,11 +219,9 @@ export class MusicCache {
         const artistWords = (artist?.toLowerCase() || '').split(/\s+/).filter(word => word.length > 2);
         const originalWords = (originalQuery?.toLowerCase() || '').split(/\s+/).filter(word => word.length > 2);
 
-        // STRICT TITLE MATCHING: At least one significant word from query must match the song title
-        let titleMatchedWords = 0;
+let titleMatchedWords = 0;
         let artistMatchedWords = 0;
         
-        // Count matches in title specifically
         for (const queryWord of queryWords) {
             if (titleWords.some(titleWord => 
                 titleWord.includes(queryWord) || 
@@ -285,22 +240,15 @@ export class MusicCache {
                 artistMatchedWords++;
             }
         }
-
-        // STRICTER CRITERIA:
-        // 1. Must have at least 1 significant title word match (not just artist)
-        // 2. Total match ratio must be high (80% instead of 60%)
-        // 3. For songs, prioritize title matches over artist matches
         
         const titleMatchRatio = titleWords.length > 0 ? titleMatchedWords / Math.min(queryWords.length, titleWords.length) : 0;
         const totalMatchedWords = titleMatchedWords + artistMatchedWords;
         const totalMatchRatio = totalMatchedWords / queryWords.length;
         
-        // Require at least one title word match AND high overall match ratio
-        const hasSignificantTitleMatch = titleMatchedWords >= 1 && titleMatchRatio >= 0.5;
+const hasSignificantTitleMatch = titleMatchedWords >= 1 && titleMatchRatio >= 0.5;
         const hasHighOverallMatch = totalMatchRatio >= 0.8 && totalMatchedWords >= 2;
         
         if (hasSignificantTitleMatch && hasHighOverallMatch) {
-            console.log(`[MusicCache] 🎯 Fuzzy match found: "${query}" -> "${title}" by "${artist}" (Title: ${Math.round(titleMatchRatio * 100)}%, Overall: ${Math.round(totalMatchRatio * 100)}%)`);
             return true;
         }
         
@@ -310,13 +258,12 @@ export class MusicCache {
         const directOriginalSimilarity = this.calculateSimilarity(query, originalQuery?.toLowerCase() || '');
         
         if (directTitleSimilarity > 0.9 || directFullSimilarity > 0.9 || directOriginalSimilarity > 0.9) {
-            console.log(`[MusicCache] 🎯 Direct similarity match: "${query}" -> "${title}" (${Math.round(Math.max(directTitleSimilarity, directFullSimilarity, directOriginalSimilarity) * 100)}%)`);
             return true;
         }
 
         // Debug log for failed matches to help tune the algorithm
         if (titleMatchedWords > 0 || artistMatchedWords > 0) {
-            console.log(`[MusicCache] ❌ Match rejected: "${query}" -> "${title}" by "${artist}" (Title: ${titleMatchedWords}/${titleWords.length}, Artist: ${artistMatchedWords}/${artistWords.length}, Ratios: ${Math.round(titleMatchRatio * 100)}%/${Math.round(totalMatchRatio * 100)}%)`);
+            console.log(`Match rejected: "${query}" -> "${title}" by "${artist}" (Title: ${titleMatchedWords}/${titleWords.length}, Artist: ${artistMatchedWords}/${artistWords.length}, Ratios: ${Math.round(titleMatchRatio * 100)}%/${Math.round(totalMatchRatio * 100)}%)`);
         }
 
         return false;
@@ -354,7 +301,6 @@ export class MusicCache {
         return matrix[str2.length][str1.length];
     }
 
-    // Get song by specific platform ID
     async getBySpotifyId(spotifyId: string): Promise<CachedMusicTrack | null> {
         const key = this.generateIdCacheKey(spotifyId, 'Spotify');
         const cached = await this.redisClient.get(key);
@@ -367,7 +313,6 @@ export class MusicCache {
         return cached ? JSON.parse(cached) : null;
     }
 
-    // Batch operations for multiple songs
     async batchSearch(queries: Array<{query: string, source?: string, spotifyId?: string}>): Promise<Array<CachedMusicTrack | null>> {
         const promises = queries.map(({query, source, spotifyId}) => this.searchCache(query, source, spotifyId));
         return Promise.all(promises);
@@ -378,7 +323,6 @@ export class MusicCache {
         await Promise.all(promises);
     }
 
-    // Cache management and statistics
     private async updateHitStats(song: CachedMusicTrack, responseTime: number): Promise<void> {
         try {
             
@@ -388,7 +332,6 @@ export class MusicCache {
                 this.redisClient.incr(`${this.STATS_PREFIX}song_hits:${song.id}`)
             ]);
             
-            console.log(`[MusicCache] ✅ Cache HIT: "${song.title}" (${responseTime}ms)`);
         } catch (error) {
             console.error('[MusicCache] Error updating hit stats:', error);
         }
@@ -402,7 +345,6 @@ export class MusicCache {
         }
     }
 
-    // Get comprehensive cache statistics
     async getStats(): Promise<any> {
         try {
             const [hits, misses, songsCached, totalResponseTime] = await Promise.all([
@@ -442,20 +384,11 @@ export class MusicCache {
         }
     }
 
-    // Cache maintenance
-    async cleanupExpiredEntries(): Promise<void> {
-        console.log('[MusicCache] Starting cleanup of expired entries...');
-        // This would be implemented based on your specific needs
-        // Redis handles TTL automatically, but you might want to clean up indexes
-    }
-
-    // Clear all cache (use with caution)
+    
     async clearAllCache(): Promise<void> {
-        console.log('[MusicCache] ⚠️  Clearing entire music cache...');
         const keys = await this.redisClient.keys(`${this.CACHE_PREFIX}*`);
         if (keys.length > 0) {
             await this.redisClient.del(keys);
         }
-        console.log(`[MusicCache] ✅ Cleared ${keys.length} cache entries`);
     }
 }

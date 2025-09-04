@@ -103,7 +103,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     try {
       const spaceUrl = `${window.location.origin}/space/${spaceId}`;
       
-      // Try to use the Web Share API if available (mobile devices)
       if (navigator.share) {
         await navigator.share({
           title: `Join ${roomName} on Deciball`,

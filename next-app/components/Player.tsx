@@ -18,16 +18,6 @@ import {
 } from '@/app/components/ui/tooltip';
 import { 
   Music, 
-  Users, 
-  Settings, 
-  Maximize2, 
-  Minimize2,
-  Volume2,
-  VolumeX,
-  Play,
-  Pause,
-  SkipForward,
-  SkipBack,
   Download
 } from 'lucide-react';
 

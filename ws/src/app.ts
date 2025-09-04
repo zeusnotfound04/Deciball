@@ -90,7 +90,7 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
             if(err){
                 console.log("JWT verification error:", err.message || err)
                 sendError(ws , "Token verification failed")
-                return; // Add return to prevent further execution
+                return; 
             } else {
                 
                 const creatorId = decoded.creatorId || decoded.userId;
@@ -154,14 +154,11 @@ async function  processUserAction(type: string , data : Data ) {
             break;
 
         case "add-batch-to-queue":
-            // Handle both old and new batch processing formats
             if (data.songs && Array.isArray(data.songs)) {
-                // Check if this is the new simplified format (has title/artist fields)
                 const isSimplifiedFormat = data.songs.length > 0 && 
                     data.songs[0].title && data.songs[0].artist && !data.songs[0].url;
 
                 if (isSimplifiedFormat) {
-                    // New simplified format - search YouTube using worker pool
                     console.log(`[App] Processing ${data.songs.length} simplified tracks for YouTube search`);
                     const result = await RoomManager.getInstance().processSimplifiedBatch(
                         data.spaceId,
@@ -180,7 +177,6 @@ async function  processUserAction(type: string , data : Data ) {
                         data.autoPlay || false
                     );
                     
-                    // Send batch result back to user
                     const user = RoomManager.getInstance().users.get(data.userId);
                     if (user) {
                         user.ws.forEach((ws: WebSocket) => {
@@ -193,7 +189,6 @@ async function  processUserAction(type: string , data : Data ) {
                         });
                     }
                 } else {
-                    // Legacy format - use existing method
                     console.log(`[App] Processing ${data.songs.length} legacy format tracks`);
                     const result = await RoomManager.getInstance().processBatchStreams(
                         data.spaceId,
@@ -206,8 +201,6 @@ async function  processUserAction(type: string , data : Data ) {
                         data.userId,
                         data.autoPlay || false
                     );
-                    
-                    // Send batch result back to user
                     const user = RoomManager.getInstance().users.get(data.userId);
                     if (user) {
                         user.ws.forEach((ws: WebSocket) => {
@@ -261,7 +254,7 @@ async function  processUserAction(type: string , data : Data ) {
 
         case "get-queue":
             const queue = await RoomManager.getInstance().getRedisQueue(data.spaceId);
-            // Send back to requesting user
+            
             const requestingUser = RoomManager.getInstance().users.get(data.userId);
             if (requestingUser) {
                 requestingUser.ws.forEach((ws: WebSocket) => {
@@ -348,13 +341,12 @@ async function  processUserAction(type: string , data : Data ) {
                     }
                 });
             } else {
-                console.error(`❌ User not found when requesting space image. UserId: ${data.userId}, SpaceId: ${data.spaceId}`);
+                console.error(` User not found when requesting space image. UserId: ${data.userId}, SpaceId: ${data.spaceId}`);
 
             }
             break;
 
         case "song-ended":
-            console.log("[Backend] Song ended, playing next from queue");
             try {
                 await RoomManager.getInstance().playNextFromRedisQueue(data.spaceId, data.userId);
             } catch (error) {
@@ -363,7 +355,6 @@ async function  processUserAction(type: string , data : Data ) {
             break;
             
         case "latency-report":
-            console.log(`[Latency] Received latency report from user ${data.userId}:`, data.latency, "ms");
             try {
                 if (typeof data.latency === 'number') {
                     await RoomManager.getInstance().reportLatency(data.spaceId, data.userId, data.latency);
@@ -376,8 +367,6 @@ async function  processUserAction(type: string , data : Data ) {
             break;
 
         case "admin-timestamp-response":
-            // Handle admin's response with their current timestamp for new joiner sync
-            console.log(`[AdminSync] Received timestamp response from admin ${data.userId}`);
             try {
                 if (typeof data.currentTime === 'number' && data.requestId) {
                     await RoomManager.getInstance().handleAdminTimestampResponse(
@@ -399,8 +388,6 @@ async function  processUserAction(type: string , data : Data ) {
             break;
 
         case "send-chat-message":
-            // Handle chat message broadcasting
-            console.log(`[Chat] Received chat message from user ${data.userId}`);
             try {
                 if (data.message && data.spaceId && data.userId) {
                     await RoomManager.getInstance().broadcastChatMessage(
@@ -532,40 +519,33 @@ async function main() {
     const PORT = process.env.PORT ?? 8080;
     console.log(`${process.pid} : WebSocket server is running on port ${PORT}`)
 
-    // Graceful shutdown handling
     const gracefulShutdown = async (signal: string) => {
-        console.log(`\n[${signal}] Received shutdown signal, starting graceful shutdown...`);
-        
         try {
-            // Close WebSocket server
             wss.close(() => {
-                console.log('✅ WebSocket server closed');
+                console.log(' WebSocket server closed');
             });
             
-            // Shutdown RoomManager (includes worker pool and Redis)
             await RoomManager.getInstance().shutdown();
             
-            console.log('✅ Graceful shutdown completed');
+            console.log(' Graceful shutdown completed');
             process.exit(0);
         } catch (error) {
-            console.error('❌ Error during graceful shutdown:', error);
+            console.error(' Error during graceful shutdown:', error);
             process.exit(1);
         }
     };
 
-    // Handle shutdown signals
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // For nodemon
 
-    // Handle uncaught exceptions
     process.on('uncaughtException', (error) => {
-        console.error('❌ Uncaught Exception:', error);
+        console.error(' Uncaught Exception:', error);
         gracefulShutdown('UNCAUGHT_EXCEPTION');
     });
 
     process.on('unhandledRejection', (reason, promise) => {
-        console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+        console.error(' Unhandled Rejection at:', promise, 'reason:', reason);
         gracefulShutdown('UNHANDLED_REJECTION');
     });
 

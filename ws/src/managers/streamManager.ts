@@ -227,7 +227,6 @@ export class RoomManager {
             }
             
             // 3. Use worker to fetch details (parallel processing)
-            console.log(`[RoomManager] 🚀 Cache MISS - Using worker to fetch: ${source} - ${extractedId || url}`);
             const songData = {
                 source,
                 query: normalizedQuery,
@@ -239,23 +238,17 @@ export class RoomManager {
             const songDetails = await this.workerPool.processSong(songData, 'high'); // High priority for real-time requests
             
             if (songDetails && !(songDetails as any).failed) {
-                // 4. Cache the result for future requests with Spotify ID
                 await this.musicCache.cacheSong(songDetails, normalizedQuery, spotifyId);
-                console.log(`[RoomManager] ✅ Song processed and cached: "${songDetails.title}" (${Date.now() - processingStart}ms)`);
-                
-                // 5. Add to queue
                 return await this.addSongToQueue(spaceId, songDetails, userId, autoPlay, false);
             } else {
                 throw new Error((songDetails as any)?.error || 'Failed to fetch song details');
             }
             
         } catch (error: any) {
-            console.error(`[RoomManager] ❌ Error processing stream: ${error.message} (${Date.now() - processingStart}ms)`);
             throw error;
         }
     }
 
-    // New method for processing simplified track metadata (playlist batch processing)
     async processSimplifiedBatch(
         spaceId: string,
         tracks: Array<{ 
@@ -289,9 +282,6 @@ export class RoomManager {
 
             for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
                 const batch = batches[batchIndex];
-                console.log(`[RoomManager] 📦 Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} tracks)`);
-
-                // Process all tracks in this batch in parallel
                 const promises = batch.map(async (track, index) => {
                     const overallIndex = batchIndex * batchSize + index;
                     
@@ -327,11 +317,7 @@ export class RoomManager {
                                 spotifyId: track.spotifyId,
                                 spotifyUrl: track.spotifyUrl
                             };
-                            console.log(`[RoomManager] ✅ Cache hit with preserved Spotify metadata: "${processedSong.title}" (was: "${cachedSong.title}")`);
                         } else {
-                            console.log(`[RoomManager] 🚀 Cache MISS - Searching YouTube with worker`);
-                            
-                            // Use worker pool to search YouTube
                             const songData = {
                                 source: 'Youtube',
                                 query: searchQuery,
@@ -370,7 +356,6 @@ export class RoomManager {
                                 
                                 // Cache the successful result with Spotify ID
                                 await this.musicCache.cacheSong(processedSong, searchQuery, track.spotifyId);
-                                console.log(`[RoomManager] ✅ YouTube search successful with preserved Spotify metadata: ${processedSong.title}`);
                             }
                         }
 
@@ -378,7 +363,6 @@ export class RoomManager {
                             // Add song to queue
                             await this.addSongToQueue(spaceId, processedSong, userId, autoPlay && successful === 0, !!cachedSong);
                             successful++;
-                            console.log(`[RoomManager] ✅ Added to queue: ${track.title} (${successful}/${tracks.length})`);
                         } else {
                             failed++;
                             console.warn(`[RoomManager] ❌ Failed to process: ${track.title}`);
@@ -395,9 +379,6 @@ export class RoomManager {
             }
 
             const processingTime = Date.now() - batchStart;
-            console.log(`[RoomManager] ✅ Simplified batch completed: ${successful} successful, ${failed} failed (${processingTime}ms)`);
-
-            // Send final progress update
             this.broadcastProgressUpdate(spaceId, userId, {
                 current: tracks.length,
                 total: tracks.length,
@@ -409,12 +390,10 @@ export class RoomManager {
             return { successful, failed };
 
         } catch (error) {
-            console.error(`[RoomManager] ❌ Simplified batch processing error:`, error);
             throw error;
         }
     }
 
-    // Helper method to broadcast progress updates
     private broadcastProgressUpdate(spaceId: string, userId: string, progress: {
         current: number;
         total: number;
@@ -465,7 +444,6 @@ export class RoomManager {
         autoPlay: boolean = false
     ): Promise<{processed: number, cached: number, fetched: number, failed: number}> {
         const batchStart = Date.now();
-        console.log(`[RoomManager] 📦 Processing batch of ${songs.length} songs with fallback logic`);
 
         try {
             // Filter out invalid songs and validate required fields
@@ -504,9 +482,6 @@ export class RoomManager {
                 }
             }
 
-            console.log(`[RoomManager] 📊 Grouped ${validSongs.length} songs into ${songGroups.size} track groups`);
-
-            // 2. Process each group with fallback logic
             const processedSongs = [];
             const failedTracks = [];
             let cachedCount = 0;
@@ -563,9 +538,6 @@ export class RoomManager {
                             break;
                         }
 
-                        // If not in cache, try to fetch
-                        console.log(`[RoomManager] 🚀 Cache MISS - Fetching ${isSecondary ? 'FALLBACK' : 'PRIMARY'} variation ${i + 1} with worker`);
-                        
                         const songData = {
                             source: song.source,
                             query: normalizedQuery,
@@ -578,29 +550,22 @@ export class RoomManager {
                         const fetchedSong = await this.workerPool.processSong(songData, 'normal');
                         
                         if (fetchedSong && !(fetchedSong as any).failed) {
-                            console.log(`[RoomManager] ✅ Successfully fetched ${isSecondary ? 'FALLBACK' : 'PRIMARY'} variation ${i + 1}: ${fetchedSong.title}`);
-                            
-                            // Cache the successful result with Spotify ID
                             await this.musicCache.cacheSong(fetchedSong, normalizedQuery, spotifyId);
                             
                             successfulSong = fetchedSong;
                             fetchedCount++;
                             break;
                         } else {
-                            console.warn(`[RoomManager] ❌ Variation ${i + 1} failed: ${(fetchedSong as any)?.error || 'Unknown error'}`);
-                            
-                            // If this is the last variation, we've exhausted all options
                             if (isLastVariation) {
-                                console.error(`[RoomManager] � All variations failed for track ${trackId}`);
+                                console.error(` All variations failed for track ${trackId}`);
                             }
                         }
                         
                     } catch (error: any) {
-                        console.error(`[RoomManager] ❌ Error processing variation ${i + 1} for track ${trackId}:`, error.message);
+                        console.error(`Error processing variation ${i + 1} for track ${trackId}:`, error.message);
                         
-                        // If this is the last variation and it failed, mark the track as failed
                         if (isLastVariation) {
-                            console.error(`[RoomManager] 💀 All variations exhausted for track ${trackId}`);
+                            console.error(` All variations exhausted for track ${trackId}`);
                         }
                     }
                 }
@@ -626,7 +591,7 @@ export class RoomManager {
                     await this.addSongToQueue(spaceId, song, userId, autoPlay && addedCount === 0, fromCache);
                     addedCount++;
                 } catch (error: any) {
-                    console.error(`[RoomManager] ❌ Error adding song "${song.title}" to queue:`, error.message);
+                    console.error(` Error adding song "${song.title}" to queue:`, error.message);
                 }
             }
 
@@ -638,8 +603,6 @@ export class RoomManager {
                 failed: failedTracks.length
             };
 
-            console.log(`[RoomManager] ✅ Fallback batch completed: ${JSON.stringify(stats)} (${processingTime}ms)`);
-            console.log(`[RoomManager] 🎯 Successfully processed ${addedCount}/${songGroups.size} unique tracks`);
             
             if (failedTracks.length > 0) {
                 console.warn(`[RoomManager] ⚠️ Failed tracks: ${failedTracks.join(', ')}`);
@@ -704,25 +667,19 @@ export class RoomManager {
                 hasCompleteTrackData: !!song.completeTrackData
             });
 
-            // Handle duration - it might come from different sources
             let duration = 0;
             if (song.duration !== undefined && song.duration !== null) {
                 duration = parseInt(song.duration);
-                // If duration is in milliseconds (> 1000 seconds = ~16 minutes), convert to seconds
                 if (duration > 1000) {
                     duration = Math.floor(duration / 1000);
                 }
             } else if (song.completeTrackData?.duration !== undefined) {
                 duration = parseInt(song.completeTrackData.duration);
-                // If duration is in milliseconds, convert to seconds
                 if (duration > 1000) {
                     duration = Math.floor(duration / 1000);
                 }
             }
 
-            console.log(`[RoomManager] 🔧 Processing duration for "${song.title}": original=${song.duration}, final=${duration} seconds`);
-
-            // Convert to the QueueSong format expected by Redis queue system
             const queueItem: QueueSong = {
                 id: song.id || crypto.randomUUID(),
                 title: song.title || 'Unknown Title',
@@ -742,13 +699,10 @@ export class RoomManager {
                 youtubeId: song.source === 'Youtube' ? (song.extractedId || '') : ''
             };
 
-            // Add to Redis queue using your existing method
             await this.addSongToRedisQueue(spaceId, queueItem);
 
-            // Broadcast to room
             await this.broadcastRedisQueueUpdate(spaceId);
 
-            // Auto-play if requested and no song is currently playing
             if (autoPlay) {
                 const space = this.spaces.get(spaceId);
                 if (space && !space.playbackState.currentSong) {
@@ -756,9 +710,6 @@ export class RoomManager {
                 }
             }
 
-            console.log(`[RoomManager] ✅ Added "${song.title}" to queue${fromCache ? ' (from cache)' : ''}`);
-            
-            // Return frontend-compatible format for broadcasting
             return {
                 id: queueItem.id,
                 title: queueItem.title,
@@ -2722,7 +2673,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             voteCount: voteCount,
             addedByUser: {
                 id: nextSong.userId,
-                name: nextSong.addedByUser // We might need to get this from database or Redis
+                name: nextSong.addedByUser 
             }
         };
 
@@ -2737,7 +2688,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             });
         });
 
-        // Send playback-resumed message to auto-start the song
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -2811,7 +2761,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 });
             });
             
-            console.log(`🖼️ Broadcasted image update for space ${spaceId}: ${imageUrl || "No image"}`);
         } catch (error) {
             console.error('Error broadcasting image update:', error);
         }
@@ -2892,10 +2841,8 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Helper method to store user info in Redis
     async storeUserInfo(userId: string, userInfo: { username?: string; email?: string; name?: string, pfpUrl?: string }): Promise<void> {
         try {
-            console.log("Storing user info in Redis cache...🤣🤣🤣", userInfo);
             await this.redisClient.set(
                 `user-info-${userId}`,
                 JSON.stringify(userInfo),
@@ -2906,24 +2853,18 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    // Helper method to get user info from Redis
-    // Handle latency feedback from frontend - simplified version
     async reportLatency(spaceId: string, userId: string, latency: number) {
         const space = this.spaces.get(spaceId);
         if (!space) {
-            console.log(`[Latency] Space ${spaceId} not found for latency report`);
             return;
         }
 
-        // Just log latency for monitoring - no complex adaptive logic
-        console.log(`[Latency] User ${userId} in space ${spaceId} reported ${latency}ms latency`);
     }
 
     async getUserInfo(userId: string): Promise<{ username?: string; email?: string; name?: string, pfpUrl?: string } | null> {
         try {
             const userInfo = await this.redisClient.get(`user-info-${userId}`);
             if (userInfo) {
-                console.log("Getting user info from Redis cache...🤣🤣🤣", userInfo);
                 return JSON.parse(userInfo);
                 
             }
