@@ -195,7 +195,7 @@ export class YoutubeHandler implements MusicHandler {
                 extractedId: videoId,
                 url: `https://youtube.com/watch?v=${videoId}`,
                 title,
-                artist: video.channelTitle || 'Unknown Artist',
+                artist: video.channelTitle || 'Youtube',
                 smallImg: smallImage,
                 bigImg: bigImage,
                 duration
