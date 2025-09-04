@@ -3,6 +3,18 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { 
+  DndContext, 
+  DragOverlay, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent
+} from '@dnd-kit/core';
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
 import { useIsMobile } from '@/app/hooks/use-mobile';
@@ -46,6 +58,20 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   const [showSpaceEndedModal, setShowSpaceEndedModal] = useState(false);
   const [spaceEndedReason, setSpaceEndedReason] = useState('');
   const [spaceEndedMessage, setSpaceEndedMessage] = useState('');
+
+  // Drag and Drop State
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggedSong, setDraggedSong] = useState<any>(null);
+  
+  // Drag and Drop Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
 
   // Memoized values to prevent unnecessary re-computations
   const profilePicture = useMemo(() => {
@@ -220,6 +246,66 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     setShowSpaceEndedModal(false);
   }, []);
 
+  // Drag and Drop Handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id as string);
+    
+    // Store the dragged song data from the active element's data
+    if (active.data?.current?.song) {
+      setDraggedSong(active.data.current.song);
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || !isAdmin) {
+      setActiveId(null);
+      setDraggedSong(null);
+      return;
+    }
+
+    // If dropped on player zone, play the song instantly
+    if (over.id === 'player') {
+      const songId = active.id as string;
+      
+      // Send play-instant message
+      sendMessage("play-instant", { spaceId, songId });
+      
+      // Show success feedback (optional)
+      if (draggedSong) {
+        console.log(`🎵 Now playing: ${draggedSong.title}`);
+      }
+    }
+
+    setActiveId(null);
+    setDraggedSong(null);
+  }, [isAdmin, sendMessage, spaceId, draggedSong]);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    // Optional: Add visual feedback when hovering over drop zones
+  }, []);
+
+  // Kick listener function
+  const handleKickListener = useCallback((userId: string) => {
+    if (!isAdmin) {
+      console.warn("🚫 Only admins can kick listeners");
+      return;
+    }
+   
+    // Send kick message to server
+    if (socket?.readyState === WebSocket.OPEN) {
+      sendMessage("kick-listener", { 
+        spaceId, 
+        userId,
+        adminId: user?.id 
+      });
+    } else {
+      console.error("Socket not connected, cannot kick listener");
+    }
+  }, [isAdmin, socket, sendMessage, spaceId, user?.id]);
+
   // Memoized WebSocket message handlers
   const createWebSocketMessageHandler = useCallback(() => {
     let authErrorCount = 0;
@@ -269,7 +355,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             setConnectedUsers(data.userCount || data.connectedUsers || 0);
             if (data.userDetails) {
               console.log('Updating userDetails:', data.userDetails);
-              console.log('UserDetails structure:', JSON.stringify(data.userDetails, null, 2));
               setUserDetails(data.userDetails);
             }
             console.log('Updated user count:', data.userCount || data.connectedUsers || 0);
@@ -278,17 +363,11 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           case 'user-joined':
             setConnectedUsers(prev => prev + 1);
             console.log('User joined - new count will be:', connectedUsers + 1);
-            if (socket?.readyState === WebSocket.OPEN) {
-              sendMessage('get-room-users', { spaceId });
-            }
             break;
             
           case 'user-left':
             setConnectedUsers(prev => Math.max(0, prev - 1));
             console.log('User left - new count will be:', Math.max(0, connectedUsers - 1));
-            if (socket?.readyState === WebSocket.OPEN) {
-              sendMessage('get-room-users', { spaceId });
-            }
             break;
             
           case 'queue-update':
@@ -481,7 +560,12 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   }
 
   return (
-    <MusicRoomLayout userDetails={userDetails} connectedUsers={connectedUsers}>
+    <MusicRoomLayout 
+      userDetails={userDetails} 
+      connectedUsers={connectedUsers}
+      isAdmin={isAdmin}
+      onKickListener={handleKickListener}
+    >
       <div className="flex-1 h-full w-full flex flex-col overflow-hidden md:overflow-hidden">
         {/* Header Section */}
         <div className="flex items-center justify-center p-2 sm:p-3 md:p-4 w-full overflow-hidden flex-shrink-0">
@@ -681,66 +765,102 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       </div>
 
       {/* Main Content Section */}
-      <div className="flex-1 flex justify-center w-full min-h-0 lg:min-h-[calc(100vh-120px)] overflow-y-auto md:overflow-hidden">
-        <div className="w-full h-full max-w-none mx-auto flex-1 sm:h-auto">
-          <div className="relative w-full min-h-0 flex-1 rounded-none sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-2 xl:p-6 2xl:p-8 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 sm:gap-2 md:gap-3 lg:gap-1 xl:gap-5 2xl:gap-8 md:min-h-0 sm:flex sm:flex-col sm:h-auto md:place-items-center md:justify-items-center">
-            {/* Left Column - Player */}
-            <div className="flex flex-col gap-1 sm:gap-2 md:gap-4 order-1 w-full max-w-full min-w-0 flex-shrink-0 sm:h-[60vh] md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
-              <BlurComponent 
-                delay={500} 
-                direction="top"
-                className="w-full max-w-full flex-1 h-full block"
-                stepDuration={0.4}
-              >
-                {showPlayer && (
-                  <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl flex flex-col">
-                    <Player 
-                      spaceId={spaceId}
-                      isAdmin={isAdmin}
-                      userCount={connectedUsers}
-                      userDetails={userDetails}
-                      className="w-full h-full flex-1"
-                    />
-                  </div>
-                )}
-              </BlurComponent>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+      >
+        <div className="flex-1 flex justify-center w-full min-h-0 lg:min-h-[calc(100vh-120px)] overflow-y-auto md:overflow-hidden">
+          <div className="w-full h-full max-w-none mx-auto flex-1 sm:h-auto">
+            <div className="relative w-full min-h-0 flex-1 rounded-none sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-2 xl:p-6 2xl:p-8 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 sm:gap-2 md:gap-3 lg:gap-1 xl:gap-5 2xl:gap-8 md:min-h-0 sm:flex sm:flex-col sm:h-auto md:place-items-center md:justify-items-center">
+              {/* Left Column - Player */}
+              <div className="flex flex-col gap-1 sm:gap-2 md:gap-4 order-1 w-full max-w-full min-w-0 flex-shrink-0 sm:h-[60vh] md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
+                <BlurComponent 
+                  delay={500} 
+                  direction="top"
+                  className="w-full max-w-full flex-1 h-full block"
+                  stepDuration={0.4}
+                >
+                  {showPlayer && (
+                    <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl flex flex-col">
+                      <Player 
+                        spaceId={spaceId}
+                        isAdmin={isAdmin}
+                        userCount={connectedUsers}
+                        userDetails={userDetails}
+                        className="w-full h-full flex-1"
+                      />
+                    </div>
+                  )}
+                </BlurComponent>
 
-              {/* <BlurComponent
-                delay={700}
-                direction="bottom"
-                className="flex-1 hidden lg:block w-full min-h-0"
-                stepDuration={0.4}
-              >
-                <RecommendationPanel 
-                  spaceId={spaceId}
-                  isAdmin={isAdmin}
-                  className="w-full h-full"
-                />
-              </BlurComponent> */}
-            </div>
+                {/* <BlurComponent
+                  delay={700}
+                  direction="bottom"
+                  className="flex-1 hidden lg:block w-full min-h-0"
+                  stepDuration={0.4}
+                >
+                  <RecommendationPanel 
+                    spaceId={spaceId}
+                    isAdmin={isAdmin}
+                    className="w-full h-full"
+                  />
+                </BlurComponent> */}
+              </div>
 
-            {/* Right Column - QueueManager */}
-            <div className="w-full max-w-full order-2 min-w-0 flex-shrink-0 md:h-full md:min-h-0">
-              <BlurComponent
-                delay={600}
-                direction="top"
-                className="h-full w-full max-w-full block"
-                stepDuration={0.4}
-              >
-                {showQueue && (
-                  <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[60vh] sm:h-[65vh] md:h-[70vh] lg:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col">
-                    <QueueManager 
-                      spaceId={spaceId} 
-                      isAdmin={isAdmin}
-                      className="w-full h-full flex-1 min-h-0"
-                    />
-                  </div>
-                )}
-              </BlurComponent>
+              {/* Right Column - QueueManager */}
+              <div className="w-full max-w-full order-2 min-w-0 flex-shrink-0 md:h-full md:min-h-0">
+                <BlurComponent
+                  delay={600}
+                  direction="top"
+                  className="h-full w-full max-w-full block"
+                  stepDuration={0.4}
+                >
+                  {showQueue && (
+                    <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[60vh] sm:h-[65vh] md:h-[70vh] lg:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col">
+                      <QueueManager 
+                        spaceId={spaceId} 
+                        isAdmin={isAdmin}
+                        className="w-full h-full flex-1 min-h-0"
+                      />
+                    </div>
+                  )}
+                </BlurComponent>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+
+        {/* Global Drag Overlay */}
+        <DragOverlay>
+          {activeId && draggedSong ? (
+            <div className="opacity-90 transform rotate-2 scale-105 pointer-events-none">
+              <div className="bg-[#1C1E1F] border border-blue-400/50 rounded-xl p-3 shadow-2xl">
+                <div className="flex items-center space-x-3">
+                  <img 
+                    src={draggedSong.smallImg} 
+                    alt={draggedSong.title}
+                    className="w-12 h-12 rounded-lg object-cover"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-white truncate text-sm">
+                      {draggedSong.title}
+                    </h4>
+                    {draggedSong.artist && (
+                      <p className="text-gray-400 truncate text-xs">
+                        {draggedSong.artist}
+                      </p>
+                    )}
+                  </div>
+                  <Music className="w-5 h-5 text-blue-400" />
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Space Ended Modal */}
       <SpaceEndedModal

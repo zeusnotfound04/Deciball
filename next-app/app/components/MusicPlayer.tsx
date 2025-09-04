@@ -163,7 +163,7 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
                 {currentSong.name}
               </p>
               <p className="text-xs text-zinc-400 truncate">
-                {currentSong.artistes?.primary?.[0]?.name || 'Unknown Artist'}
+                {currentSong.artistes?.primary?.[0]?.name || 'Youtube'}
               </p>
             </div>
           </div>
@@ -244,7 +244,7 @@ export default function MusicPlayer({ className = '', compact = false }: MusicPl
                 {currentSong.name}
               </h3>
               <p className="text-sm text-zinc-400 truncate">
-                {currentSong.artistes?.primary?.[0]?.name || 'Unknown Artist'}
+                {currentSong.artistes?.primary?.[0]?.name || 'Youtube'}
               </p>
             </div>
             <div className="flex items-center gap-2">

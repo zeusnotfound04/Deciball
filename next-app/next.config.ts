@@ -2,6 +2,7 @@ const nextConfig = {
   images: {
     domains: [
       'i.ytimg.com', 
+      'img.youtube.com',
       'i.scdn.co',
       'deciball-web-storage.s3.ap-south-1.amazonaws.com',
       'wsrv.nl',

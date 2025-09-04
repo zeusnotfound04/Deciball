@@ -289,7 +289,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                       artistes: {
                         primary: [{
                           id: 'unknown',
-                          name: currentSong.artist || 'Unknown Artist',
+                          name: currentSong.artist || 'Youtube',
                           role: 'primary_artist',
                           image: [],
                           type: 'artist',

@@ -207,7 +207,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
               width={300}
               className="cover aspect-square object-cover rounded-xl transition-transform duration-300 hover:scale-105 mx-auto song-cover-responsive"
               src={
-                cleanImageUrl(currentSong?.image?.[currentSong.image.length - 1]?.url || '')
+                cleanImageUrl(currentSong?.image?.[0]?.url || '')
               }
             />
             <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-all duration-300 rounded-xl" />

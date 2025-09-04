@@ -1,7 +1,27 @@
 "use client";
 
-import React, { useEffect, useMemo, useCallback } from "react";
+import React, { useEffect, useMemo, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { 
+  DndContext, 
+  DragOverlay, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent
+} from '@dnd-kit/core';
+import {
+  useSortable,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Sidebar,
   SidebarHeader,
@@ -12,6 +32,8 @@ import {
   useSidebar,
 } from "@/app/components/ui/sidebar";
 import { Avatar, AvatarImage, AvatarFallback } from "@/app/components/ui/avatar";
+import { Trash2, UserX } from "lucide-react";
+import { cn } from "@/app/lib/utils";
 
 interface UserDetail {
   userId: string;
@@ -22,10 +44,36 @@ interface UserDetail {
 
 interface ListenerSidebarProps {
   listeners: UserDetail[];
+  isAdmin?: boolean;
+  onKickListener?: (userId: string) => void;
 }
 
-const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
-  const { state } = useSidebar(); 
+const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ 
+  listeners, 
+  isAdmin = false, 
+  onKickListener 
+}) => {
+  const { state } = useSidebar();
+  
+  // Simple debug to see what we get
+  console.log('Listeners data:', listeners);
+  
+  // Drag and Drop State
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggedListener, setDraggedListener] = useState<UserDetail | null>(null);
+  const [isOverKickZone, setIsOverKickZone] = useState(false);
+  
+  // Drag and Drop Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  ); 
   
   // Deduplicate listeners to prevent duplicate keys
   const uniqueListeners = useMemo(() => {
@@ -38,13 +86,47 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
       return true;
     });
   }, [listeners]);
-  
-  useEffect(() => {
-   
-  }, [uniqueListeners, state]);
-  
-  console.log('ListenerSidebar - rendering with state:', uniqueListeners);
 
+  // Drag and Drop Handlers
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    if (!isAdmin) return;
+    
+    const { active } = event;
+    setActiveId(active.id as string);
+    
+    // Find the dragged listener
+    const listener = uniqueListeners.find(l => l.userId === active.id);
+    if (listener && !listener.isCreator) { // Don't allow dragging creator
+      setDraggedListener(listener);
+    }
+  }, [isAdmin, uniqueListeners]);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || !isAdmin || !onKickListener) {
+      setActiveId(null);
+      setDraggedListener(null);
+      setIsOverKickZone(false);
+      return;
+    }
+
+    // If dropped on kick zone, kick the listener
+    if (over.id === 'kick-zone' && draggedListener && !draggedListener.isCreator) {
+      console.log(`🚫 Kicking listener: ${draggedListener.name || draggedListener.userId}`);
+      onKickListener(draggedListener.userId);
+    }
+
+    setActiveId(null);
+    setDraggedListener(null);
+    setIsOverKickZone(false);
+  }, [isAdmin, onKickListener, draggedListener]);
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { over } = event;
+    setIsOverKickZone(over?.id === 'kick-zone');
+  }, []);
+  
   const isExpanded = state === "expanded";
   
   const sidebarWidth = isExpanded ? 280 : 90;
@@ -138,8 +220,29 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
       return listener.name || `User ${listener.userId.slice(0, 8)}`;
     }, [listener.name, listener.userId]);
 
+    // Make item draggable only if admin and not creator
+    const {
+      attributes,
+      listeners: dndListeners,
+      setNodeRef,
+      transform,
+      isDragging,
+    } = useSortable({
+      id: listener.userId,
+      disabled: !isAdmin || listener.isCreator, // Only admin can drag, and can't drag creator
+    });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      opacity: isDragging ? 0.5 : 1,
+    };
+
     return (
       <motion.div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...(isAdmin && !listener.isCreator ? dndListeners : {})}
         key={listener.userId}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -148,7 +251,11 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
           ease: [0.25, 0.46, 0.45, 0.94] as const,
           delay: index * 0.05
         }}
-        className="w-full"
+        className={cn(
+          "w-full",
+          isDragging && "shadow-lg ring-2 ring-red-500",
+          isAdmin && !listener.isCreator && "cursor-grab active:cursor-grabbing"
+        )}
         whileHover={{ y: -2, transition: { duration: 0.2 } }}
       >
         <SidebarMenuItem>
@@ -156,7 +263,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
             className={`sidebar-item flex items-center transition-all duration-300 backdrop-blur-sm border border-gray-700/20 hover:border-gray-600/40 hover:shadow-lg group ${
               !isExpanded 
                 ? "justify-center p-2 rounded-xl mx-1 mb-2"
-                : "gap-3 p-3 rounded-xl hover:bg-gray-700/30"
+                : "gap-3 p-4 rounded-xl hover:bg-gray-700/30"
             }`}
             whileHover={{ 
               backgroundColor: "rgba(55, 65, 81, 0.15)",
@@ -166,14 +273,14 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
             <motion.div
               whileHover={{ scale: 1.05 }}
               transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            >
+              >
               <Avatar className={`transition-all duration-300 flex-shrink-0 ring-2 ring-gray-600/20 group-hover:ring-blue-500/30 ${
                 !isExpanded ? "h-8 w-8 lg:h-9 lg:w-9" : "h-8 w-8 lg:h-9 lg:w-9"
-              }`}>
+                }`}>
                 {listener.imageUrl && (
                   <AvatarImage
-                    src={listener.imageUrl}
-                    alt={displayName}
+                  src={listener.imageUrl}
+                  alt={displayName}
                   />
                 )}
                 <AvatarFallback className="bg-gradient-to-br from-blue-600 to-blue-800 text-white transition-all duration-200 group-hover:from-blue-500 group-hover:to-blue-700 font-semibold shadow-lg">
@@ -182,69 +289,107 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({ listeners }) => {
               </Avatar>
             </motion.div>
             
-            <AnimatePresence mode="wait">
-              {isExpanded && (
-                <motion.div
-                  key={`listener-info-${listener.userId}`}
-                  initial={{ opacity: 0, x: -15, width: 0 }}
-                  animate={{ opacity: 1, x: 0, width: "auto" }}
-                  exit={{ opacity: 0, x: -15, width: 0 }}
-                  transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-                  className="flex flex-col min-w-0 flex-1 overflow-hidden"
-                >
-                  <motion.span 
-                    className="truncate font-medium text-white text-xs lg:text-sm"
-                    initial={{ y: 5, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-                  >
-                    {displayName}
-                  </motion.span>
-                  {listener.isCreator && (
-                    <motion.span
-                      initial={{ opacity: 0, y: 5, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ delay: 0.15, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-                      className="text-xs text-blue-400 bg-blue-900/20 px-1.5 lg:px-2 py-0.5 rounded-full font-medium w-fit border border-blue-700/20"
-                    >
-                      Creator
-                    </motion.span>
-                  )}
-                </motion.div>
+            <div className="flex flex-col min-w-0 flex-1 overflow-hidden ml-3">
+              <span className="truncate font-medium text-white text-xs lg:text-sm">
+                {displayName}
+              </span>
+              {listener.isCreator && (
+                <span className="text-xs text-yellow-400 bg-yellow-900/20 px-1.5 lg:px-2 py-0.5 rounded-full font-medium w-fit border border-yellow-700/20 mt-1">
+                   Creator
+                </span>
               )}
-            </AnimatePresence>
+            </div>
           </motion.div>
         </SidebarMenuItem>
       </motion.div>
     );
   });
 
+  // Kick Zone Component
+  const KickZone: React.FC<{ isOverKickZone: boolean }> = ({ isOverKickZone }) => {
+    const { setNodeRef } = useDroppable({
+      id: 'kick-zone',
+    });
+
+    return (
+      <motion.div
+        ref={setNodeRef}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        className={cn(
+          "p-3 m-2 border-2 border-dashed rounded-lg transition-all duration-200",
+          isOverKickZone
+            ? "border-red-500 bg-red-500/10 text-red-400"
+            : "border-gray-600 bg-gray-800/30 text-gray-400"
+        )}
+      >
+        <div className="flex items-center justify-center space-x-2 text-sm">
+          <Trash2 className={cn(
+            "w-4 h-4",
+            isOverKickZone ? "text-red-400" : "text-gray-400"
+          )} />
+          <span className={cn(
+            "font-medium",
+            isOverKickZone ? "text-red-400" : "text-gray-400"
+          )}>
+            {isOverKickZone
+              ? "Release to remove from room"
+              : "Drop to remove this person from the music room"
+            }
+          </span>
+        </div>
+      </motion.div>
+    );
+  };
+
   const listenersContent = useMemo(() => {
     if (listenersCount === 0) {
       return emptyListenersContent;
     }
 
-    return uniqueListeners.map((listener, index) => (
-      <ListenerItem
-        key={listener.userId}
-        listener={listener}
-        index={index}
-      />
-    ));
+    const listenerIds = uniqueListeners.map(l => l.userId);
+
+    return (
+      <SortableContext 
+        items={listenerIds}
+        strategy={verticalListSortingStrategy}
+      >
+        {uniqueListeners.map((listener, index) => (
+          <ListenerItem
+            key={listener.userId}
+            listener={listener}
+            index={index}
+          />
+        ))}
+      </SortableContext>
+    );
   }, [uniqueListeners, listenersCount, emptyListenersContent]);
 
   const sidebarContent = useMemo(() => (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
-      className={!isExpanded ? "pt-3 px-2" : "p-4 space-y-2"}
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
     >
-      <SidebarMenu className={!isExpanded ? "space-y-1" : "space-y-2"}>
-        {listenersContent}
-      </SidebarMenu>
-    </motion.div>
-  ), [isExpanded, listenersContent]);
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
+        className={!isExpanded ? "pt-3 px-2" : "p-4 space-y-2"}
+      >
+        <SidebarMenu className={!isExpanded ? "space-y-1" : "space-y-2"}>
+          {listenersContent}
+        </SidebarMenu>
+        
+        {/* Kick Zone - Only visible to admin during drag */}
+        {isAdmin && activeId && draggedListener && !draggedListener.isCreator && (
+          <KickZone isOverKickZone={isOverKickZone} />
+        )}
+      </motion.div>
+    </DndContext>
+  ), [isExpanded, listenersContent, sensors, handleDragStart, handleDragEnd, handleDragOver, isAdmin, activeId, draggedListener, isOverKickZone]);
 
   return (
     <div
