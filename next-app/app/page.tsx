@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
 import { Loader2, Play } from "lucide-react";
+import { PlaceholdersAndVanishInput } from "@/components/ui/AnimatedInput";
+import AnimatedButton from "@/components/ui/AnimatedButton";
 import DarkGradientBackground from "@/components/Background";
 import { signikaNegative, lexend, poppins, spaceGrotesk } from "@/lib/font";
 import GlitchText from "@/components/ui/glitch-text";
@@ -32,8 +33,6 @@ export default function Page() {
   const [showPastSpaces, setShowPastSpaces] = useState(false);
   const [showSignInDialog, setShowSignInDialog] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // React Query hooks
   const { 
@@ -106,12 +105,6 @@ export default function Page() {
     setShowPastSpaces(false);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleCreateSpace();
-    }
-  };
-
   const textVariants = {
     hidden: { opacity: 0, y: 30, filter: "blur(10px)" },
     visible: { opacity: 1, y: 0, filter: "blur(0px)" }
@@ -123,7 +116,8 @@ export default function Page() {
   };
 
   return (
-    <DarkGradientBackground>
+    <div>
+      {/* <DarkGradientBackground> */}
       <div className="relative z-10 min-h-screen">
         {/* Show loading during initial authentication and space fetch */}
         {(status === 'loading' || (status === 'authenticated' && !initialLoadComplete)) && (
@@ -182,15 +176,12 @@ export default function Page() {
                 transition={{ duration: 0.8, delay: 1.0 }}
                 className="w-full max-w-xs xs:max-w-sm sm:max-w-md md:max-w-lg relative mb-4 sm:mb-6 lg:mb-8 px-2 xs:px-4 sm:px-0"
               >
-                <Input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Enter your space name..."
-                  value={spaceName}
+                <PlaceholdersAndVanishInput
                   onChange={(e) => setSpaceName(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  className="w-full px-3 xs:px-4 sm:px-6 md:px-8 py-3 xs:py-4 sm:py-5 md:py-6 bg-white text-black placeholder-gray-500 text-base xs:text-lg sm:text-xl border-2 border-gray-300 rounded-xl focus:border-black focus:ring-0 focus:outline-none transition-all duration-300"
-                  disabled={createSpaceMutation.isPending}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleCreateSpace();
+                  }}
                 />
               </motion.div>
 
@@ -201,25 +192,17 @@ export default function Page() {
                 transition={{ duration: 0.8, delay: 1.2 }}
                 className="mb-8 xs:mb-12 sm:mb-16 lg:mb-20 px-2 xs:px-4 sm:px-0"
               >
-                <motion.button
-                  whileHover={{ 
-                    scale: 1.05,
-                    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.3)"
-                  }}
-                  whileTap={{ scale: 0.95 }}
+                <AnimatedButton
                   onClick={handleCreateSpace}
-                  disabled={!spaceName.trim() || createSpaceMutation.isPending}
-                  className={`${poppins.className} bg-black text-white px-6 xs:px-8 sm:px-12 md:px-16 py-3 xs:py-4 sm:py-5 text-base xs:text-lg sm:text-xl font-semibold rounded-2xl hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 border-2 border-transparent hover:border-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300/50 w-full sm:w-auto min-w-[200px] mobile-touch-target active:scale-95`}
+                  disabled={!spaceName.trim()}
+                  loading={createSpaceMutation.isPending}
+                  loadingText="Creating..."
+                  className={poppins.className}
+                  size="md"
+                  variant="primary"
                 >
-                  {createSpaceMutation.isPending ? (
-                    <div className="flex items-center justify-center gap-3">
-                      <Loader2 className="w-4 h-4 xs:w-5 xs:h-5 sm:w-6 sm:h-6 animate-spin" />
-                      <span>Creating...</span>
-                    </div>
-                  ) : (
-                    "Jam Now"
-                  )}
-                </motion.button>
+                  Jam Now
+                </AnimatedButton>
               </motion.div>
 
               <motion.div
@@ -411,6 +394,7 @@ export default function Page() {
         description="Sign in to create and join music spaces with your friends!"
         callbackURL="/"
       />
-    </DarkGradientBackground>
+    </div>
+    // </DarkGradientBackground>
   );
 }
