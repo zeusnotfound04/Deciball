@@ -118,7 +118,7 @@ export default function Page() {
               
                 <PacmanLoader
                   color="#06b6d4"
-                  size={25}
+                  size={20}
                   speedMultiplier={1.2}
                 />
               </div>
