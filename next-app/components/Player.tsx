@@ -473,7 +473,7 @@ export const Player: React.FC<PlayerProps> = ({
       onDrop={handleDrop}
     >
       <motion.div
-        className={`w-full flex-1 overflow-hidden bg-[#1C1E1F] shadow-2xl rounded-2xl border ${isOver ? 'border-blue-400 bg-blue-900/10' : 'border-[#424244]'} min-h-0 relative`}
+        className={`w-full flex-1 overflow-hidden bg-[#1C1E1F] shadow-2xl rounded-2xl border border-[#424244] min-h-0 relative`}
         initial={{ scale: 0.98 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
@@ -555,9 +555,6 @@ export const Player: React.FC<PlayerProps> = ({
                     </Button>
                   </motion.div>
                 </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Download audio (Ctrl+D)</p>
-                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>

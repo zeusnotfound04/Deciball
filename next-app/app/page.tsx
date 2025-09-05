@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Loader2, Play } from "lucide-react";
+import { PacmanLoader } from "react-spinners";
 import { PlaceholdersAndVanishInput } from "@/components/ui/AnimatedInput";
 import AnimatedButton from "@/components/ui/AnimatedButton";
 import DarkGradientBackground from "@/components/Background";
@@ -16,15 +17,6 @@ import SignInDialog from "@/components/ui/SignInDialog";
 import { useUserSpaces, useCreateSpace, usePrefetchUserSpaces } from "@/app/hooks/useSpaces";
 import { SpacesGridSkeleton } from "@/app/components/ui/SpaceSkeleton";
 
-interface Space {
-  id: string;
-  name: string;
-  hostId: string;
-  isActive: boolean;
-  _count?: {
-    streams: number;
-  };
-}
 
 export default function Page() {
   const { data: session, status } = useSession();
@@ -123,9 +115,13 @@ export default function Page() {
         {(status === 'loading' || (status === 'authenticated' && !initialLoadComplete)) && (
           <div className="min-h-screen flex items-center justify-center">
             <div className="text-center">
-              <Loader2 className="w-12 h-12 animate-spin text-cyan-400 mx-auto mb-4" />
-              <p className="text-white text-lg">Loading your spaces...</p>
-            </div>
+              
+                <PacmanLoader
+                  color="#06b6d4"
+                  size={25}
+                  speedMultiplier={1.2}
+                />
+              </div>
           </div>
         )}
 

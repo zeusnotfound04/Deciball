@@ -9,7 +9,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "flush-spaces": "tsx scripts/flush-spaces.ts",
+    "flush-spaces:confirm": "tsx scripts/flush-spaces.ts --confirm"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.842.0",
@@ -63,6 +65,8 @@
     "react-icons": "^5.5.0",
     "react-intersection-observer": "^9.16.0",
     "react-lite-youtube-embed": "^2.4.0",
+    "react-loader-spinner": "^6.1.6",
+    "react-spinners": "^0.17.0",
     "react-youtube": "^10.1.0",
     "redis": "^5.5.6",
     "sonner": "^2.0.1",
@@ -93,6 +97,7 @@
     "next-https": "^1.1.16",
     "postcss": "^8.5.2",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.20.5",
     "typescript": "^5"
   }
 }

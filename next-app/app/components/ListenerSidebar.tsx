@@ -11,17 +11,11 @@ import {
   useSensor,
   useSensors,
   useDroppable,
+  useDraggable,
   DragStartEvent,
   DragEndEvent,
   DragOverEvent
 } from '@dnd-kit/core';
-import {
-  useSortable,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import {
   Sidebar,
   SidebarHeader,
@@ -70,9 +64,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
         distance: 8,
       },
     }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor)
   ); 
   
   // Deduplicate listeners to prevent duplicate keys
@@ -98,11 +90,18 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
     const listener = uniqueListeners.find(l => l.userId === active.id);
     if (listener && !listener.isCreator) { // Don't allow dragging creator
       setDraggedListener(listener);
+      console.log(`🎯 Started dragging listener: ${listener.name || listener.userId}`);
+    } else {
+      // Cancel drag if trying to drag creator
+      setActiveId(null);
+      setDraggedListener(null);
     }
   }, [isAdmin, uniqueListeners]);
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+
+    console.log(`🎯 Drag ended - active: ${active?.id}, over: ${over?.id}, isAdmin: ${isAdmin}, onKickListener: ${!!onKickListener}`);
 
     if (!over || !isAdmin || !onKickListener) {
       setActiveId(null);
@@ -124,8 +123,14 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
 
   const handleDragOver = useCallback((event: DragOverEvent) => {
     const { over } = event;
-    setIsOverKickZone(over?.id === 'kick-zone');
-  }, []);
+    const wasOverKickZone = isOverKickZone;
+    const isNowOverKickZone = over?.id === 'kick-zone';
+    
+    if (wasOverKickZone !== isNowOverKickZone) {
+      setIsOverKickZone(isNowOverKickZone);
+      console.log(`🎯 Drag over kick zone: ${isNowOverKickZone}`);
+    }
+  }, [isOverKickZone]);
   
   const isExpanded = state === "expanded";
   
@@ -221,19 +226,20 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
     }, [listener.name, listener.userId]);
 
     // Make item draggable only if admin and not creator
+    const canDrag = isAdmin && !listener.isCreator;
+    
     const {
       attributes,
       listeners: dndListeners,
       setNodeRef,
       transform,
       isDragging,
-    } = useSortable({
+    } = useDraggable({
       id: listener.userId,
-      disabled: !isAdmin || listener.isCreator, // Only admin can drag, and can't drag creator
     });
 
     const style = {
-      transform: CSS.Transform.toString(transform),
+      transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
       opacity: isDragging ? 0.5 : 1,
     };
 
@@ -242,7 +248,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
         ref={setNodeRef}
         style={style}
         {...attributes}
-        {...(isAdmin && !listener.isCreator ? dndListeners : {})}
+        {...(canDrag ? dndListeners : {})}
         key={listener.userId}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -254,7 +260,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
         className={cn(
           "w-full",
           isDragging && "shadow-lg ring-2 ring-red-500",
-          isAdmin && !listener.isCreator && "cursor-grab active:cursor-grabbing"
+          canDrag && "cursor-grab active:cursor-grabbing"
         )}
         whileHover={{ y: -2, transition: { duration: 0.2 } }}
       >
@@ -315,27 +321,40 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
       <motion.div
         ref={setNodeRef}
         initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={{ 
+          opacity: 1, 
+          y: 0,
+          scale: isOverKickZone ? 1.05 : 1
+        }}
         exit={{ opacity: 0, y: 20 }}
+        transition={{ duration: 0.2 }}
         className={cn(
-          "p-3 m-2 border-2 border-dashed rounded-lg transition-all duration-200",
+          "p-4 m-2 border-2 border-dashed rounded-lg transition-all duration-200 select-none",
           isOverKickZone
-            ? "border-red-500 bg-red-500/10 text-red-400"
-            : "border-gray-600 bg-gray-800/30 text-gray-400"
+            ? "border-red-500 bg-red-500/20 text-red-300 shadow-lg shadow-red-500/20"
+            : "border-gray-600 bg-gray-800/30 text-gray-400 hover:border-gray-500 hover:bg-gray-700/30"
         )}
       >
-        <div className="flex items-center justify-center space-x-2 text-sm">
-          <Trash2 className={cn(
-            "w-4 h-4",
-            isOverKickZone ? "text-red-400" : "text-gray-400"
-          )} />
+        <div className="flex items-center justify-center space-x-2 text-sm font-medium">
+          <motion.div
+            animate={{ 
+              rotate: isOverKickZone ? [0, -10, 10, -10, 0] : 0,
+              scale: isOverKickZone ? 1.1 : 1
+            }}
+            transition={{ duration: 0.3 }}
+          >
+            <Trash2 className={cn(
+              "w-4 h-4",
+              isOverKickZone ? "text-red-400" : "text-gray-400"
+            )} />
+          </motion.div>
           <span className={cn(
             "font-medium",
-            isOverKickZone ? "text-red-400" : "text-gray-400"
+            isOverKickZone ? "text-red-300" : "text-gray-400"
           )}>
             {isOverKickZone
               ? "Release to remove from room"
-              : "Drop to remove this person from the music room"
+              : "Drop here to remove listener"
             }
           </span>
         </div>
@@ -348,13 +367,8 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
       return emptyListenersContent;
     }
 
-    const listenerIds = uniqueListeners.map(l => l.userId);
-
     return (
-      <SortableContext 
-        items={listenerIds}
-        strategy={verticalListSortingStrategy}
-      >
+      <>
         {uniqueListeners.map((listener, index) => (
           <ListenerItem
             key={listener.userId}
@@ -362,7 +376,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
             index={index}
           />
         ))}
-      </SortableContext>
+      </>
     );
   }, [uniqueListeners, listenersCount, emptyListenersContent]);
 
@@ -388,6 +402,32 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
           <KickZone isOverKickZone={isOverKickZone} />
         )}
       </motion.div>
+
+      {/* Drag Overlay */}
+      <DragOverlay>
+        {activeId && draggedListener ? (
+          <div className="bg-[#1C1E1F] border border-red-500 rounded-xl p-3 shadow-xl opacity-90">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-8 w-8">
+                {draggedListener.imageUrl && (
+                  <AvatarImage
+                    src={draggedListener.imageUrl}
+                    alt={draggedListener.name || draggedListener.userId}
+                  />
+                )}
+                <AvatarFallback className="bg-gradient-to-br from-red-600 to-red-800 text-white">
+                  {draggedListener.name
+                    ? draggedListener.name.charAt(0).toUpperCase()
+                    : draggedListener.userId.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-white text-sm font-medium">
+                {draggedListener.name || `User ${draggedListener.userId.slice(0, 8)}`}
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   ), [isExpanded, listenersContent, sensors, handleDragStart, handleDragEnd, handleDragOver, isAdmin, activeId, draggedListener, isOverKickZone]);
 
