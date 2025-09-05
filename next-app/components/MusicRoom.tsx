@@ -724,13 +724,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
                     <User className="mr-2 h-4 w-4" />
                     <span className={`${outfit.className} font-medium`}>Profile</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
-                    onClick={() => router.push('/settings')}
-                  >
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span className={`${outfit.className} font-medium`}>Settings</span>
-                  </DropdownMenuItem>
+                
                   <DropdownMenuSeparator className="bg-white/20" />
                   <DropdownMenuItem 
                     className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
