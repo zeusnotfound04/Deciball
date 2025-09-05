@@ -9,7 +9,7 @@ export async function GET() {
       AWS_S3_SECRET_ACCESS_KEY: process.env.AWS_S3_SECRET_ACCESS_KEY ? 'SET' : 'NOT SET',
     };
 
-    console.log('[S3 Config] Environment variables:', envVars);
+    
 
     return NextResponse.json({
       message: 'S3 Configuration Check',

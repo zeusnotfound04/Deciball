@@ -94,14 +94,14 @@ export async function getRecommendations(options: {
     if (options.min_valence !== undefined) cleanOptions.min_valence = options.min_valence;
     if (options.max_valence !== undefined) cleanOptions.max_valence = options.max_valence;
 
-    console.log('Calling Spotify API with clean options:', cleanOptions);
-    console.log('API instance ready:', !!api);
+    
+    
     console.log('Access token set:', !!api.getAccessToken());
     
     await new Promise(resolve => setTimeout(resolve, 100));
     
     const result = await api.getRecommendations(cleanOptions);
-    console.log('Spotify API returned:', { success: true, tracksCount: result?.body?.tracks?.length });
+    
     return result.body;
   } catch (error: any) {
     console.error('Error getting recommendations:', error);

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     if (!source || source === 'spotify') {
       try {
-        console.log('Searching Spotify for:', query);
+        
         const spotifyResults = await searchSpotifyTracks(query, limit, offset);
         
         if (spotifyResults?.body?.tracks?.items) {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (!source || source === 'youtube') {
       try {
-        console.log('Searching YouTube/JioSaavn for:', query);
+        
         
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
         const youtubeResults = await response.json();

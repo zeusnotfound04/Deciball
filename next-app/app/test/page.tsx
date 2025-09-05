@@ -24,7 +24,7 @@ export default function TestPage() {
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
 
   const handleSelect = (track: Track) => {
-    console.log('Selected track:', track);
+    
     setSelectedTrack(track);
   };
   const { currentSong} = useAudio()

@@ -9,7 +9,7 @@ export async function getPlaylistTracks(playlistId: string, limit: number = 50, 
       ? playlistId.split('playlist/')[1].split('?')[0]
       : playlistId;
     
-    console.log('Fetching playlist tracks for ID:', extractedId);
+    
     
     const result = await api.getPlaylistTracks(extractedId, { 
       limit, 

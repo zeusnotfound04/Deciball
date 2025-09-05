@@ -103,7 +103,7 @@ export class MusicWorkerPool extends EventEmitter {
         
         if (foundPath) {
             this.workerScript = foundPath;
-            console.log(`[WorkerPool] Found worker script: ${this.workerScript}`);
+            
         } else {
             // Last resort - use the most likely production path
             this.workerScript = path.resolve(__dirname, 'musicWorker.js');
@@ -119,7 +119,7 @@ export class MusicWorkerPool extends EventEmitter {
             this.workerScript = jsPath;
         }
         
-        console.log(`[WorkerPool] Initializing with ${this.maxWorkers} workers`);
+        
         this.initializeWorkers();
     }
 
@@ -127,12 +127,12 @@ export class MusicWorkerPool extends EventEmitter {
         for (let i = 0; i < this.maxWorkers; i++) {
             this.createWorker(i);
         }
-        console.log(`[WorkerPool] ✅ Initialized ${this.maxWorkers} workers successfully`);
+        
     }
 
     private createWorker(workerId: number): Worker {
         try {
-            console.log(`[WorkerPool] Creating worker ${workerId} with script: ${this.workerScript}`);
+            
             
             // Check if the worker script file exists
             if (!fs.existsSync(this.workerScript)) {
@@ -180,7 +180,7 @@ export class MusicWorkerPool extends EventEmitter {
             this.workers.push(worker);
             this.availableWorkers.push(worker);
 
-            console.log(`[WorkerPool] ✅ Worker ${workerId} created and ready`);
+            
             return worker;
         } catch (error) {
             console.error(`[WorkerPool] ❌ Failed to create worker ${workerId}:`, error);
@@ -267,7 +267,7 @@ export class MusicWorkerPool extends EventEmitter {
             const newWorkerId = this.workers.length;
             this.createWorker(newWorkerId);
             
-            console.log(`[WorkerPool] ✅ Replaced failed worker with new worker ${newWorkerId}`);
+            
         } catch (error) {
             console.error('[WorkerPool] ❌ Error replacing worker:', error);
         }
@@ -293,7 +293,7 @@ export class MusicWorkerPool extends EventEmitter {
 
         // Set task timeout
         task.timeout = setTimeout(() => {
-            console.log(`[WorkerPool] ⏰ Task ${task!.id} timed out`);
+            
             if (this.workerTasks.has(worker)) {
                 this.workerTasks.delete(worker);
                 this.taskStats.errors++;
@@ -313,7 +313,7 @@ export class MusicWorkerPool extends EventEmitter {
                 data: task.data
             });
             
-            console.log(`[WorkerPool] 🚀 Assigned task ${task.id} to worker`);
+            
         } catch (error) {
             console.error(`[WorkerPool] ❌ Error sending task to worker:`, error);
             if (task.timeout) {
@@ -359,7 +359,7 @@ export class MusicWorkerPool extends EventEmitter {
             return [];
         }
 
-        console.log(`[WorkerPool] 🔄 Processing batch of ${songs.length} songs with ${priority} priority`);
+        
         const startTime = Date.now();
         
         try {
@@ -487,7 +487,7 @@ export class MusicWorkerPool extends EventEmitter {
 
     // Graceful shutdown
     async shutdown(): Promise<void> {
-        console.log('[WorkerPool] 🛑 Initiating graceful shutdown...');
+        
         
         try {
             // Stop accepting new tasks
@@ -516,7 +516,7 @@ export class MusicWorkerPool extends EventEmitter {
             );
 
             if (activeTaskPromises.length > 0) {
-                console.log(`[WorkerPool] ⏳ Waiting for ${activeTaskPromises.length} active tasks to complete...`);
+                
                 await Promise.all(activeTaskPromises);
             }
 
@@ -534,7 +534,7 @@ export class MusicWorkerPool extends EventEmitter {
             this.availableWorkers.length = 0;
             this.workerTasks.clear();
 
-            console.log('[WorkerPool] ✅ All workers terminated successfully');
+            
         } catch (error) {
             console.error('[WorkerPool] ❌ Error during shutdown:', error);
             throw error;
@@ -552,7 +552,7 @@ export class MusicWorkerPool extends EventEmitter {
         if (targetCount > currentCount) {
             // Scale up
             const addCount = targetCount - currentCount;
-            console.log(`[WorkerPool] ⬆️ Scaling up by ${addCount} workers`);
+            
             
             for (let i = 0; i < addCount; i++) {
                 this.createWorker(currentCount + i);
@@ -560,7 +560,7 @@ export class MusicWorkerPool extends EventEmitter {
         } else {
             // Scale down
             const removeCount = currentCount - targetCount;
-            console.log(`[WorkerPool] ⬇️ Scaling down by ${removeCount} workers`);
+            
             
             for (let i = 0; i < removeCount; i++) {
                 const worker = this.availableWorkers.pop();

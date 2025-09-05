@@ -5,27 +5,27 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    console.log('[PFP Upload] Starting upload process...');
+    
     const formData = await req.formData();
     
     const files = formData.getAll("files") as File[];
     const imageType = formData.get("imageType") as string;
     
-    console.log('[PFP Upload] Files received:', files.length);
-    console.log('[PFP Upload] Image type:', imageType);
+    
+    
     
     if (files.length === 0) {
-      console.log('[PFP Upload] No files received');
+      
       return NextResponse.json({ success: true, fileUrls: [] });
     }
     
-    console.log("Received files:", files);
-    console.log("Number of files received:", files.length);
+    
+    
     const uploadedFileUrls: string[] = [];
     
     for (const file of files) {
       try {
-        console.log(`[PFP Upload] Processing file: ${file.name}, size: ${file.size}, type: ${file.type}`);
+        
         
         if (!file.type.startsWith("image/")) {
           console.error(`[PFP Upload] Invalid file type: ${file.type}`);
@@ -57,10 +57,10 @@ export async function POST(req: Request): Promise<Response> {
           }, { status: 500 });
         }
 
-        console.log(`[PFP Upload] Uploading to S3: ${fileName}`);
+        
         try {
           fileUrl = await uploadtoS3(buffer, fileName, file.type, imageType);
-          console.log(`[PFP Upload] S3 Upload successful: ${fileUrl}`);
+          
         } catch (s3Error) {
           console.error(`[PFP Upload] S3 upload failed:`, s3Error);
           return NextResponse.json({ 
@@ -85,7 +85,7 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    console.log(`[PFP Upload] Upload completed successfully. URLs: ${uploadedFileUrls}`);
+    
     return NextResponse.json({ success: true, fileUrls: uploadedFileUrls });
   } catch (error) {
     console.error("[PFP Upload] Error in upload route:", error);

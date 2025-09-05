@@ -38,7 +38,7 @@ async function handleDownload(youtubeId: string) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    console.log('Search params:', searchParams);
+    
     const youtubeId = searchParams.get('id') || searchParams.get('videoId');
 
     if (!youtubeId) {

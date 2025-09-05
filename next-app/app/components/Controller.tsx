@@ -240,7 +240,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
         case 'request-current-timestamp':
           // Admin is being asked for their current timestamp to sync a new joiner
           if (isAdmin && message.data.spaceId === spaceId) {
-            console.log('[AdminSync] Received request for current timestamp:', message.data);
+            
             
             // Get our current exact playback position
             const currentPlaybackTime = progress; // This is our real current time
@@ -269,7 +269,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
         case 'admin-timestamp-sync':
           // New joiner receiving exact timestamp from admin
           if (message.data.isInitialSync && message.data.syncSource === 'admin-realtime') {
-            console.log('[NewJoiner] Received admin real-time sync:', message.data);
+            
             
             const { currentTime: adminTime, isPlaying: adminIsPlaying } = message.data;
             
@@ -279,7 +279,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             
             // Sync playing state if different
             if (adminIsPlaying !== isPlaying) {
-              console.log('[NewJoiner] Syncing play state to admin:', adminIsPlaying);
+              
               if (customTogglePlayPause) {
                 customTogglePlayPause();
               } else {
@@ -306,9 +306,9 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   // Optimized control handlers with useCallback
   const handleTogglePlayPause = useCallback(() => {
-    console.log('[AudioController] handleTogglePlayPause called');
-    console.log('[AudioController] customTogglePlayPause provided:', !!customTogglePlayPause);
-    console.log('[AudioController] isAdmin:', isAdmin);
+    
+    
+    
     
     // Always use customTogglePlayPause if available (contains admin/listener logic)
     // Otherwise fall back to direct audio store function
@@ -320,14 +320,14 @@ const AudioController: React.FC<AudioControllerProps> = ({
       if (isAdmin) {
         togglePlayPause();
       } else {
-        console.log('[AudioController] No customTogglePlayPause provided and user is not admin - ignoring');
+        
       }
     }
   }, [isAdmin, customTogglePlayPause, togglePlayPause]);
 
   const handlePlayNext = useCallback(() => {
     if (!isAdmin) {
-      console.log('[AudioController] Play Next action denied - user is not admin');
+      
       return;
     }
     playNext();
@@ -335,7 +335,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   const handlePlayPrev = useCallback(() => {
     if (!isAdmin) {
-      console.log('[AudioController] Play Previous action denied - user is not admin');
+      
       return;
     }
     playPrev();
@@ -344,7 +344,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const handlePlayPauseClick = useCallback((e: any) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[AudioController] Play/Pause button clicked/touched');
+    
     handleTogglePlayPause();
   }, [handleTogglePlayPause]);
 
@@ -428,7 +428,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
       setLastUserSeekTime(currentTime);
       setUserSeekValue(newTime);
       
-      console.log('[Seek] User drag seek to:', newTime, 'seconds');
+      
       
       // Store current playing state to restore after seek
       const wasPlaying = isPlaying;
@@ -467,13 +467,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
       // Extended ignore period for sync messages
       setTimeout(() => {
         setIgnoreSync(false);
-        console.log('[Seek] Re-enabling sync after user seek operation');
+        
       }, 10000); // 10 second ignore period
       
       // Clear user seek tracking after extended period
       setTimeout(() => {
         setUserSeekValue(null);
-        console.log('[Seek] Cleared user seek value tracking');
+        
       }, 15000); // 15 second tracking period
     } else {
       // If throttled, still clear the states quickly
@@ -503,7 +503,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
     setLastUserSeekTime(currentTime);
     setUserSeekValue(newTime);
     
-    console.log('[Seek] User click seek to:', newTime, 'seconds');
+    
     
     // Throttle seeking for clicks with optimized timing
     if (currentTime - lastSeekTime > 200) {
@@ -549,13 +549,13 @@ const AudioController: React.FC<AudioControllerProps> = ({
       // Extended ignore period for sync messages
       setTimeout(() => {
         setIgnoreSync(false);
-        console.log('[Seek] Re-enabling sync after user click seek');
+        
       }, 10000); // 10 second ignore period
       
       // Clear user seek tracking after extended period
       setTimeout(() => {
         setUserSeekValue(null);
-        console.log('[Seek] Cleared user seek value tracking');
+        
       }, 15000); // 15 second tracking period
     } else {
       // If throttled, clear states quickly
@@ -598,7 +598,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             setLastUserSeekTime(currentTime);
             setUserSeekValue(newTime);
             
-            console.log('[Seek] Keyboard left arrow seek to:', newTime, 'seconds');
+            
             debouncedSeek(newTime);
             
             // Send seek command to server
@@ -639,7 +639,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             setLastUserSeekTime(currentTime);
             setUserSeekValue(newTime);
             
-            console.log('[Seek] Keyboard right arrow seek to:', newTime, 'seconds');
+            
             debouncedSeek(newTime);
             
             // Send seek command to server

@@ -14,7 +14,7 @@ export const getSpotifyTrack = async (
         const artists = song.artists.map((artist: Artist) => artist.name).join(', ');
 
         const name = song.name;
-        console.log("Artist Name::", `${name} by ${artists}`);
+        
        
         await ytmusic.initialize({})
         const ytSongs = await ytmusic.searchSongs(`${name} ${artists}`);

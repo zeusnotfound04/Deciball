@@ -136,7 +136,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     try {
       const response = await fetch(`/api/spaces?spaceId=${spaceId}`);
       const data = await response.json();
-      console.log("Space Data ::", data);
       
       if (data.success) {
         const spaceData = {
@@ -151,7 +150,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         if (session?.user?.id && data.hostId) {
           const userIsAdmin = session.user.id === data.hostId;
           setIsAdmin(userIsAdmin);
-          console.log("[katana] Immediate admin status set from fetch:", userIsAdmin);
         }
       } else {
         console.error('Failed to fetch space info:', data.message);
@@ -166,7 +164,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   // Optimized initialization effect with parallel execution
   useEffect(() => {
     if (spaceId) {
-      console.log("[MusicRoom] Setting spaceId in audio store:", spaceId);
+      
       setCurrentSpaceId(spaceId);
       
       // Start fetching space info immediately without waiting
@@ -184,8 +182,8 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   // User setup effect - optimized for faster admin detection
   useEffect(() => {
     if (session?.user && !user) {
-      console.log("[katana] MusicRoom session user:", session.user);
-      console.log("[katana] HostID", spaceInfo?.hostId);  
+      
+      
       
       // Determine admin status immediately if we have both pieces of data
       const userRole = spaceInfo?.hostId && session.user.id === spaceInfo.hostId ? 'admin' : 'listener';
@@ -207,7 +205,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       // Set admin status immediately if we can determine it
       if (spaceInfo?.hostId) {
         setIsAdmin(userIsAdmin);
-        console.log("[katana] Admin status set during user creation:", userIsAdmin);
+        
       }
     }
 
@@ -216,11 +214,11 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       const userIsAdmin = session.user.id === spaceInfo.hostId;
       if (isAdmin !== userIsAdmin) {
         setIsAdmin(userIsAdmin);
-        console.log("[katana] Admin status updated:", userIsAdmin);
+        
       }
     }
 
-    console.log("[katana] MusicRoom session user:", user);
+    
   }, [session, user, setUser, spaceInfo?.hostId, setIsAdmin, isAdmin]);
 
   const handleBatchAddToQueue = useCallback(async (tracks: any[]) => {
@@ -274,7 +272,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
       
       // Show success feedback (optional)
       if (draggedSong) {
-        console.log(`🎵 Now playing: ${draggedSong.title}`);
+        
       }
     }
 
@@ -313,55 +311,55 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     return (event: MessageEvent) => {
       try {
         const { type, data } = JSON.parse(event.data);
-        console.log('MusicRoom received message:', type, data);
+        
         
         switch (type) {
           case 'room-info':
             // Prioritize server-side admin status if available
             if (data.isAdmin !== undefined) {
               setIsAdmin(data.isAdmin);
-              console.log('Admin status from server:', data.isAdmin);
+              
             }
             setConnectedUsers(data.userCount || 0);
             setRoomName(data.spaceName);
-            console.log('Room info updated:', { isAdmin: data.isAdmin, userCount: data.userCount });
+            
             break;
             
           case 'room-joined':
-            console.log('Successfully joined room:', data);
-            console.log('   - SpaceId:', data.spaceId);
-            console.log('   - UserId:', data.userId);
-            console.log('   - Message:', data.message);
+            
+            
+            
+            
             authErrorCount = 0;
             break;
             
           case 'current-song-update':
-            console.log('Current song update received in MusicRoom:', data);
+            
             window.dispatchEvent(new CustomEvent('current-song-update', { detail: data }));
             break;
             
           case 'space-image-response':
-            console.log('Space image update received in MusicRoom:', data);
+            
             window.dispatchEvent(new CustomEvent('space-image-update', { detail: data }));
             break;
 
           case 'chat-message':
-            console.log('Chat message received in MusicRoom:', data);
+            
             window.dispatchEvent(new CustomEvent('chat-message', { detail: data }));
             break;
             
           case 'user-update':
             setConnectedUsers(data.userCount || data.connectedUsers || 0);
             if (data.userDetails) {
-              console.log('Updating userDetails:', data.userDetails);
+              
               setUserDetails(data.userDetails);
             }
-            console.log('Updated user count:', data.userCount || data.connectedUsers || 0);
+            
             break;
             
           case 'user-joined':
             setConnectedUsers(prev => prev + 1);
-            console.log('User joined - new count will be:', connectedUsers + 1);
+            
             break;
             
           case 'user-left':
@@ -370,7 +368,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             break;
             
           case 'queue-update':
-            console.log('Queue update received in MusicRoom:', data);
+            
             break;
             
           case 'error':
@@ -413,14 +411,14 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             break;
             
           case 'space-ended':
-            console.log('Space ended:', data);
+            
             setSpaceEndedReason(data.reason || 'unknown');
             setSpaceEndedMessage(data.message || 'The space has ended.');
             setShowSpaceEndedModal(true);
             break;
             
           default:
-            console.log('Unhandled message type in MusicRoom:', type);
+            
         }
       } catch (error) {
         console.error('Error parsing WebSocket message in MusicRoom:', error);
@@ -454,12 +452,12 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
     if (!roomJoined) {
       console.error('Failed to join room - connection issue');
     } else {
-      console.log('Join room message sent successfully with space name:', spaceInfo.spaceName);
+      
       
       // Fallback requests after joining
       setTimeout(() => {
         if (socket?.readyState === WebSocket.OPEN) {
-          console.log('Requesting current song and room users as fallback...');
+          
           sendMessage('get-current-song', { spaceId });
           sendMessage('get-space-image', { spaceId });
           sendMessage('get-room-users', { spaceId });
@@ -662,7 +660,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             <div className="flex-1 w-full sm:max-w-xs md:max-w-xl overflow-hidden">
               <SearchSongPopup 
                 onSelect={(track) => {
-                  console.log('Song selected:', track.name);
+                  
                 }}
                 onBatchSelect={handleBatchAddToQueue}
                 buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 backdrop-blur-sm transition-all duration-300 text-xs sm:text-sm md:text-base ${inter.className}`}
@@ -750,7 +748,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
           <div className="w-full sm:hidden overflow-hidden">
             <SearchSongPopup 
               onSelect={(track) => {
-                console.log('Song selected:', track.name);
+                
               }}
               onBatchSelect={handleBatchAddToQueue}
               buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-4 py-2.5 backdrop-blur-sm transition-all duration-300 text-sm ${inter.className}`}

@@ -45,7 +45,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
   const sendMessage = useCallback(
     (type: string, data: { [key: string]: any }) => {
-      console.log("WebSocket sendMessage called:", { type, data });
+      
       console.log("Socket state:", {
         socketExists: !!socket,
         readyState: socket?.readyState,
@@ -87,7 +87,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
       };
       
       try {
-        console.log("Sending WebSocket message:", message);
+        
         socket.send(JSON.stringify(message));
         return true;
       } catch (error) {
@@ -100,22 +100,22 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
   );
 
   useEffect(() => {
-    console.log("Socket context useEffect triggered");
-    console.log("Session status:", session.status);
-    console.log("Session data:", session.data);
+    
+    
+    
     
     if (session.status === "loading" || !session.data?.user?.id) {
-      console.log("Session not ready, skipping WebSocket connection");
+      
       return;
     }
 
     if (socket && socket.readyState === WebSocket.OPEN && user?.id === session.data.user.id) {
-      console.log("WebSocket already connected for this user, skipping");
+      
       return;
     }
 
     if (socket) {
-      console.log("Closing existing WebSocket connection");
+      
       socket.close(1000, "Creating new connection");
       setSocket(null);
     }
@@ -127,7 +127,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
     const connectWebSocket = async () => {
       if (isCleanedUp) {
-        console.log("Connection attempt cancelled - component cleaned up");
+        
         return;
       }
 
@@ -155,17 +155,17 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
           clearTimeout(connectionTimeout);
           
           if (isCleanedUp) {
-            console.log("Connection opened but component was cleaned up");
+            
             ws.close();
             return;
           }
 
-          console.log("WebSocket Connected successfully");
+          
           setSocket(ws);
           
-          console.log("Fetching WebSocket token...");
+          
           const wsToken = await getWebSocketToken();
-          console.log("WebSocket token:", wsToken ? "Present" : "Missing");
+          
           
           if (!wsToken) {
             console.error("Failed to get WebSocket token");
@@ -182,13 +182,13 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
             token: wsToken,
           };
           
-          console.log("Setting user:", { ...userWithToken, token: "***" });
+          
           setUser(userWithToken);
           setLoading(false);
           setConnectionError(false);
           connectionAttempts = 0;
           
-          console.log("WebSocket setup complete, ready to send messages");
+          
           
           // Add latency reporting event listener
           const handleLatencyReport = (event: CustomEvent) => {
@@ -214,17 +214,17 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
         ws.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data);
-            console.log("WebSocket message received:", message);
+            
             
             switch (message.type) {
               case "room-joined":
-                console.log("Successfully joined room:", message.data);
+                
                 break;
               case "user-update":
-                console.log("User update received:", message.data);
+                
                 break;
               case "current-song-update":
-                console.log("Current song update received:", message.data);
+                
                 if (message.data.song) {
                   window.dispatchEvent(new CustomEvent('current-song-update', {
                     detail: message.data
@@ -232,11 +232,11 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 }
                 break;
               case "queue-update":
-                console.log("Queue update received:", message.data);
+                
                 break;
               case "batch-processing-result":
                 // Handle optimized batch processing results
-                console.log("🚀 Batch processing result received:", message.data);
+                
                 
                 // Dispatch event for Search component to handle results
                 window.dispatchEvent(new CustomEvent('batch-processing-result', {
@@ -253,7 +253,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 if (message.data.summary) {
                   const { successful, failed, total } = message.data.summary;
                   if (successful > 0) {
-                    console.log(`✅ Batch complete: ${successful}/${total} tracks added successfully`);
+                    
                   }
                   if (failed > 0) {
                     console.warn(`⚠️ ${failed}/${total} tracks failed to process`);
@@ -262,7 +262,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 break;
               case "processing-progress":
                 // Handle real-time processing progress updates
-                console.log("📊 Processing progress:", message.data);
+                
                 
                 window.dispatchEvent(new CustomEvent('processing-progress', {
                   detail: {
@@ -275,12 +275,12 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 }));
                 break;
               case "room-joined":
-                console.log("Room joined event received:", message.data);
+                
                 if (message.data.playbackState) {
-                  console.log("Room has active playback state:", message.data.playbackState);
+                  
                   
                   if (message.data.playbackState.currentSong) {
-                    console.log("Current song found, syncing playback at:", message.data.playbackState.shouldStartAt, "seconds");
+                    
                     
                     const currentSong = message.data.playbackState.currentSong;
                     const formattedSong = {
@@ -319,32 +319,32 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                       }
                     }));
                   } else {
-                    console.log("No current song in playback state");
+                    
                   }
                 } else {
-                  console.log("No playback state in room-joined event");
+                  
                 }
                 break;
               case "playback-paused":
-                console.log("Playback paused event received:", message.data);
+                
                 window.dispatchEvent(new CustomEvent('playback-paused', {
                   detail: message.data
                 }));
                 break;
               case "playback-resumed":
-                console.log("Playback resumed event received:", message.data);
+                
                 window.dispatchEvent(new CustomEvent('playback-resumed', {
                   detail: message.data
                 }));
                 break;
               case "playback-seeked":
-                console.log("Playback seeked event received:", message.data);
+                
                 window.dispatchEvent(new CustomEvent('playback-seeked', {
                   detail: message.data
                 }));
                 break;
               case "playback-state-update":
-                console.log("Playback state update received:", message.data);
+                
                 window.dispatchEvent(new CustomEvent('playback-state-update', {
                   detail: message.data
                 }));
@@ -366,7 +366,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 }
                 break;
               default:
-                console.log("Unhandled message type:", message.type);
+                
             }
           } catch (error) {
             console.error("Error parsing WebSocket message:", error);
@@ -375,7 +375,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
         ws.onclose = (event) => {
           clearTimeout(connectionTimeout);
-          console.log(`WebSocket Disconnected. Code: ${event.code}, Reason: ${event.reason}`);
+          
           setSocket(null);
           
           // Don't attempt reconnection for certain close codes
@@ -403,7 +403,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
             setConnectionError(true);
             setLoading(false);
           } else {
-            console.log("Connection closed - not attempting to reconnect");
+            
             setLoading(false);
           }
         };
@@ -439,7 +439,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
     connectWebSocket();
 
     return () => {
-      console.log("Cleaning up WebSocket context...");
+      
       isCleanedUp = true;
       
       if (reconnectTimer) {
@@ -447,7 +447,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
       }
       
       if (socket) {
-        console.log("Closing WebSocket connection");
+        
         socket.close(1000, "Component unmounting");
       }
       

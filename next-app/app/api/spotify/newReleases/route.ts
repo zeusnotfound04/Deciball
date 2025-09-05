@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
     const country = searchParams.get('country') || undefined;
 
-    console.log('Fetching new releases with params:', { limit, offset, country });
+    
 
     const result = await getNewReleases(limit, offset, country);
 

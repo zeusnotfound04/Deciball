@@ -45,7 +45,7 @@ export class YoutubeHandler implements MusicHandler {
     const searchResult = await youtubesearchapi.GetListByKeyword(`https://youtube.com/watch?v=${id}`, false, 1);
 
     const video = searchResult?.items?.[0];
-    console.log("The Response from the Youtube API is: ", video);
+    
 
     // Check if response exists and has the expected structure
     // if (!res || typeof res !== "object") {
@@ -126,7 +126,7 @@ export class YoutubeHandler implements MusicHandler {
     // New method for searching YouTube by query
     async searchTrack(query: string): Promise<MusicTrack | null> {
         try {
-            console.log(`[YoutubeHandler] 🔍 Searching YouTube for: "${query}"`);
+            
             
             if (!query || query.trim().length === 0) {
                 console.warn(`[YoutubeHandler] Empty search query provided`);

@@ -50,7 +50,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
   const { state } = useSidebar();
   
   // Simple debug to see what we get
-  console.log('Listeners data:', listeners);
+  
   
   // Drag and Drop State
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -90,7 +90,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
     const listener = uniqueListeners.find(l => l.userId === active.id);
     if (listener && !listener.isCreator) { // Don't allow dragging creator
       setDraggedListener(listener);
-      console.log(`🎯 Started dragging listener: ${listener.name || listener.userId}`);
+      
     } else {
       // Cancel drag if trying to drag creator
       setActiveId(null);
@@ -101,7 +101,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
 
-    console.log(`🎯 Drag ended - active: ${active?.id}, over: ${over?.id}, isAdmin: ${isAdmin}, onKickListener: ${!!onKickListener}`);
+    
 
     if (!over || !isAdmin || !onKickListener) {
       setActiveId(null);
@@ -112,7 +112,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
 
     // If dropped on kick zone, kick the listener
     if (over.id === 'kick-zone' && draggedListener && !draggedListener.isCreator) {
-      console.log(`🚫 Kicking listener: ${draggedListener.name || draggedListener.userId}`);
+      
       onKickListener(draggedListener.userId);
     }
 
@@ -128,7 +128,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
     
     if (wasOverKickZone !== isNowOverKickZone) {
       setIsOverKickZone(isNowOverKickZone);
-      console.log(`🎯 Drag over kick zone: ${isNowOverKickZone}`);
+      
     }
   }, [isOverKickZone]);
   

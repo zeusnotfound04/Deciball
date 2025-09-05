@@ -198,7 +198,7 @@ async searchCache(query: string, source?: string, spotifyId?: string): Promise<C
                                 const song = JSON.parse(cached) as CachedMusicTrack;
                                 return song;
                             } else {
-                                console.log(` Fuzzy match found but cache entry missing for key: ${searchData.key}`);
+                                
                             }
                         }
                     } catch (parseError) {

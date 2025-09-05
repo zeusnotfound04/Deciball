@@ -153,7 +153,7 @@ export const MusicRoomHeader: React.FC<MusicRoomHeaderProps> = ({
             <div className="w-full">
               <SearchSongPopup 
                 onSelect={(track) => {
-                  console.log('Song selected:', track.name);
+                  
                 }}
                 onBatchSelect={onBatchSelect}
                 buttonClassName="w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-4 py-2.5 backdrop-blur-sm transition-all duration-300"
@@ -205,7 +205,7 @@ export const MusicRoomHeader: React.FC<MusicRoomHeaderProps> = ({
               <div className="flex-1 max-w-xl mx-12">
                 <SearchSongPopup 
                   onSelect={(track) => {
-                    console.log('Song selected:', track.name);
+                    
                   }}
                   onBatchSelect={onBatchSelect}
                   buttonClassName="w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-6 py-2.5 backdrop-blur-sm transition-all duration-300"

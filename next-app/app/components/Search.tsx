@@ -329,7 +329,7 @@ export default function SearchSongPopup({
   // Add event listeners for batch processing
   useEffect(() => {
     const handleBatchProcessingResult = (event: CustomEvent) => {
-      console.log('🎯 Batch processing result received in Search component:', event.detail);
+      
       
       setBatchResults({
         successful: event.detail.successful || 0,
@@ -343,7 +343,7 @@ export default function SearchSongPopup({
       
       // Show success/error feedback
       if (event.detail.successful > 0) {
-        console.log(`✅ Successfully added ${event.detail.successful} tracks to queue`);
+        
       }
       if (event.detail.failed > 0) {
         console.warn(`⚠️ ${event.detail.failed} tracks failed to process`);
@@ -351,7 +351,7 @@ export default function SearchSongPopup({
     };
 
     const handleProcessingProgress = (event: CustomEvent) => {
-      console.log('📊 Processing progress received in Search component:', event.detail);
+      
       
       setBatchProgress({
         current: event.detail.current || 0,
@@ -533,7 +533,7 @@ export default function SearchSongPopup({
     setLoadingTrackId(track.id);
     setAddingToQueue(true);
     try {
-      console.log("🎵 Sending track metadata to backend worker pool:", track);
+      
       
       if (!spaceId) {
         setError('Room ID not found. Please rejoin the room.');
@@ -560,7 +560,7 @@ export default function SearchSongPopup({
       });
 
       if (success) {
-        console.log(`✅ Track metadata sent to backend worker pool for YouTube search and processing`);
+        
         if (onSelect) {
           onSelect(track);
         }
@@ -591,7 +591,7 @@ export default function SearchSongPopup({
       }
 
       // Send simplified track metadata for backend worker pool processing
-      console.log(`🚀 Sending ${selectedTracks.length} tracks metadata to backend worker pool for YouTube search and processing`);
+      
       
       const songsForBatch = selectedTracks.map((track) => ({
         title: track.name,
@@ -617,7 +617,7 @@ export default function SearchSongPopup({
         throw new Error('Failed to send batch request to server');
       }
 
-      console.log(`✅ Batch request sent: ${songsForBatch.length} track metadata sent to backend worker pool`);
+      
 
       if (onBatchSelect) {
         onBatchSelect(selectedTracks);

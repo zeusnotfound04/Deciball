@@ -38,7 +38,7 @@ export default function Page() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsCreating(true)
-      console.log(values);
+      
       const response = await axios.post("/api/spaces", values)
       const spaceId = response.data.space.id;
 

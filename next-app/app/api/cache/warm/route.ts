@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`🔥 Cache warming request for ${songs.length} songs in space ${spaceId}`);
+    
 
     // In a real implementation, this would:
     // 1. Connect to Redis
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     for (const song of songs) {
       try {
         // Simulate warming process
-        console.log(`🎵 Warming cache for: ${song}`);
+        
         
         // In production, this would:
         // - Search for the song on YouTube/Spotify
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const successful = warmupResults.filter(r => r.success).length;
     const failed = warmupResults.filter(r => !r.success).length;
 
-    console.log(`✅ Cache warming complete: ${successful} successful, ${failed} failed`);
+    
 
     return NextResponse.json({
       success: true,

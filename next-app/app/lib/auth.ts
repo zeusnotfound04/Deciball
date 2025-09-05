@@ -82,7 +82,7 @@ export const authOptions: NextAuthOptions = {
       },
 
       async authorize(credentials): Promise<User | null> {
-        console.log('[NextAuth] Credentials authorize called with:', credentials);
+        
         if (!credentials?.email || !credentials.password) {
           console.error('[NextAuth] Missing email or password');
           throw new Error('Email and password are required');
@@ -111,7 +111,7 @@ export const authOptions: NextAuthOptions = {
           console.error('[NextAuth] Incorrect password for user:', user.email);
           throw new Error('Incorrect password');
         }
-        console.log('[NextAuth] User authorized:', user.email);
+        
         return {
           id: user.id,
           email: user.email,
@@ -127,18 +127,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        console.log('[NextAuth] signIn callback called:', { user, account, profile });
+        
         if (account?.provider === 'Google' || account?.provider === 'Spotify' ) {
           const googleProfile = profile as GoogleProfile;
           const profileImageUrl = googleProfile.picture || user.image || null;
-          console.log('[NextAuth] Google profile image URL:', profileImageUrl);
+          
           const existingUser = await prisma.user.findUnique({
             where: { email: user.email! },
             include: {
               accounts: true
             }
           });
-          console.log('[NextAuth] Existing user found:', existingUser);
+          
           if (existingUser) {
             const existingGoogleAccount = existingUser.accounts.find(
               acc => acc.provider === 'Google'
@@ -158,7 +158,7 @@ export const authOptions: NextAuthOptions = {
                   refresh_token: account.refresh_token,
                 },
               });
-              console.log('[NextAuth] Linked Google account to existing user:', existingUser.id);
+              
             }
             await prisma.user.update({
               where: { id: existingUser.id },
@@ -170,7 +170,7 @@ export const authOptions: NextAuthOptions = {
                 provider: Provider.Google,
               },
             });
-            console.log('[NextAuth] Updated user info for:', existingUser.id);
+            
             return true;
           } else {
             const newUser = await prisma.user.create({
@@ -183,7 +183,7 @@ export const authOptions: NextAuthOptions = {
                 provider: Provider.Google,
               },
             });
-            console.log('[NextAuth] Created new user:', newUser.id);
+            
             await prisma.account.create({
               data: {
                 userId: newUser.id,
@@ -198,7 +198,7 @@ export const authOptions: NextAuthOptions = {
                 refresh_token: account.refresh_token,
               },
             });
-            console.log('[NextAuth] Created account for new user:', newUser.id);
+            
             return true;
           }
         }

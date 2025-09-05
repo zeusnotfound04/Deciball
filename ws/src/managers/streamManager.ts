@@ -134,7 +134,7 @@ export class RoomManager {
         this.wsToSpace = new Map();
         
         // Initialize optimizations after Redis connection
-        console.log('[RoomManager] Initializing optimized music processing...');
+        
     }
 
     static getInstance() {
@@ -147,11 +147,11 @@ export class RoomManager {
 
 
     async initRedisClient () {
-        console.log('[RoomManager] Connecting to Redis...');
+        
         await this.redisClient.connect();
         await this.publisher.connect();
         await this.subscriber.connect();
-        console.log('[RoomManager] ✅ Redis connections established');
+        
         
         // Initialize cache and worker pool after Redis is connected
         this.musicCache = new MusicCache(this.redisClient);
@@ -161,7 +161,7 @@ export class RoomManager {
         // For t2.medium and larger, it will scale appropriately
         this.workerPool = new MusicWorkerPool(); // Auto-detect optimal worker count
         
-        console.log('[RoomManager] ✅ Music cache and worker pool initialized');
+        
         
         // Start health monitoring
         this.startHealthMonitoring();
@@ -176,10 +176,10 @@ export class RoomManager {
                 // Auto-scale workers based on queue size
                 if (workerStats.queuedTasks > 10 && workerStats.totalWorkers < 8) {
                     await this.workerPool.scaleWorkers(workerStats.totalWorkers + 2);
-                    console.log('[RoomManager] ⬆️ Scaled up workers due to high queue');
+                    
                 } else if (workerStats.queuedTasks === 0 && workerStats.totalWorkers > 4) {
                     await this.workerPool.scaleWorkers(Math.max(4, workerStats.totalWorkers - 2));
-                    console.log('[RoomManager] ⬇️ Scaled down workers due to low queue');
+                    
                 }
             } catch (error) {
                 console.error('[RoomManager] ❌ Health monitoring error:', error);
@@ -209,7 +209,7 @@ export class RoomManager {
         autoPlay: boolean = false
     ): Promise<any> {
         const processingStart = Date.now();
-        console.log(`[RoomManager] 🎵 Processing new stream: ${url}`);
+        
         
         try {
             // 1. Extract source information
@@ -266,7 +266,7 @@ export class RoomManager {
         autoPlay: boolean = false
     ): Promise<{successful: number, failed: number}> {
         const batchStart = Date.now();
-        console.log(`[RoomManager] 🎵 Processing simplified batch of ${tracks.length} tracks for YouTube search`);
+        
 
         let successful = 0;
         let failed = 0;
@@ -297,14 +297,14 @@ export class RoomManager {
                     try {
                         // Create search query for YouTube
                         const searchQuery = `${track.title} ${track.artist}`.trim();
-                        console.log(`[RoomManager] 🔍 Searching YouTube for: "${searchQuery}"`);
+                        
 
                         // Check cache first with Spotify ID priority
                         const cachedSong = await this.musicCache.searchCache(searchQuery, 'Youtube', track.spotifyId);
                         
                         let processedSong;
                         if (cachedSong && !(cachedSong as any).failed) {
-                            console.log(`[RoomManager] ⚡ Cache HIT for: ${track.title}`);
+                            
                             // Even with cache hits, ensure we preserve original Spotify metadata
                             processedSong = {
                                 ...cachedSong,
@@ -460,7 +460,7 @@ export class RoomManager {
                 return { processed: 0, cached: 0, fetched: 0, failed: songs.length };
             }
 
-            console.log(`[RoomManager] Processing ${validSongs.length} valid songs out of ${songs.length} total`);
+            
 
             // 1. Group songs by their Spotify ID (original track) to handle fallbacks
             const songGroups = new Map<string, Array<any>>();
@@ -488,7 +488,7 @@ export class RoomManager {
             let fetchedCount = 0;
 
             for (const [trackId, variations] of songGroups) {
-                console.log(`[RoomManager] 🎵 Processing track group ${trackId} with ${variations.length} variations`);
+                
                 
                 // Sort variations by preference (primary variation first, then fallbacks)
                 const sortedVariations = variations.sort((a, b) => {
@@ -531,7 +531,7 @@ export class RoomManager {
                         const cachedSong = await this.musicCache.searchCache(normalizedQuery, song.source, spotifyId);
                         
                         if (cachedSong && !(cachedSong as any).failed) {
-                            console.log(`[RoomManager] ⚡ Cache HIT for ${isSecondary ? 'FALLBACK' : 'PRIMARY'} variation ${i + 1}: ${cachedSong.title}`);
+                            
                             successfulSong = cachedSong;
                             fromCache = true;
                             cachedCount++;
@@ -761,7 +761,7 @@ export class RoomManager {
 
     // Cache warmup utility - preload popular songs
     async warmupCache(popularSongs: Array<{url: string, trackData?: any}>): Promise<void> {
-        console.log(`[RoomManager] 🔥 Starting cache warmup with ${popularSongs.length} songs`);
+        
         
         try {
             const warmupStart = Date.now();
@@ -788,7 +788,7 @@ export class RoomManager {
             }
             
             const warmupTime = Date.now() - warmupStart;
-            console.log(`[RoomManager] ✅ Cache warmup completed: ${validSongs.length}/${popularSongs.length} songs cached in ${warmupTime}ms`);
+            
         } catch (error) {
             console.error('[RoomManager] ❌ Cache warmup failed:', error);
         }
@@ -796,7 +796,7 @@ export class RoomManager {
 
     // Graceful shutdown
     async shutdown(): Promise<void> {
-        console.log('[RoomManager] 🛑 Starting graceful shutdown...');
+        
         
         try {
             // Stop timestamp broadcasts
@@ -817,7 +817,7 @@ export class RoomManager {
                 this.subscriber.quit()
             ]);
 
-            console.log('[RoomManager] ✅ Graceful shutdown completed');
+            
         } catch (error) {
             console.error('[RoomManager] ❌ Error during shutdown:', error);
             throw error;
@@ -1268,7 +1268,7 @@ export class RoomManager {
         }
     }
     private startTimestampBroadcast(spaceId: string) {
-        console.log(`[Timestamp] Starting 5-second timestamp broadcast for space ${spaceId}`);
+        
         this.stopTimestampBroadcast(spaceId);
         
         const interval = setInterval(async () => {
@@ -1276,13 +1276,13 @@ export class RoomManager {
         }, this.TIMESTAMP_BROADCAST_INTERVAL);
         
         this.timestampIntervals.set(spaceId, interval);
-        console.log(`[Timestamp] 5-second timestamp broadcast started for space ${spaceId}`);
+        
     }
 
     private stopTimestampBroadcast(spaceId: string) {
         const interval = this.timestampIntervals.get(spaceId);
         if (interval) {
-            console.log(`[Timestamp] Stopping timestamp broadcast for space ${spaceId}`);
+            
             clearInterval(interval);
             this.timestampIntervals.delete(spaceId);
         }
@@ -1291,7 +1291,7 @@ export class RoomManager {
     private async broadcastCurrentTimestamp(spaceId: string) {
         const space = this.spaces.get(spaceId);
         if (!space || !space.playbackState.currentSong) {
-            console.log(`[Timestamp] No space or current song for ${spaceId}, skipping broadcast`);
+            
             return;
         }
 
@@ -1468,7 +1468,7 @@ export class RoomManager {
 
         const now = Date.now();
         
-        console.log(`[Seek] Processing seek request from user ${userId} to ${seekTime}s in space ${spaceId}`);
+        
         
         // Temporarily stop broadcasts during seek - extended period
         this.stopTimestampBroadcast(spaceId);
@@ -1478,7 +1478,7 @@ export class RoomManager {
         space.playbackState.isPlaying = true;
         space.playbackState.lastUpdated = now;
 
-        console.log(`[Seek] Updated playback state - startedAt: ${space.playbackState.startedAt}, seekTime: ${seekTime}`);
+        
 
         // Send immediate seek command to all users except the one who initiated it
         space.users.forEach((user) => {
@@ -1502,18 +1502,18 @@ export class RoomManager {
 
         // Resume broadcasts after seek stabilizes - increased delay for better stability
         setTimeout(() => {
-            console.log(`[Seek] Resuming timestamp broadcasts for space ${spaceId} after seek stabilization`);
+            
             this.startTimestampBroadcast(spaceId);
         }, 8000); // Increased to 8 seconds to allow client-side seek to complete
     }
 
     async syncNewUserToPlayback(spaceId: string, userId: string) {
         try {
-            console.log(`[Sync] Starting playbook sync for new user ${userId} in space ${spaceId}`);
+            
             
             const space = this.spaces.get(spaceId);
             if (!space || !space.playbackState.currentSong) {
-                console.log(`[Sync] No current song to sync for user ${userId}`);
+                
                 return;
             }
 
@@ -1552,18 +1552,18 @@ export class RoomManager {
             const newUser = this.users.get(newUserId);
             
             if (!space || !newUser || !space.creatorId) {
-                console.log(`[AdminSync] Cannot sync - missing space, user, or admin for ${spaceId}`);
+                
                 return;
             }
 
             const adminUser = this.users.get(space.creatorId);
             if (!adminUser || adminUser.ws.length === 0) {
-                console.log(`[AdminSync] Admin not found or not connected, falling back to calculated sync`);
+                
                 await this.sendCurrentTimestampToUser(spaceId, newUserId);
                 return;
             }
 
-            console.log(`[AdminSync] Requesting real-time timestamp from admin ${space.creatorId} for new joiner ${newUserId}`);
+            
 
             // Create a unique request ID to track the response
             const requestId = `sync_${newUserId}_${Date.now()}`;
@@ -1594,7 +1594,7 @@ export class RoomManager {
             setTimeout(async () => {
                 const requestExists = await this.redisClient.exists(`admin-sync-request:${requestId}`);
                 if (requestExists) {
-                    console.log(`[AdminSync] Admin didn't respond, falling back to calculated sync for ${newUserId}`);
+                    
                     await this.redisClient.del(`admin-sync-request:${requestId}`);
                     await this.sendCurrentTimestampToUser(spaceId, newUserId);
                 }
@@ -1612,7 +1612,7 @@ export class RoomManager {
         try {
             const requestData = await this.redisClient.get(`admin-sync-request:${requestId}`);
             if (!requestData) {
-                console.log(`[AdminSync] Request ${requestId} expired or already handled`);
+                
                 return;
             }
 
@@ -1624,13 +1624,13 @@ export class RoomManager {
             // Verify the response is from the actual admin
             const space = this.spaces.get(spaceId);
             if (!space || space.creatorId !== respondingUserId) {
-                console.log(`[AdminSync] Response from non-admin user, ignoring`);
+                
                 return;
             }
 
             const newUser = this.users.get(newUserId);
             if (!newUser) {
-                console.log(`[AdminSync] New joiner ${newUserId} no longer connected`);
+                
                 return;
             }
 
@@ -1663,7 +1663,7 @@ export class RoomManager {
                 }
             });
 
-            console.log(`[AdminSync] ✅ Successfully synced new joiner ${newUserId} to admin's real-time position`);
+            
 
         } catch (error) {
             console.error(`[AdminSync] Error handling admin timestamp response:`, error);
@@ -1682,7 +1682,7 @@ export class RoomManager {
         try {
             const space = this.spaces.get(spaceId);
             if (!space) {
-                console.log(`[Chat] Space ${spaceId} not found`);
+                
                 return;
             }
 
@@ -1694,7 +1694,7 @@ export class RoomManager {
             const sanitizedMessage = message.trim().substring(0, 500); // Max 500 chars
             
             if (!sanitizedMessage) {
-                console.log(`[Chat] Empty message from user ${userId}, ignoring`);
+                
                 return;
             }
 
@@ -1723,7 +1723,7 @@ export class RoomManager {
                 });
             });
 
-            console.log(`[Chat] Message broadcasted to ${space.users.size} users in space ${spaceId}`);
+            
 
         } catch (error) {
             console.error(`[Chat] Error broadcasting chat message:`, error);
@@ -1761,7 +1761,7 @@ export class RoomManager {
                 this.destroySpace(spaceId);
             } else if (isAdmin) {
                 // Admin is leaving but there are still users in the space
-                console.log(`[RoomManager] Admin ${userId} leaving space ${spaceId}, broadcasting space end`);
+                
                 
                 // Broadcast space ended message to remaining users
                 space.users.forEach((user) => {
@@ -1835,7 +1835,7 @@ export class RoomManager {
                 } else {
                     // If admin left and there are still users, broadcast admin leave event
                     if (wasAdmin) {
-                        console.log(`[RoomManager] Admin ${disconnectedUserId} left space ${spaceId}, broadcasting space end`);
+                        
                         
                         // Broadcast space ended message to remaining users
                         space.users.forEach((user) => {
@@ -1911,7 +1911,7 @@ export class RoomManager {
         const userDetails = await Promise.all(
             userList.map(async (userId) => {
                 const userInfo = await this.getUserInfo(userId);
-                console.log("User Infoooo 🥶🥶🥶🥶", userInfo);
+                
                 return {
                     userId,
                     name: userInfo?.name || `User ${userId.slice(0, 8)}`,
@@ -2082,7 +2082,7 @@ export class RoomManager {
                     });
                 }
             } else {
-                console.log(`[CurrentSong] No current song found for space ${spaceId}`);
+                
             }
         } catch (error) {
             console.error("Error sending current playing song to user:", error);
@@ -2234,7 +2234,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             const sortedQueue = await this.getRedisQueue(spaceId);
             
             if (sortedQueue.length === 0) {
-                console.log("📭 Queue is empty, no songs to play");
+                
                 return null;
             }
             
@@ -2336,7 +2336,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 // Check if we have image in in-memory state, but get from Redis for full data
                 const currentSong = await this.getCurrentPlayingSong(spaceId);
                 if (currentSong && (currentSong.bigImg || currentSong.smallImg)) {
-                    console.log(`[SpaceImage] Found image from current song: ${currentSong.title}`);
+                    
                     return currentSong.bigImg || currentSong.smallImg;
                 }
             }
@@ -2344,18 +2344,18 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             // Fallback to Redis current song
             const currentSong = await this.getCurrentPlayingSong(spaceId);
             if (currentSong && (currentSong.bigImg || currentSong.smallImg)) {
-                console.log(`[SpaceImage] Found image from Redis current song: ${currentSong.title}`);
+                
                 return currentSong.bigImg || currentSong.smallImg;
             }
             
             // Last resort: check the queue
             const queue = await this.getRedisQueue(spaceId);
             if (queue.length > 0 && (queue[0].bigImg || queue[0].smallImg)) {
-                console.log(`[SpaceImage] Found image from queue first song: ${queue[0].title}`);
+                
                 return queue[0].bigImg || queue[0].smallImg;
             }
             
-            console.log(`[SpaceImage] No image found for space ${spaceId}`);
+            
             return null;
         } catch (error) {
             console.error('Error getting current space image:', error);
@@ -2403,13 +2403,13 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
 
     async reorderQueueByVotes(spaceId: string): Promise<void> {
         try {
-            console.log(`🔄 Reordering queue for space ${spaceId} by vote count`);
+            
             
             const queueKey = `queue:${spaceId}`;
             const songDataList = await this.redisClient.lRange(queueKey, 0, -1);
             
             if (songDataList.length === 0) {
-                console.log(`📭 Queue is empty for space ${spaceId}, nothing to reorder`);
+                
                 return;
             }
             
@@ -2450,7 +2450,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                 await this.redisClient.rPush(queueKey, JSON.stringify(songToStore));
             }
             
-            console.log(` Successfully reordered queue for space ${spaceId}`);
+            
         } catch (error) {
             console.error(`❌ Error reordering queue for space ${spaceId}:`, error);
         }
@@ -2793,7 +2793,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         });
       });
       
-      console.log(`Discord activity broadcast for ${songData.title} by ${songData.artist} in space ${spaceId}`);
+      
     }
     
     async setSpaceName(spaceId: string, spaceName: string): Promise<void> {
@@ -2815,7 +2815,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             
             // if (cachedSpaceDetails) {
                 const spaceData = JSON.parse(cachedSpaceDetails!);
-                console.log("Getting space name from Redis cache. 💢💢", spaceData.name);
+                
                 return spaceData.name ;
             // }
             // return spaceData.name as string; 

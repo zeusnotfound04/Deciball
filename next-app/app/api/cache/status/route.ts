@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE() {
   try {
     // This would clear the cache in a real implementation
-    console.log('🗑️ Cache clear requested');
+    
     
     // TODO: Replace with actual cache clearing:
     // const redis = new Redis(process.env.REDIS_URL);

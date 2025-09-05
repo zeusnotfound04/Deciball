@@ -75,7 +75,7 @@ type Data = {
 
 async function handleJoinRoom(ws: WebSocket , data : Data){
     console.log("Joining the room")
-    console.log("Join room data:", data);
+    
     
     if (!data.token) {
         console.error("No token provided in join room request");
@@ -96,7 +96,7 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
                 const creatorId = decoded.creatorId || decoded.userId;
                 const userId = decoded.userId;
                 
-                console.log("JWT verified successfully for user:", userId);
+                
                 
                 try {
                     await RoomManager.getInstance().joinRoom(
@@ -159,7 +159,7 @@ async function  processUserAction(type: string , data : Data ) {
                     data.songs[0].title && data.songs[0].artist && !data.songs[0].url;
 
                 if (isSimplifiedFormat) {
-                    console.log(`[App] Processing ${data.songs.length} simplified tracks for YouTube search`);
+                    
                     const result = await RoomManager.getInstance().processSimplifiedBatch(
                         data.spaceId,
                         data.songs as Array<{ 
@@ -189,7 +189,7 @@ async function  processUserAction(type: string , data : Data ) {
                         });
                     }
                 } else {
-                    console.log(`[App] Processing ${data.songs.length} legacy format tracks`);
+                    
                     const result = await RoomManager.getInstance().processBatchStreams(
                         data.spaceId,
                         data.songs as Array<{ 
@@ -448,11 +448,11 @@ async function handleUserAction(ws:WebSocket , type : string , data : Data) {
 }
 
 async function handleConnection(ws:WebSocket) {
-    console.log("WebSocket connection established, waiting for messages...");
+    
     
     ws.on("message" , async (raw : {toString : ()=> string}) => {
         try {
-            console.log(`Received: ${raw}`);
+            
             const {type , data} = JSON.parse(raw.toString()) || {};
             console.log("Parsed message type:", type, "data keys:", Object.keys(data || {}));
 
@@ -482,7 +482,7 @@ async function handleConnection(ws:WebSocket) {
 
 
     ws.on("close" , () => {
-        console.log(" WebSocket connection disconnected.");
+        
         RoomManager.getInstance().disconnect(ws)
     })
 }
@@ -498,7 +498,7 @@ async function main() {
     
     wss.on("connection", (ws, req) => {
         const clientIp = req.socket.remoteAddress;
-        console.log(`New WebSocket connection established from ${clientIp}`);
+        
         
         // Send a ping every 30 seconds to keep connection alive
         const pingInterval = setInterval(() => {
@@ -522,12 +522,12 @@ async function main() {
     const gracefulShutdown = async (signal: string) => {
         try {
             wss.close(() => {
-                console.log(' WebSocket server closed');
+                
             });
             
             await RoomManager.getInstance().shutdown();
             
-            console.log(' Graceful shutdown completed');
+            
             process.exit(0);
         } catch (error) {
             console.error(' Error during graceful shutdown:', error);

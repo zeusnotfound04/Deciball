@@ -47,7 +47,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     setError(null);
 
     try {
-      console.log('Fetching new releases...');
+      
       
       const response = await fetch('/api/spotify/newReleases?limit=10', {
         method: 'GET'
@@ -76,7 +76,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
         }));
         
         setNewReleases(tracks);
-        console.log('New releases loaded:', tracks.length);
+        
       } else {
         throw new Error('No new releases returned');
       }

@@ -33,7 +33,7 @@ export default function MusicRoomLayout({
 
   // Generate listeners data for the sidebar
   const listeners = useMemo(() => {
-    console.log('Raw userDetails:', userDetails);
+    
     
     // If we have actual user details, use them
     if (userDetails && userDetails.length > 0) {
@@ -44,7 +44,7 @@ export default function MusicRoomLayout({
         imageUrl: user.imageUrl || user.image || user.pfpUrl || user.profilePicture || user.avatar || null
       }));
       
-      console.log('Mapped listeners:', mapped);
+      
       return mapped;
     }
 

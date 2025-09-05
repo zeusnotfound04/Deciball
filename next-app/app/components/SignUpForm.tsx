@@ -44,7 +44,7 @@ export function SignupForm() {
     }
     try {
       const response = await axios.post("/api/users", formData);
-      console.log(response.data);
+      
       router.push("/");
     } catch (error: any) {
       if (error.response && error.response.status === 400) {

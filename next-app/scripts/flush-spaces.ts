@@ -31,7 +31,7 @@ const colors = {
 };
 
 function log(message: string, color = colors.white) {
-  console.log(`${color}${message}${colors.reset}`);
+  
 }
 
 function logSection(title: string) {

@@ -5,13 +5,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
     try {
-        console.log("=== Space Creation API Called ===");
+        
         
         const session = await getServerSession(authOptions);
         console.log("Session:", JSON.stringify(session, null, 2));
 
         if (!session?.user?.id) {
-            console.log("No valid session found");
+            
             return NextResponse.json(
                 { success: false, message: "You must be logged in to create a space" },
                 { status: 401 }
@@ -22,16 +22,16 @@ export async function POST(req: NextRequest) {
         console.log("Request data:", JSON.stringify(data, null, 2));
 
         if (!data.spaceName) {
-            console.log("Missing spaceName in request");
+            
             return NextResponse.json(
                 { success: false, message: "Space name is required" },
                 { status: 400 }
             );
         }
 
-        console.log("Testing database connection...");
+        
         await prisma.$connect();
-        console.log("Database connected successfully");
+        
 
 
         console.log("Creating space with data:", {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
             }
         });
 
-        console.log("Space created successfully:", space);
+        
 
         return NextResponse.json(
             { success: true, message: "Space created successfully", space },
@@ -122,7 +122,7 @@ export async function DELETE(req : NextRequest){
             )
         }
 
-        console.log(spaceId);
+        
 
         const space = await prisma.space.findUnique({
             where :{

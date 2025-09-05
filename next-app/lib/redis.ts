@@ -54,7 +54,7 @@ export async function getRedisClient(): Promise<Redis> {
       await redisClient.connect();
       await redisClient.ping();
       
-      console.log('Redis connected successfully');
+      
       connectionAttempts = 0;
       return redisClient;
 
@@ -83,7 +83,7 @@ export async function disconnectRedis(): Promise<void> {
   if (redisClient) {
     try {
       await redisClient.quit();
-      console.log('Redis client disconnected gracefully');
+      
     } catch (error) {
       console.error('Error disconnecting Redis client:', error);
       redisClient.disconnect();

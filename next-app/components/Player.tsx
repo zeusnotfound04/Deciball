@@ -112,7 +112,7 @@ export const Player: React.FC<PlayerProps> = ({
 
   // Function to play YouTube video instantly with real metadata
   const playYouTubeInstantly = async (url: string) => {
-    console.log('[Player] playYouTubeInstantly called with URL:', url);
+    
     
     const videoId = extractYouTubeVideoId(url);
     
@@ -122,7 +122,7 @@ export const Player: React.FC<PlayerProps> = ({
       return;
     }
 
-    console.log('[Player] Extracted YouTube video ID:', videoId);
+    
 
     if (!sendMessage || !spaceId || !user?.id) {
       console.error('[Player] Missing required connection data:', { sendMessage: !!sendMessage, spaceId, userId: user?.id });
@@ -168,12 +168,12 @@ export const Player: React.FC<PlayerProps> = ({
         isVoted: false
       };
 
-      console.log('[Player] Playing song with real metadata:', realSong);
+      
       
       // Set current song with real data and start playing
       await play(realSong);
 
-      console.log('[Player] Sending add-to-queue message to backend');
+      
       
       // Send to backend for processing and room synchronization
       sendMessage("add-to-queue", {
@@ -296,7 +296,7 @@ export const Player: React.FC<PlayerProps> = ({
       // Get the dropped data
       const url = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text/uri-list');
       
-      console.log('[Player] Dropped content:', url);
+      
       
       if (!url) {
         toast.error('No URL detected in dropped content');
@@ -305,7 +305,7 @@ export const Player: React.FC<PlayerProps> = ({
 
       // Check if it's a YouTube URL
       if (containsYouTubeUrl(url)) {
-        console.log('[Player] YouTube URL detected:', url);
+        
         // Only allow admin to drop YouTube links for instant play
         if (!isAdmin) {
           toast.error('Only admins can play YouTube videos instantly');
@@ -313,7 +313,7 @@ export const Player: React.FC<PlayerProps> = ({
         }
         await playYouTubeInstantly(url);
       } else {
-        console.log('[Player] Non-YouTube URL dropped:', url);
+        
         toast.error('Please drop a valid YouTube URL');
       }
     } catch (error) {
@@ -331,7 +331,7 @@ export const Player: React.FC<PlayerProps> = ({
   });
   useEffect(() => {
     const songEndedCallback = () => {
-      console.log("[Player] Song ended, sending songEnded message to backend");
+      
       if (sendMessage && spaceId && user?.id) {
         sendMessage("songEnded", { spaceId, userId: user.id });
       } else {
@@ -351,10 +351,10 @@ export const Player: React.FC<PlayerProps> = ({
     if (!sendMessage) return;
 
     const handleSongUpdated = (data: any) => {
-      console.log('[Player] Received song-updated event:', data);
+      
       
       if (data.song && currentSong && data.song.id === currentSong.id) {
-        console.log('[Player] Current song updated, refreshing:', data.song);
+        
         // Update the current song with new metadata
         play(data.song);
         toast.success(`✅ ${data.song.name} loaded successfully!`);
@@ -372,13 +372,13 @@ export const Player: React.FC<PlayerProps> = ({
   }, [sendMessage, currentSong, play]);
 
   const togglePlayPause = () => {
-    console.log('[Player] togglePlayPause called, current isPlaying:', isPlaying);
-    console.log('[Player] isAdmin:', isAdmin);
+    
+    
     
     const willBePlaying = !isPlaying;
     const message = willBePlaying ? 'play' : 'pause';
     
-    console.log('[Player] Will be playing:', willBePlaying, 'Sending message:', message);
+    
     
     // Always toggle locally
     audioTogglePlayPause();
@@ -386,11 +386,11 @@ export const Player: React.FC<PlayerProps> = ({
     // Only send to server if admin (to broadcast to other users)
     if (isAdmin && sendMessage && spaceId && user?.id) {
       setTimeout(() => {
-        console.log('[Player] Admin sending room-wide message:', message);
+        
         sendMessage(message, { spaceId, userId: user.id });
       }, 100);
     } else if (!isAdmin) {
-      console.log('[Player] Listener local play/pause - no broadcast sent');
+      
     }
   };
 
@@ -457,7 +457,7 @@ export const Player: React.FC<PlayerProps> = ({
     );
   }
   
- console.log("[Player] Rendered with currentSong:", currentSong);
+ 
   return (
     <motion.div
       ref={setNodeRef}

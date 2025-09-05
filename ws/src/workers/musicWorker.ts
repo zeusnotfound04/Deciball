@@ -92,7 +92,7 @@ class MusicWorker {
         this.tasksProcessed = 0;
         
         this.setupMessageHandler();
-        console.log(`[MusicWorker-${this.workerId}] ✅ Worker initialized and ready`);
+        
     }
 
     setupMessageHandler() {
@@ -184,8 +184,8 @@ class MusicWorker {
             
             // If complete track data is provided, use it directly (no API call needed!)
             if (completeTrackData && completeTrackData.title && completeTrackData.extractedId) {
-                console.log(`[MusicWorker-${this.workerId}] 🚀 OPTIMIZATION: Using provided track data - SKIPPING YouTube API call!`);
-                console.log(`[MusicWorker-${this.workerId}] 📊 Track details: "${completeTrackData.title}" by "${completeTrackData.artist}"`);
+                
+                
                 
                 const enhancedResult: ProcessedSong = {
                     ...completeTrackData,
@@ -206,7 +206,7 @@ class MusicWorker {
             
             // Special case: if we have completeTrackData but need to search YouTube for URL
             if (completeTrackData && completeTrackData.title && source.toLowerCase() === 'youtube' && query && !completeTrackData.extractedId) {
-                console.log(`[MusicWorker-${this.workerId}] 🔍 Searching YouTube for URL while preserving Spotify metadata: "${completeTrackData.title}"`);
+                
                 
                 try {
                     const youtubeResult = await this.youtubeHandler.searchTrack(query);
@@ -226,7 +226,7 @@ class MusicWorker {
                             id: completeTrackData.id || youtubeResult.extractedId
                         };
                         
-                        console.log(`[MusicWorker-${this.workerId}] ✅ YouTube URL found, Spotify metadata preserved: "${completeTrackData.title}" -> ${youtubeResult.extractedId}`);
+                        
                         return mergedResult;
                     }
                 } catch (searchError) {
@@ -266,17 +266,17 @@ class MusicWorker {
                 throw new Error('No identifier provided for song');
             }
 
-            console.log(`[MusicWorker-${this.workerId}] 🐌 FALLBACK: No complete data provided - making ${source} API call for: ${identifier}`);
+            
             const apiCallStart = Date.now();
             
             let result;
             // If extractedId is provided, use getTrackDetails for direct lookup
             // If only query is provided, use search method for YouTube
             if (extractedId && extractedId.length > 0) {
-                console.log(`[MusicWorker-${this.workerId}] 📋 Using direct lookup with extractedId: ${extractedId}`);
+                
                 result = await handler.getTrackDetails(extractedId);
             } else if (source.toLowerCase() === 'youtube' && query) {
-                console.log(`[MusicWorker-${this.workerId}] 🔍 Using YouTube search for query: ${query}`);
+                
                 // Use search method for YouTube when we have a search query
                 if ('searchTrack' in handler && typeof handler.searchTrack === 'function') {
                     result = await (handler as any).searchTrack(query);
@@ -285,7 +285,7 @@ class MusicWorker {
                     result = await handler.getTrackDetails(identifier);
                 }
             } else {
-                console.log(`[MusicWorker-${this.workerId}] 📋 Using standard getTrackDetails for: ${identifier}`);
+                
                 result = await handler.getTrackDetails(identifier);
             }
             
@@ -295,7 +295,7 @@ class MusicWorker {
                 throw new Error(`No track details found for: ${identifier}`);
             }
 
-            console.log(`[MusicWorker-${this.workerId}] 🌐 API call completed in ${apiCallTime}ms for: "${result.title}"`);
+            
 
             // Add additional metadata
             const enhancedResult = {
@@ -307,7 +307,7 @@ class MusicWorker {
                 processingSource: source
             };
 
-            console.log(`[MusicWorker-${this.workerId}] ✅ Successfully fetched: "${result.title}"`);
+            
             return enhancedResult;
             
         } catch (error) {
@@ -332,7 +332,7 @@ class MusicWorker {
         const { source, extractedId, url, query } = songData;
         
         try {
-            console.log(`[MusicWorker-${this.workerId}] 🔍 Verifying ${source} song availability`);
+            
             
             let handler;
             switch (source.toLowerCase()) {
@@ -385,7 +385,7 @@ class MusicWorker {
         const { source, extractedId, url, query } = songData;
         
         try {
-            console.log(`[MusicWorker-${this.workerId}] 📊 Extracting metadata for ${source} song`);
+            
             
             let handler;
             switch (source.toLowerCase()) {
@@ -456,7 +456,7 @@ class MusicWorker {
             throw new Error('Batch data must contain an array of songs');
         }
 
-        console.log(`[MusicWorker-${this.workerId}] 📦 Processing batch ${batchId} with ${songs.length} songs`);
+        
         
         const results = [];
         const startTime = Date.now();
@@ -507,12 +507,12 @@ class MusicWorker {
 
     // Graceful shutdown handler
     async shutdown() {
-        console.log(`[MusicWorker-${this.workerId}] 🛑 Shutting down gracefully...`);
+        
         
         // Clean up any resources if needed
         try {
             // Close any open connections, clear timeouts, etc.
-            console.log(`[MusicWorker-${this.workerId}] ✅ Shutdown completed`);
+            
         } catch (error) {
             console.error(`[MusicWorker-${this.workerId}] ❌ Error during shutdown:`, error);
         }

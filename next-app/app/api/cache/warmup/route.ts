@@ -16,7 +16,7 @@ const POPULAR_SONGS = [
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔥 Starting cache warmup process...');
+    
     
     const warmupResults = {
       successful: 0,
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       
       const batchPromises = batch.map(async (song) => {
         try {
-          console.log(`🎵 Warming up: ${song.query}`);
+          
           
           // Search for the song using our existing API
           const searchResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/api/search?q=${encodeURIComponent(song.query)}`, {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`🎯 Cache warmup complete: ${warmupResults.successful}/${warmupResults.total} successful`);
+    
 
     return NextResponse.json({
       success: true,

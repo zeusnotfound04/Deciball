@@ -36,7 +36,7 @@ class CacheManager {
 
     async connect(): Promise<void> {
         await this.redisClient.connect();
-        console.log('✅ Connected to Redis');
+        
     }
 
     async disconnect(): Promise<void> {
@@ -48,24 +48,24 @@ class CacheManager {
     }
 
     async showCacheStats(): Promise<void> {
-        console.log('\n📊 MUSIC CACHE STATISTICS');
+        
         console.log('='.repeat(50));
         
         try {
             const stats = await this.musicCache.getStats();
-            console.log(`Cache Hits: ${stats.cache_hits}`);
-            console.log(`Cache Misses: ${stats.cache_misses}`);
-            console.log(`Hit Rate: ${stats.hit_rate}`);
-            console.log(`Songs Cached: ${stats.songs_cached}`);
-            console.log(`Avg Response Time: ${stats.avg_response_time}`);
-            console.log(`Total Requests: ${stats.total_requests}`);
+            
+            
+            
+            
+            
+            
         } catch (error) {
             console.error('❌ Error fetching cache stats:', error);
         }
     }
 
     async showDetailedBreakdown(): Promise<void> {
-        console.log('\n🔍 DETAILED CACHE BREAKDOWN');
+        
         console.log('='.repeat(50));
 
         const patterns = [
@@ -83,9 +83,9 @@ class CacheManager {
         for (const { name, pattern } of patterns) {
             try {
                 const keys = await this.redisClient.keys(pattern);
-                console.log(`${name}: ${keys.length} entries`);
+                
             } catch (error) {
-                console.log(`${name}: Error fetching`);
+                
             }
         }
     }
@@ -99,23 +99,23 @@ class CacheManager {
             const youtubeIndex = await this.redisClient.zRange('music:search-index:youtube', -limit, -1, { REV: true });
             const spotifyIndex = await this.redisClient.zRange('music:search-index:spotify', -limit, -1, { REV: true });
 
-            console.log('\n🎵 Recent YouTube Cache:');
+            
             for (const entry of youtubeIndex.slice(0, 5)) {
                 try {
                     const data = JSON.parse(entry);
-                    console.log(`  • ${data.title} by ${data.artist}`);
+                    
                 } catch (e) {
-                    console.log(`  • [Invalid entry]`);
+                    
                 }
             }
 
-            console.log('\n🎧 Recent Spotify Cache:');
+            
             for (const entry of spotifyIndex.slice(0, 5)) {
                 try {
                     const data = JSON.parse(entry);
-                    console.log(`  • ${data.title} by ${data.artist}`);
+                    
                 } catch (e) {
-                    console.log(`  • [Invalid entry]`);
+                    
                 }
             }
         } catch (error) {
@@ -124,15 +124,15 @@ class CacheManager {
     }
 
     async clearSpecificPattern(pattern: string): Promise<void> {
-        console.log(`\n🗑️ Clearing pattern: ${pattern}`);
+        
         
         try {
             const keys = await this.redisClient.keys(pattern);
             if (keys.length > 0) {
                 await this.redisClient.del(keys);
-                console.log(`✅ Deleted ${keys.length} keys`);
+                
             } else {
-                console.log('✅ No keys found to delete');
+                
             }
         } catch (error) {
             console.error(`❌ Error clearing pattern ${pattern}:`, error);
@@ -140,18 +140,18 @@ class CacheManager {
     }
 
     async testCacheSearch(query: string, spotifyId?: string): Promise<void> {
-        console.log(`\n🔍 Testing cache search for: "${query}"`);
+        
         if (spotifyId) {
-            console.log(`   With Spotify ID: ${spotifyId}`);
+            
         }
         
         try {
             const result = await this.musicCache.searchCache(query, undefined, spotifyId);
             if (result) {
-                console.log(`✅ Cache HIT: Found "${result.title}" by ${result.artist || 'Unknown'}`);
+                
                 console.log(`   Source: ${result.source}, Cached: ${new Date(result.cachedAt).toLocaleString()}`);
             } else {
-                console.log('❌ Cache MISS: No matching entry found');
+                
             }
         } catch (error) {
             console.error('❌ Error during cache search:', error);
@@ -160,17 +160,17 @@ class CacheManager {
 }
 
 function showMainMenu(): void {
-    console.log('\n🎛️ REDIS CACHE MANAGEMENT');
+    
     console.log('='.repeat(40));
-    console.log('1. Show cache statistics');
-    console.log('2. Show detailed breakdown');
-    console.log('3. Show recent cache entries');
-    console.log('4. Test cache search');
-    console.log('5. Clear music cache');
-    console.log('6. Clear all statistics');
-    console.log('7. Clear vote data');
-    console.log('8. FLUSH ALL CACHE');
-    console.log('9. Exit');
+    
+    
+    
+    
+    
+    
+    
+    
+    
     console.log('='.repeat(40));
 }
 
@@ -195,8 +195,8 @@ async function main() {
     try {
         await cacheManager.connect();
         
-        console.log('🧹 Redis Cache Management Interface');
-        console.log('Welcome! This tool helps you manage your Redis cache.');
+        
+        
 
         while (true) {
             showMainMenu();
@@ -247,16 +247,16 @@ async function main() {
                     const confirmFlush = await getUserInput('⚠️ FLUSH ALL CACHE? This cannot be undone! (y/N): ');
                     if (confirmFlush.toLowerCase() === 'y') {
                         await cacheManager.flushAllCache();
-                        console.log('✅ All cache has been flushed');
+                        
                     }
                     break;
                 
                 case '9':
-                    console.log('👋 Goodbye!');
+                    
                     return;
                 
                 default:
-                    console.log('❌ Invalid choice. Please try again.');
+                    
             }
 
             if (choice !== '9') {

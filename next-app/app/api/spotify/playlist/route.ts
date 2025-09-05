@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('Processing playlist request:', playlistUrl);
+    
 
     // Extract playlist ID from URL
     const playlistId = extractPlaylistId(playlistUrl);
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       if (offset > 1000) break;
     }
 
-    console.log(`Retrieved ${allTracks.length} tracks from playlist`);
+    
 
     return NextResponse.json({
       success: true,
