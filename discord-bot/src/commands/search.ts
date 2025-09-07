@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, ActionRowBuilder, StringSelectMenuBuilder, ComponentType, GuildMember, AutocompleteInteraction } from "discord.js";
+import { SlashCommandBuilder, ChatInputCommandInteraction, ActionRowBuilder, StringSelectMenuBuilder, GuildMember, AutocompleteInteraction } from "discord.js";
 import { SpotifyService } from "../services/SpotifyService";
 import { MusicManager } from "../services/MusicManager";
 
@@ -17,7 +17,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     // Check if user is in a voice channel
     const member = interaction.member as GuildMember;
-    if (!member.voice.channel) {
+    if (!member?.voice?.channel) {
       await interaction.reply({
         content: "❌ You need to be in a voice channel to play music!",
         ephemeral: true
@@ -26,11 +26,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     const query = interaction.options.getString("query", true);
+    if (!query || query.trim().length === 0) {
+      await interaction.reply({
+        content: "❌ Please provide a valid search query!",
+        ephemeral: true
+      });
+      return;
+    }
+
     const spotifyService = new SpotifyService();
 
     await interaction.deferReply();
 
-    const tracks = await spotifyService.searchTracks(query, 10);
+    const tracks = await spotifyService.searchTracks(query.trim(), 10);
     
     if (tracks.length === 0) {
       await interaction.editReply(`❌ No songs found for: "${query}"`);
@@ -79,9 +87,18 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // Wait for user selection
     try {
       const selectInteraction = await response.awaitMessageComponent({
-        componentType: ComponentType.StringSelect,
+        componentType: 3, // StringSelect component type
         time: 60000 // 1 minute timeout
       });
+
+      if (!selectInteraction.isStringSelectMenu()) {
+        await interaction.editReply({
+          content: "❌ Invalid interaction type!",
+          embeds: [],
+          components: []
+        });
+        return;
+      }
 
       const selectedIndex = parseInt(selectInteraction.values[0] || "0");
       const selectedTrack = tracks[selectedIndex];
@@ -129,13 +146,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       // Add to queue
       await player.addTrackToQueue(track);
       
-      const successEmbed = {
+      const successEmbed: any = {
         color: 0x1db954,
         title: "🎵 Added to Queue",
         description: `**${track.title}**\nby ${track.artist}`,
-        thumbnail: {
-          url: track.thumbnail
-        },
         fields: [
           {
             name: "Duration",
@@ -155,6 +169,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         ],
         timestamp: new Date().toISOString()
       };
+
+      // Only add thumbnail if it exists
+      if (track.thumbnail) {
+        successEmbed.thumbnail = { url: track.thumbnail };
+      }
 
       await interaction.editReply({
         embeds: [successEmbed],

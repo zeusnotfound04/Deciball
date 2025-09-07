@@ -28,10 +28,35 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       return;
     }
 
+    const queue = player.getQueue();
+    const nextTrack = queue.length > 0 ? queue[0] : null;
+    
     const skipped = player.skip();
     
     if (skipped) {
-      await interaction.reply(`⏭️ Skipped: **${currentTrack.title}** by ${currentTrack.artist}`);
+      let responseMessage = `⏭️ Skipped: **${currentTrack.title}** by ${currentTrack.artist}`;
+      
+      if (nextTrack) {
+        responseMessage += `\n\n🎵 Now playing: **${nextTrack.title}** by ${nextTrack.artist}`;
+      } else {
+        responseMessage += `\n\n📭 Queue is now empty`;
+      }
+      
+      const embed = {
+        color: 0xff6b35,
+        title: "⏭️ Song Skipped",
+        description: responseMessage,
+        fields: [
+          {
+            name: "Remaining in Queue",
+            value: `${queue.length - (nextTrack ? 1 : 0)} song${queue.length - (nextTrack ? 1 : 0) === 1 ? '' : 's'}`,
+            inline: true
+          }
+        ],
+        timestamp: new Date().toISOString()
+      };
+
+      await interaction.reply({ embeds: [embed] });
     } else {
       await interaction.reply({
         content: "❌ Failed to skip the current song.",
