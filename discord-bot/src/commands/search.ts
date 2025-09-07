@@ -101,14 +101,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       const player = musicManager.getPlayer(interaction.guildId!);
 
       // Connect to voice channel if not already connected
-      const connected = await player.connect(member.voice.channel as any);
-      if (!connected) {
-        await interaction.editReply({
-          content: "❌ Failed to connect to voice channel!",
-          embeds: [],
-          components: []
-        });
-        return;
+      if (!player.isConnected()) {
+        const connected = await player.connect(member.voice.channel as any);
+        if (!connected) {
+          await interaction.editReply({
+            content: "❌ Failed to connect to voice channel! Please make sure I have permission to join and speak in your voice channel.",
+            embeds: [],
+            components: []
+          });
+          return;
+        }
       }
 
       // Convert Spotify track and search on YouTube

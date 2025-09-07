@@ -41,10 +41,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply();
 
     // Connect to voice channel if not already connected
-    const connected = await player.connect(member.voice.channel as any);
-    if (!connected) {
-      await interaction.editReply("❌ Failed to connect to voice channel!");
-      return;
+    if (!player.isConnected()) {
+      const connected = await player.connect(member.voice.channel as any);
+      if (!connected) {
+        await interaction.editReply("❌ Failed to connect to voice channel! Please make sure I have permission to join and speak in your voice channel.");
+        return;
+      }
     }
 
     // Search for the track

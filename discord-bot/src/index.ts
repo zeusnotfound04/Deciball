@@ -14,6 +14,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent, // Required for reading message content
+    GatewayIntentBits.GuildVoiceStates, // Required for voice functionality
   ]
 });
 

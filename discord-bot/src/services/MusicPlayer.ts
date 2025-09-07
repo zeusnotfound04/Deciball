@@ -16,6 +16,11 @@ import { VoiceBasedChannel } from 'discord.js';
 import { YouTubeService } from './YouTubeService';
 import { SpotifyService, SpotifyTrack } from './SpotifyService';
 
+// Configure FFmpeg for Discord voice
+const ffmpegPath = require('ffmpeg-static');
+const prism = require('prism-media');
+prism.FFmpeg.getInfo = () => ({ command: ffmpegPath });
+
 export interface Track {
   title: string;
   artist: string;
@@ -87,42 +92,133 @@ export class MusicPlayer {
 
   async connect(channel: VoiceBasedChannel): Promise<boolean> {
     try {
+      // Check if already connected to the same channel
       const existingConnection = getVoiceConnection(channel.guild.id);
-      if (existingConnection) {
+      if (existingConnection && existingConnection.joinConfig.channelId === channel.id) {
+        console.log(`✅ Already connected to voice channel: ${channel.name || 'Unknown'}`);
         this.connection = existingConnection;
-      } else {
-        this.connection = joinVoiceChannel({
-          channelId: channel.id,
-          guildId: channel.guild.id,
-          adapterCreator: channel.guild.voiceAdapterCreator as DiscordGatewayAdapterCreator,
-        });
+        this.connection.subscribe(this.player);
+        return true;
       }
 
-      await entersState(this.connection, VoiceConnectionStatus.Ready, 30_000);
-      this.connection.subscribe(this.player);
+      // Destroy existing connection if it's to a different channel
+      if (existingConnection) {
+        existingConnection.destroy();
+        // Wait a bit for cleanup
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      console.log(`🔌 Connecting to voice channel: ${channel.name || 'Unknown'}`);
       
-      console.log(`✅ Connected to voice channel: ${channel.name || 'Unknown'}`);
-      return true;
+      this.connection = joinVoiceChannel({
+        channelId: channel.id,
+        guildId: channel.guild.id,
+        adapterCreator: channel.guild.voiceAdapterCreator as DiscordGatewayAdapterCreator,
+        selfDeaf: true,
+        selfMute: false
+      });
+
+      // Set up connection event handlers first
+      this.setupConnectionEvents();
+
+      // Try to connect with multiple attempts
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (attempts < maxAttempts) {
+        try {
+          attempts++;
+          console.log(`� Connection attempt ${attempts}/${maxAttempts}`);
+          
+          // Wait for Ready state with timeout
+          await entersState(this.connection, VoiceConnectionStatus.Ready, 10_000);
+          
+          // Subscribe the audio player to the connection
+          this.connection.subscribe(this.player);
+          
+          console.log(`✅ Successfully connected to voice channel: ${channel.name || 'Unknown'}`);
+          return true;
+          
+        } catch (error) {
+          console.warn(`⚠️ Connection attempt ${attempts} failed:`, error);
+          
+          if (attempts === maxAttempts) {
+            throw error;
+          }
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+      
+      return false;
+      
     } catch (error) {
-      console.error('❌ Failed to connect to voice channel:', error);
+      console.error('❌ Failed to connect to voice channel after all attempts:', error);
+      
+      // Clean up on failure
       if (this.connection) {
-        this.connection.destroy();
+        try {
+          this.connection.destroy();
+        } catch (destroyError) {
+          console.error('Error destroying connection:', destroyError);
+        }
         this.connection = null;
       }
+      
       return false;
     }
   }
 
+  private setupConnectionEvents(): void {
+    if (!this.connection) return;
+
+    this.connection.on(VoiceConnectionStatus.Ready, () => {
+      console.log(`🎵 Voice connection ready`);
+    });
+
+    this.connection.on(VoiceConnectionStatus.Disconnected, async () => {
+      try {
+        console.log('🔌 Voice connection disconnected, attempting to reconnect...');
+        await Promise.race([
+          entersState(this.connection!, VoiceConnectionStatus.Signalling, 5_000),
+          entersState(this.connection!, VoiceConnectionStatus.Connecting, 5_000),
+        ]);
+      } catch (error) {
+        console.log('🔌 Voice connection lost permanently');
+        if (this.connection) {
+          this.connection.destroy();
+          this.connection = null;
+        }
+      }
+    });
+
+    this.connection.on('error', (error) => {
+      console.error('❌ Voice connection error:', error);
+    });
+  }
+
   disconnect(): void {
-    if (this.connection) {
-      this.connection.destroy();
-      this.connection = null;
+    try {
+      if (this.connection) {
+        this.connection.destroy();
+        this.connection = null;
+      }
+      this.player.stop();
+      this.queue = [];
+      this.currentTrack = null;
+      this.isPlaying = false;
+      this.isPaused = false;
+      console.log('🔌 Disconnected from voice channel');
+    } catch (error) {
+      console.error('❌ Error during disconnect:', error);
     }
-    this.player.stop();
-    this.queue = [];
-    this.currentTrack = null;
-    this.isPlaying = false;
-    console.log('🔌 Disconnected from voice channel');
+  }
+
+  isConnected(): boolean {
+    return this.connection !== null && 
+           this.connection.state.status !== VoiceConnectionStatus.Destroyed &&
+           this.connection.state.status !== VoiceConnectionStatus.Disconnected;
   }
 
   async searchAndAddSpotifyTrack(query: string, requestedBy: string): Promise<Track | null> {
@@ -167,7 +263,7 @@ export class MusicPlayer {
       return track;
       
     } catch (error) {
-      console.error(`❌ Error searching for track "${query}":`, error);
+      console.error(` Error searching for track "${query}":`, error);
       return null;
     }
   }
@@ -195,6 +291,13 @@ export class MusicPlayer {
       return;
     }
 
+    // Check if we're still connected to voice
+    if (!this.connection || this.connection.state.status === VoiceConnectionStatus.Destroyed) {
+      console.warn('⚠️ No voice connection available, stopping playback');
+      this.currentTrack = null;
+      return;
+    }
+
     const track = this.queue.shift()!;
     this.currentTrack = track;
 
@@ -208,9 +311,33 @@ export class MusicPlayer {
         return;
       }
 
-      const stream = this.youtubeService.createAudioStream(track.url);
+      // Create audio stream with error handling
+      let stream;
+      try {
+        stream = this.youtubeService.createAudioStream(track.url, {
+          filter: 'audioonly',
+          quality: 'highestaudio',
+          highWaterMark: 1 << 25,
+          requestOptions: {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+          }
+        });
+      } catch (streamError) {
+        console.error(`❌ Failed to create audio stream for "${track.title}":`, streamError);
+        setTimeout(() => this.playNext(), 1000);
+        return;
+      }
+
       const resource = createAudioResource(stream, {
         inlineVolume: true,
+      });
+
+      // Handle stream errors
+      stream.on('error', (error: any) => {
+        console.error(`❌ Stream error for "${track.title}":`, error);
+        setTimeout(() => this.playNext(), 1000);
       });
 
       // Set volume
@@ -218,7 +345,11 @@ export class MusicPlayer {
         resource.volume.setVolume(this.volume);
       }
       
+      // Play the resource
       this.player.play(resource);
+      
+      // Log successful playback start
+      console.log(`✅ Started playing: "${track.title}"`);
       
     } catch (error) {
       console.error(`❌ Error playing track "${track.title}":`, error);
