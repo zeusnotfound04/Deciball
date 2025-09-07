@@ -1,10 +1,11 @@
-import { Collection, Client, REST, Routes, ChatInputCommandInteraction, SlashCommandBuilder, Interaction } from "discord.js";
+import { Collection, Client, REST, Routes, ChatInputCommandInteraction, SlashCommandBuilder, Interaction, AutocompleteInteraction } from "discord.js";
 import { readdirSync } from "fs";
 import { join } from "path";
 
 interface Command {
   command: SlashCommandBuilder;
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+  autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>;
 }
 
 export class CommandHandler {
@@ -65,19 +66,42 @@ export class CommandHandler {
   }
 
   async handleInteraction(interaction: Interaction): Promise<void> {
+    // Handle autocomplete interactions
+    if (interaction.isAutocomplete()) {
+      const command = this.commands.get(interaction.commandName);
+
+      if (!command) {
+        console.error(`❌ No command matching ${interaction.commandName} was found for autocomplete.`);
+        return;
+      }
+
+      if (!command.autocomplete) {
+        console.warn(`⚠️ Command ${interaction.commandName} doesn't have autocomplete handler.`);
+        return;
+      }
+
+      try {
+        await command.autocomplete(interaction);
+      } catch (error) {
+        console.error("❌ Error executing autocomplete:", error);
+      }
+      return;
+    }
+
+    // Handle chat input commands
     if (!interaction.isChatInputCommand()) return;
 
     const command = this.commands.get(interaction.commandName);
 
     if (!command) {
-      console.error(` No command matching ${interaction.commandName} was found.`);
+      console.error(`❌ No command matching ${interaction.commandName} was found.`);
       return;
     }
 
     try {
       await command.execute(interaction);
     } catch (error) {
-      console.error(" Error executing command:", error);
+      console.error("❌ Error executing command:", error);
       
       const errorMessage = "There was an error while executing this command!";
       
