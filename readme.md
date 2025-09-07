@@ -235,7 +235,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ---
 
 
-**DeciBall** - *Where every beat brings us together!* 🎶✨
+**Deciball** - *Where every beat brings us together!* 🎶✨
 
 ---
 
@@ -243,5 +243,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ![Contributors](https://img.shields.io/github/contributors/zeusnotfound04/deciball?style=for-the-badge)
 ![Last Commit](https://img.shields.io/github/last-commit/zeusnotfound04/deciball?style=for-the-badge)
 ![GitHub Stars](https://img.shields.io/github/stars/zeusnotfound04/deciball?style=for-the-badge)
+
 
 
