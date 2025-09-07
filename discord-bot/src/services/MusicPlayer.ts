@@ -211,7 +211,7 @@ export class MusicPlayer {
       this.isPaused = false;
       console.log('🔌 Disconnected from voice channel');
     } catch (error) {
-      console.error('❌ Error during disconnect:', error);
+      console.error(' Error during disconnect:', error);
     }
   }
 
@@ -223,17 +223,17 @@ export class MusicPlayer {
 
   async searchAndAddSpotifyTrack(query: string, requestedBy: string): Promise<Track | null> {
     try {
-      console.log(`🔍 Searching Spotify for: "${query}"`);
+      console.log(` Searching Spotify for: "${query}"`);
       
       const spotifyTracks = await this.spotifyService.searchTracks(query, 1);
       if (spotifyTracks.length === 0) {
-        console.warn(`⚠️ No Spotify results found for: "${query}"`);
+        console.warn(` No Spotify results found for: "${query}"`);
         return null;
       }
 
       const spotifyTrack = spotifyTracks[0];
       if (!spotifyTrack) {
-        console.warn(`⚠️ Invalid Spotify track data`);
+        console.warn(` Invalid Spotify track data`);
         return null;
       }
 
@@ -244,7 +244,7 @@ export class MusicPlayer {
       
       const youtubeTrack = await this.youtubeService.searchTrack(searchQuery);
       if (!youtubeTrack) {
-        console.warn(`⚠️ No YouTube version found for: "${searchQuery}"`);
+        console.warn(` No YouTube version found for: "${searchQuery}"`);
         return null;
       }
 
@@ -259,7 +259,7 @@ export class MusicPlayer {
         youtubeData: youtubeTrack
       };
 
-      console.log(`✅ Successfully found track: "${track.title}" on YouTube`);
+      console.log(` Successfully found track: "${track.title}" on YouTube`);
       return track;
       
     } catch (error) {
@@ -275,7 +275,7 @@ export class MusicPlayer {
     };
 
     this.queue.push(queuedTrack);
-    console.log(`📝 Added to queue: "${track.title}" (Queue length: ${this.queue.length})`);
+    console.log(` Added to queue: "${track.title}" (Queue length: ${this.queue.length})`);
 
     if (!this.isPlaying && !this.currentTrack) {
       this.playNext();
@@ -287,13 +287,13 @@ export class MusicPlayer {
   async playNext(): Promise<void> {
     if (this.queue.length === 0) {
       this.currentTrack = null;
-      console.log('📭 Queue is empty');
+      console.log(' Queue is empty');
       return;
     }
 
     // Check if we're still connected to voice
     if (!this.connection || this.connection.state.status === VoiceConnectionStatus.Destroyed) {
-      console.warn('⚠️ No voice connection available, stopping playback');
+      console.warn(' No voice connection available, stopping playback');
       this.currentTrack = null;
       return;
     }
@@ -302,11 +302,11 @@ export class MusicPlayer {
     this.currentTrack = track;
 
     try {
-      console.log(`🎵 Now playing: "${track.title}" by ${track.artist}`);
+      console.log(` Now playing: "${track.title}" by ${track.artist}`);
       
       // Validate YouTube URL before creating stream
       if (!this.youtubeService.validateURL(track.url)) {
-        console.error(`❌ Invalid YouTube URL: ${track.url}`);
+        console.error(` Invalid YouTube URL: ${track.url}`);
         setTimeout(() => this.playNext(), 100);
         return;
       }
@@ -325,7 +325,7 @@ export class MusicPlayer {
           }
         });
       } catch (streamError) {
-        console.error(`❌ Failed to create audio stream for "${track.title}":`, streamError);
+        console.error(` Failed to create audio stream for "${track.title}":`, streamError);
         setTimeout(() => this.playNext(), 1000);
         return;
       }
@@ -336,7 +336,7 @@ export class MusicPlayer {
 
       // Handle stream errors
       stream.on('error', (error: any) => {
-        console.error(`❌ Stream error for "${track.title}":`, error);
+        console.error(` Stream error for "${track.title}":`, error);
         setTimeout(() => this.playNext(), 1000);
       });
 
@@ -349,10 +349,10 @@ export class MusicPlayer {
       this.player.play(resource);
       
       // Log successful playback start
-      console.log(`✅ Started playing: "${track.title}"`);
+      console.log(` Started playing: "${track.title}"`);
       
     } catch (error) {
-      console.error(`❌ Error playing track "${track.title}":`, error);
+      console.error(` Error playing track "${track.title}":`, error);
       // Try next track after a brief delay
       setTimeout(() => this.playNext(), 1000);
     }
