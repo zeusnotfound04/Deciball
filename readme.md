@@ -234,16 +234,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
----
-
-## 📞 Support & Contact
-
-- **GitHub Issues**: [Report bugs or request features](https://github.com/zeusnotfound04/deciball/issues)
-- **Discussions**: [Community discussions](https://github.com/zeusnotfound04/deciball/discussions)
-- **Email**: 
-- **Twitter**: [Insert your Twitter handle]
-
----
 
 **DeciBall** - *Where every beat brings us together!* 🎶✨
 
@@ -253,4 +243,5 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ![Contributors](https://img.shields.io/github/contributors/zeusnotfound04/deciball?style=for-the-badge)
 ![Last Commit](https://img.shields.io/github/last-commit/zeusnotfound04/deciball?style=for-the-badge)
 ![GitHub Stars](https://img.shields.io/github/stars/zeusnotfound04/deciball?style=for-the-badge)
+
 
