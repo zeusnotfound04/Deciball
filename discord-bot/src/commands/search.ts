@@ -19,7 +19,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const member = interaction.member as GuildMember;
     if (!member?.voice?.channel) {
       await interaction.reply({
-        content: "❌ You need to be in a voice channel to play music!",
+        content: "You need to be in a voice channel to play music!",
         ephemeral: true
       });
       return;
@@ -28,7 +28,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const query = interaction.options.getString("query", true);
     if (!query || query.trim().length === 0) {
       await interaction.reply({
-        content: "❌ Please provide a valid search query!",
+        content: "Please provide a valid search query!",
         ephemeral: true
       });
       return;
@@ -41,7 +41,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const tracks = await spotifyService.searchTracks(query.trim(), 10);
     
     if (tracks.length === 0) {
-      await interaction.editReply(`❌ No songs found for: "${query}"`);
+      await interaction.editReply(`No songs found for: "${query}"`);
       return;
     }
 
@@ -51,8 +51,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       description: `by ${track.artists.map(a => a.name).join(", ")}`.length > 100 
         ? `by ${track.artists.map(a => a.name).join(", ")}`.substring(0, 97) + "..."
         : `by ${track.artists.map(a => a.name).join(", ")}`,
-      value: index.toString(),
-      emoji: "🎵"
+      value: index.toString()
     }));
 
     const selectMenu = new StringSelectMenuBuilder()
@@ -93,7 +92,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       if (!selectInteraction.isStringSelectMenu()) {
         await interaction.editReply({
-          content: "❌ Invalid interaction type!",
+          content: "Invalid interaction type!",
           embeds: [],
           components: []
         });
@@ -105,7 +104,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       if (!selectedTrack) {
         await interaction.editReply({
-          content: "❌ Invalid selection!",
+          content: "Invalid selection!",
           embeds: [],
           components: []
         });
@@ -122,7 +121,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         const connected = await player.connect(member.voice.channel as any);
         if (!connected) {
           await interaction.editReply({
-            content: "❌ Failed to connect to voice channel! Please make sure I have permission to join and speak in your voice channel.",
+            content: "Failed to connect to voice channel! Please make sure I have permission to join and speak in your voice channel.",
             embeds: [],
             components: []
           });
@@ -136,7 +135,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       
       if (!track) {
         await interaction.editReply({
-          content: `❌ Failed to find a playable version of "${selectedTrack.name}"`,
+          content: `Failed to find a playable version of "${selectedTrack.name}"`,
           embeds: [],
           components: []
         });
@@ -148,7 +147,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       
       const successEmbed: any = {
         color: 0x1db954,
-        title: "🎵 Added to Queue",
+        title: "Added to Queue",
         description: `**${track.title}**\nby ${track.artist}`,
         fields: [
           {
@@ -183,7 +182,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     } catch (error) {
       // Timeout or other error
       await interaction.editReply({
-        content: "⏱️ Search timed out. Please try again.",
+        content: "Search timed out. Please try again.",
         embeds: [],
         components: []
       });
@@ -192,7 +191,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   } catch (error) {
     console.error("Error in search command:", error);
     
-    const errorMessage = "❌ An error occurred while searching for songs.";
+    const errorMessage = "An error occurred while searching for songs.";
     
     if (interaction.deferred) {
       await interaction.editReply({
@@ -218,9 +217,9 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
 
     // Check if Spotify credentials are available
     if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
-      console.warn('⚠️ Spotify credentials not configured for autocomplete');
+      console.warn('Spotify credentials not configured for autocomplete');
       await interaction.respond([{
-        name: "⚠️ Spotify autocomplete not available - missing credentials",
+        name: "Spotify autocomplete not available - missing credentials",
         value: focusedValue
       }]);
       return;

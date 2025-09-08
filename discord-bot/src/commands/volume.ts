@@ -19,7 +19,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const member = interaction.member as GuildMember;
     if (!member?.voice?.channel) {
       await interaction.reply({
-        content: "❌ You need to be in a voice channel to control music!",
+        content: " You need to be in a voice channel to control music!",
         ephemeral: true
       });
       return;
@@ -29,7 +29,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     
     if (!musicManager.hasPlayer(interaction.guildId!)) {
       await interaction.reply({
-        content: "❌ No music is currently playing!",
+        content: "No music is currently playing!",
         ephemeral: true
       });
       return;
@@ -65,7 +65,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   } catch (error) {
     console.error("Error in volume command:", error);
     await interaction.reply({
-      content: "❌ An error occurred while adjusting volume.",
+      content: " An error occurred while adjusting volume.",
       ephemeral: true
     });
   }

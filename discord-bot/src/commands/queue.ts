@@ -11,7 +11,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     
     if (!musicManager.hasPlayer(interaction.guildId!)) {
       await interaction.reply({
-        content: "❌ No music is currently playing!",
+        content: "No music is currently playing!",
         ephemeral: true
       });
       return;
@@ -23,7 +23,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     if (!currentTrack && queue.length === 0) {
       await interaction.reply({
-        content: "📭 The queue is empty!",
+        content: "The queue is empty!",
         ephemeral: true
       });
       return;
@@ -32,11 +32,11 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     let description = "";
     
     if (currentTrack) {
-      description += `**🎵 Now Playing:**\n${currentTrack.title} by ${currentTrack.artist}\n\n`;
+      description += `**Now Playing:**\n${currentTrack.title} by ${currentTrack.artist}\n\n`;
     }
 
     if (queue.length > 0) {
-      description += "**📝 Up Next:**\n";
+      description += "**Up Next:**\n";
       queue.slice(0, 10).forEach((track, index) => {
         description += `${index + 1}. ${track.title} by ${track.artist}\n`;
       });
@@ -48,7 +48,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     const embed = {
       color: 0x1db954,
-      title: "🎵 Music Queue",
+      title: "Music Queue",
       description,
       footer: {
         text: `Total songs in queue: ${queue.length}`
@@ -61,7 +61,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   } catch (error) {
     console.error("Error in queue command:", error);
     await interaction.reply({
-      content: "❌ An error occurred while fetching the queue.",
+      content: "An error occurred while fetching the queue.",
       ephemeral: true
     });
   }

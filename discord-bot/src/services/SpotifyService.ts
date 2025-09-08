@@ -29,7 +29,7 @@ export class SpotifyService {
 
   constructor() {
     if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
-      throw new Error('❌ Spotify Client ID and Secret are required in environment variables');
+      throw new Error('Spotify Client ID and Secret are required in environment variables');
     }
 
     this.spotifyApi = new SpotifyWebApi({
@@ -44,9 +44,9 @@ export class SpotifyService {
         const data = await this.spotifyApi.clientCredentialsGrant();
         this.spotifyApi.setAccessToken(data.body['access_token']);
         this.tokenExpirationTime = Date.now() + (data.body['expires_in'] * 1000) - 60000; // Refresh 1 minute early
-        console.log('✅ Spotify access token refreshed');
+        console.log('Spotify access token refreshed');
       } catch (error) {
-        console.error('❌ Error getting Spotify access token:', error);
+        console.error('Error getting Spotify access token:', error);
         throw error;
       }
     }
@@ -86,7 +86,7 @@ export class SpotifyService {
       }));
       
     } catch (error) {
-      console.error('❌ Error searching Spotify tracks:', error);
+      console.error('Error searching Spotify tracks:', error);
       return [];
     }
   }
@@ -122,7 +122,7 @@ export class SpotifyService {
       };
       
     } catch (error) {
-      console.error('❌ Error getting Spotify track:', error);
+      console.error('Error getting Spotify track:', error);
       return null;
     }
   }

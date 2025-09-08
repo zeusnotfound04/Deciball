@@ -64,19 +64,19 @@ export class MusicPlayer {
 
   private setupPlayerEvents(): void {
     this.player.on(AudioPlayerStatus.Playing, () => {
-      console.log('🎵 Now playing audio');
+      console.log('Now playing audio');
       this.isPlaying = true;
       this.isPaused = false;
     });
 
     this.player.on(AudioPlayerStatus.Paused, () => {
-      console.log('⏸️ Audio paused');
+      console.log('Audio paused');
       this.isPlaying = false;
       this.isPaused = true;
     });
 
     this.player.on(AudioPlayerStatus.Idle, () => {
-      console.log('⏹️ Audio finished');
+      console.log('Audio finished');
       this.isPlaying = false;
       this.isPaused = false;
       // Use setTimeout to avoid potential race conditions
@@ -84,7 +84,7 @@ export class MusicPlayer {
     });
 
     this.player.on('error', (error: Error) => {
-      console.error('❌ Audio player error:', error);
+      console.error('Audio player error:', error);
       // Use setTimeout to avoid potential race conditions
       setTimeout(() => this.playNext(), 100);
     });
@@ -95,7 +95,7 @@ export class MusicPlayer {
       // Check if already connected to the same channel
       const existingConnection = getVoiceConnection(channel.guild.id);
       if (existingConnection && existingConnection.joinConfig.channelId === channel.id) {
-        console.log(`✅ Already connected to voice channel: ${channel.name || 'Unknown'}`);
+        console.log(`Already connected to voice channel: ${channel.name || 'Unknown'}`);
         this.connection = existingConnection;
         this.connection.subscribe(this.player);
         return true;
@@ -136,11 +136,11 @@ export class MusicPlayer {
           // Subscribe the audio player to the connection
           this.connection.subscribe(this.player);
           
-          console.log(`✅ Successfully connected to voice channel: ${channel.name || 'Unknown'}`);
+          console.log(`Successfully connected to voice channel: ${channel.name || 'Unknown'}`);
           return true;
           
         } catch (error) {
-          console.warn(`⚠️ Connection attempt ${attempts} failed:`, error);
+          console.warn(`Connection attempt ${attempts} failed:`, error);
           
           if (attempts === maxAttempts) {
             throw error;
@@ -154,7 +154,7 @@ export class MusicPlayer {
       return false;
       
     } catch (error) {
-      console.error('❌ Failed to connect to voice channel after all attempts:', error);
+      console.error('Failed to connect to voice channel after all attempts:', error);
       
       // Clean up on failure
       if (this.connection) {
@@ -174,12 +174,12 @@ export class MusicPlayer {
     if (!this.connection) return;
 
     this.connection.on(VoiceConnectionStatus.Ready, () => {
-      console.log(`🎵 Voice connection ready`);
+      console.log(`Voice connection ready`);
     });
 
     this.connection.on(VoiceConnectionStatus.Disconnected, async () => {
       try {
-        console.log('🔌 Voice connection disconnected, attempting to reconnect...');
+        console.log('Voice connection disconnected, attempting to reconnect...');
         await Promise.race([
           entersState(this.connection!, VoiceConnectionStatus.Signalling, 5_000),
           entersState(this.connection!, VoiceConnectionStatus.Connecting, 5_000),
@@ -194,7 +194,7 @@ export class MusicPlayer {
     });
 
     this.connection.on('error', (error) => {
-      console.error('❌ Voice connection error:', error);
+      console.error('Voice connection error:', error);
     });
   }
 
@@ -239,8 +239,8 @@ export class MusicPlayer {
 
       const searchQuery = this.spotifyService.formatSearchQuery(spotifyTrack);
       
-      console.log(`🎵 Found Spotify track: "${spotifyTrack.name}" by ${spotifyTrack.artists[0]?.name}`);
-      console.log(`🔍 Searching YouTube for: "${searchQuery}"`);
+      console.log(`Found Spotify track: "${spotifyTrack.name}" by ${spotifyTrack.artists[0]?.name}`);
+      console.log(`Searching YouTube for: "${searchQuery}"`);
       
       const youtubeTrack = await this.youtubeService.searchTrack(searchQuery);
       if (!youtubeTrack) {

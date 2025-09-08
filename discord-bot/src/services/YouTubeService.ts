@@ -27,12 +27,12 @@ export class YouTubeService {
       }
 
       const finalQuery = `${query.trim()} audio`;
-      console.log(`🔍 Searching YouTube for: "${finalQuery}"`);
+      console.log(`Searching YouTube for: "${finalQuery}"`);
       
       const searchResult = await youtubesearchapi.GetListByKeyword(finalQuery, false, 5);
       
       if (!searchResult || !searchResult.items || searchResult.items.length === 0) {
-        console.warn(`⚠️ No YouTube results found for: "${query}"`);
+        console.warn(`No YouTube results found for: "${query}"`);
         return null;
       }
 
@@ -46,24 +46,24 @@ export class YouTubeService {
       });
 
       if (validVideos.length === 0) {
-        console.warn(`⚠️ No valid YouTube videos found for: "${query}"`);
+        console.warn(`No valid YouTube videos found for: "${query}"`);
         return null;
       }
 
       const video = validVideos[0];
       if (!video) {
-        console.warn(`⚠️ No valid video found`);
+        console.warn(`No valid video found`);
         return null;
       }
       
       const videoId = video.id;
-      console.log(`📺 Found video: "${video.title}" (${videoId})`);
+      console.log(`Found video: "${video.title}" (${videoId})`);
 
       const url = `https://youtube.com/watch?v=${videoId}`;
       
       // Skip playability check for now to avoid additional delays
       // if (!await this.isVideoPlayable(url)) {
-      //   console.warn(`⚠️ Video not playable: ${url}`);
+      //   console.warn(`Video not playable: ${url}`);
       //   return null;
       // }
 
@@ -79,7 +79,7 @@ export class YouTubeService {
       };
 
     } catch (error) {
-      console.error(`❌ Error searching YouTube for "${query}":`, error);
+      console.error(`Error searching YouTube for "${query}":`, error);
       
       // Check if it's a specific API error
       if (error instanceof Error) {
@@ -115,7 +115,7 @@ export class YouTubeService {
              info.videoDetails.lengthSeconds !== '0' &&
              !info.videoDetails.isPrivate;
     } catch (error) {
-      console.warn(`⚠️ Video not accessible: ${url}`, error);
+      console.warn(`Video not accessible: ${url}`, error);
       return false;
     }
   }
@@ -124,7 +124,7 @@ export class YouTubeService {
     try {
       return await ytdl.getInfo(url);
     } catch (error) {
-      console.error(`❌ Error getting video info for ${url}:`, error);
+      console.error(`Error getting video info for ${url}:`, error);
       throw error;
     }
   }
@@ -145,11 +145,11 @@ export class YouTubeService {
     
     // Add error handling to the stream
     stream.on('error', (error: any) => {
-      console.error(`❌ YouTube stream error for ${url}:`, error);
+      console.error(`YouTube stream error for ${url}:`, error);
     });
 
     stream.on('info', (info: any) => {
-      console.log(`📺 YouTube stream info: ${info.videoDetails.title} - ${info.videoDetails.lengthSeconds}s`);
+      console.log(`YouTube stream info: ${info.videoDetails.title} - ${info.videoDetails.lengthSeconds}s`);
     });
 
     return stream;
@@ -187,7 +187,7 @@ export class YouTubeService {
       const searchResult = await youtubesearchapi.GetListByKeyword(finalQuery, false, limit * 2);
       
       if (!searchResult || !searchResult.items || searchResult.items.length === 0) {
-        console.warn(`⚠️ No YouTube results found for: "${query}"`);
+        console.warn(`No YouTube results found for: "${query}"`);
         return [];
       }
 
@@ -224,11 +224,11 @@ export class YouTubeService {
         });
       }
 
-      console.log(`✅ Found ${tracks.length} valid YouTube tracks for "${query}"`);
+      console.log(`Found ${tracks.length} valid YouTube tracks for "${query}"`);
       return tracks;
 
     } catch (error) {
-      console.error(`❌ Error searching YouTube for multiple tracks "${query}":`, error);
+      console.error(`Error searching YouTube for multiple tracks "${query}":`, error);
       
       // Check if it's a specific API error
       if (error instanceof Error) {
@@ -255,7 +255,7 @@ export class YouTubeService {
       
       const searchResult = await youtubesearchapi.GetListByKeyword(query, false, 3);
       
-      console.log('📊 Raw YouTube API Response:');
+      console.log('Raw YouTube API Response:');
       console.log('- Has result:', !!searchResult);
       console.log('- Has items:', !!searchResult?.items);
       console.log('- Items count:', searchResult?.items?.length || 0);

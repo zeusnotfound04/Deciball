@@ -71,19 +71,19 @@ export class CommandHandler {
       const command = this.commands.get(interaction.commandName);
 
       if (!command) {
-        console.error(`❌ No command matching ${interaction.commandName} was found for autocomplete.`);
+        console.error(`No command matching ${interaction.commandName} was found for autocomplete.`);
         return;
       }
 
       if (!command.autocomplete) {
-        console.warn(`⚠️ Command ${interaction.commandName} doesn't have autocomplete handler.`);
+        console.warn(`Command ${interaction.commandName} doesn't have autocomplete handler.`);
         return;
       }
 
       try {
         await command.autocomplete(interaction);
       } catch (error) {
-        console.error("❌ Error executing autocomplete:", error);
+        console.error("Error executing autocomplete:", error);
       }
       return;
     }
@@ -94,14 +94,14 @@ export class CommandHandler {
     const command = this.commands.get(interaction.commandName);
 
     if (!command) {
-      console.error(`❌ No command matching ${interaction.commandName} was found.`);
+      console.error(`No command matching ${interaction.commandName} was found.`);
       return;
     }
 
     try {
       await command.execute(interaction);
     } catch (error) {
-      console.error("❌ Error executing command:", error);
+      console.error("Error executing command:", error);
       
       const errorMessage = "There was an error while executing this command!";
       

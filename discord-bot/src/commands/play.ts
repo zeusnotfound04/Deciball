@@ -20,7 +20,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     const member = interaction.member as GuildMember;
     if (!member?.voice?.channel) {
       await interaction.reply({
-        content: "❌ You need to be in a voice channel to play music!",
+        content: "You need to be in a voice channel to play music!",
         ephemeral: true
       });
       return;
@@ -29,7 +29,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     // Check if it's a voice channel (not stage channel)
     if (member.voice.channel.type !== 2) { // 2 = GUILD_VOICE
       await interaction.reply({
-        content: "❌ I can only play music in voice channels, not stage channels!",
+        content: "I can only play music in voice channels, not stage channels!",
         ephemeral: true
       });
       return;
@@ -45,7 +45,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     if (!player.isConnected()) {
       const connected = await player.connect(member.voice.channel as any);
       if (!connected) {
-        await interaction.editReply("❌ Failed to connect to voice channel! Please make sure I have permission to join and speak in your voice channel.");
+        await interaction.editReply("Failed to connect to voice channel! Please make sure I have permission to join and speak in your voice channel.");
         return;
       }
     }
@@ -65,7 +65,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
     
     if (!track) {
-      await interaction.editReply(`❌ No songs found for: "${query}"`);
+      await interaction.editReply(`No songs found for: "${query}"`);
       return;
     }
 
@@ -76,7 +76,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     
     const embed: any = {
       color: 0x1db954, // Spotify green
-      title: currentTrack ? "🎵 Added to Queue" : "🎵 Now Playing",
+      title: currentTrack ? "Added to Queue" : "Now Playing",
       description: `**${track.title}**\nby ${track.artist}`,
       fields: [
         {
@@ -108,7 +108,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   } catch (error) {
     console.error("Error in play command:", error);
     
-    const errorMessage = "❌ An error occurred while trying to play the song.";
+    const errorMessage = "An error occurred while trying to play the song.";
     
     if (interaction.deferred) {
       await interaction.editReply(errorMessage);
@@ -130,9 +130,9 @@ export async function autocomplete(interaction: AutocompleteInteraction) {
 
     // Check if Spotify credentials are available
     if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
-      console.warn('⚠️ Spotify credentials not configured for autocomplete');
+      console.warn('Spotify credentials not configured for autocomplete');
       await interaction.respond([{
-        name: "⚠️ Spotify autocomplete not available - missing credentials",
+        name: "Spotify autocomplete not available - missing credentials",
         value: focusedValue
       }]);
       return;
