@@ -1,6 +1,7 @@
 import { Client, IntentsBitField, Events } from "discord.js";
 import dotenv from "dotenv";
 import { CommandHandler } from "./handlers/commandHandler";
+import { SpaceManager } from "./services/SpaceManager";
 
 dotenv.config();
 
@@ -23,6 +24,14 @@ const commandHandler = new CommandHandler(client);
 client.once(Events.ClientReady, async (readyClient) => {
   console.log(`Discord bot is ready! Logged in as ${readyClient.user.tag}`);
   
+  // Initialize SpaceManager
+  try {
+    await SpaceManager.getInstance().initialize();
+    console.log("SpaceManager initialized successfully");
+  } catch (error) {
+    console.error("Failed to initialize SpaceManager:", error);
+  }
+  
   // Load and register commands
   await commandHandler.loadCommands();
   console.log("Bot is fully operational!");
@@ -41,14 +50,32 @@ client.on(Events.Warn, (warning) => {
 
 client.login(process.env.DISCORD_TOKEN);
 
-process.on("SIGINT", () => {
+process.on("SIGINT", async () => {
   console.log("\nReceived SIGINT, shutting down gracefully...");
+  
+  // Shutdown SpaceManager
+  try {
+    await SpaceManager.getInstance().shutdown();
+    console.log("SpaceManager shutdown complete");
+  } catch (error) {
+    console.error("Error during SpaceManager shutdown:", error);
+  }
+  
   client.destroy();
   process.exit(0);
 });
 
-process.on("SIGTERM", () => {
+process.on("SIGTERM", async () => {
   console.log("\nReceived SIGTERM, shutting down gracefully...");
+  
+  // Shutdown SpaceManager
+  try {
+    await SpaceManager.getInstance().shutdown();
+    console.log("SpaceManager shutdown complete");
+  } catch (error) {
+    console.error("Error during SpaceManager shutdown:", error);
+  }
+  
   client.destroy();
   process.exit(0);
 });

@@ -20,6 +20,9 @@ importers:
       '@snazzah/davey':
         specifier: ^0.1.6
         version: 0.1.6
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       discord.js:
         specifier: ^14.22.1
         version: 14.22.1
@@ -44,6 +47,9 @@ importers:
       spotify-web-api-node:
         specifier: ^5.0.2
         version: 5.0.2
+      ws:
+        specifier: ^8.18.3
+        version: 8.18.3
       youtube-search-api:
         specifier: ^2.0.1
         version: 2.0.1
