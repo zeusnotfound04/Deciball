@@ -85,6 +85,7 @@ type Space = {
     creatorId: string;
     users: Map<string, User>;
     playbackState: PlaybackState;
+    discordBots: Map<string, WebSocket>; // guildId -> WebSocket
 };
 
 export class RoomManager {
@@ -855,7 +856,8 @@ export class RoomManager {
               pausedAt: null,
               isPlaying: false,
               lastUpdated: Date.now()
-            }
+            },
+            discordBots: new Map<string, WebSocket>()
           });
 
           if (spaceName) {
@@ -1412,6 +1414,12 @@ export class RoomManager {
             });
         });
 
+        // Notify Discord bots about playback resume
+        this.broadcastToDiscordBots(spaceId, {
+            type: "space-playback-resumed",
+            data: { spaceId, isPlaying: true }
+        });
+
         this.startTimestampBroadcast(spaceId);
 
         // Send immediate play command for instant response
@@ -1457,6 +1465,12 @@ export class RoomManager {
                     }));
                 }
             });
+        });
+
+        // Notify Discord bots about playback pause
+        this.broadcastToDiscordBots(spaceId, {
+            type: "space-playback-paused",
+            data: { spaceId, isPlaying: false }
         });
 
         this.stopTimestampBroadcast(spaceId);
@@ -2643,6 +2657,12 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                     }
                 });
             });
+
+            // Notify Discord bots that queue is empty
+            this.broadcastToDiscordBots(spaceId, {
+                type: "space-track-ended",
+                data: { spaceId }
+            });
             
             await this.broadcastImageUpdate(spaceId);
             return;
@@ -2702,6 +2722,23 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
                     }));
                 }
             });
+        });
+
+        // Notify Discord bots about track change
+        this.broadcastToDiscordBots(spaceId, {
+            type: "space-track-changed",
+            data: {
+                spaceId,
+                track: {
+                    id: nextSong.id,
+                    title: nextSong.title,
+                    artist: nextSong.artist,
+                    url: nextSong.url,
+                    duration: nextSong.duration,
+                    extractedId: nextSong.extractedId,
+                    thumbnail: nextSong.smallImg || nextSong.bigImg
+                }
+            }
         });
 
         await this.broadcastImageUpdate(spaceId);
@@ -2873,6 +2910,53 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             console.error(`Error getting user info for ${userId}:`, error);
         }
         return null;
+    }
+
+    // Discord Bot Management Methods
+    async addDiscordBot(spaceId: string, guildId: string, ws: WebSocket): Promise<void> {
+        console.log(`Adding Discord bot for guild ${guildId} to space ${spaceId}`);
+        
+        let space = this.spaces.get(spaceId);
+        if (!space) {
+            // Create space if it doesn't exist
+            await this.createRoom(spaceId);
+            space = this.spaces.get(spaceId);
+        }
+
+        if (space) {
+            if (!space.discordBots) {
+                space.discordBots = new Map();
+            }
+            space.discordBots.set(guildId, ws);
+            console.log(`Discord bot added for guild ${guildId} in space ${spaceId}`);
+        }
+    }
+
+    async removeDiscordBot(spaceId: string, guildId: string): Promise<void> {
+        console.log(`Removing Discord bot for guild ${guildId} from space ${spaceId}`);
+        
+        const space = this.spaces.get(spaceId);
+        if (space && space.discordBots) {
+            space.discordBots.delete(guildId);
+            console.log(`Discord bot removed for guild ${guildId} from space ${spaceId}`);
+        }
+    }
+
+    private broadcastToDiscordBots(spaceId: string, message: any): void {
+        const space = this.spaces.get(spaceId);
+        if (space && space.discordBots) {
+            space.discordBots.forEach((ws, guildId) => {
+                if (ws.readyState === 1) { // WebSocket.OPEN
+                    try {
+                        ws.send(JSON.stringify(message));
+                    } catch (error) {
+                        console.error(`Error sending message to Discord bot ${guildId}:`, error);
+                        // Remove the bot if WebSocket is broken
+                        space.discordBots!.delete(guildId);
+                    }
+                }
+            });
+        }
     }
 
 }

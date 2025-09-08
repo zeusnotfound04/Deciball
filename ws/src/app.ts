@@ -54,6 +54,9 @@ type Data = {
     seekTime? : number;
     currentTime? : number;
     latency? : number;
+    // Discord bot fields
+    discordGuildId? : string;
+    isDiscordBot? : boolean;
     // Batch processing fields - updated for simplified track metadata format
     songs? : Array<{ 
         title: string; 
@@ -72,6 +75,79 @@ type Data = {
     }>;
 }
 
+
+async function handleDiscordJoinSpace(ws: WebSocket, data: Data) {
+    console.log(`Discord bot joining space: ${data.spaceId} for guild: ${data.discordGuildId}`);
+    
+    try {
+        await RoomManager.getInstance().addDiscordBot(data.spaceId!, data.discordGuildId!, ws);
+        
+        ws.send(JSON.stringify({
+            type: "discord-join-success",
+            data: {
+                spaceId: data.spaceId,
+                discordGuildId: data.discordGuildId,
+                message: "Successfully joined space"
+            }
+        }));
+    } catch (error) {
+        console.error("Error handling Discord join space:", error);
+        sendError(ws, "Failed to join space");
+    }
+}
+
+async function handleDiscordLeaveSpace(ws: WebSocket, data: Data) {
+    console.log(`Discord bot leaving space: ${data.spaceId} for guild: ${data.discordGuildId}`);
+    
+    try {
+        await RoomManager.getInstance().removeDiscordBot(data.spaceId!, data.discordGuildId!);
+        
+        ws.send(JSON.stringify({
+            type: "discord-leave-success",
+            data: {
+                spaceId: data.spaceId,
+                discordGuildId: data.discordGuildId,
+                message: "Successfully left space"
+            }
+        }));
+    } catch (error) {
+        console.error("Error handling Discord leave space:", error);
+        sendError(ws, "Failed to leave space");
+    }
+}
+
+async function handleDiscordRequestSync(ws: WebSocket, data: Data) {
+    console.log(`Discord bot requesting sync for space: ${data.spaceId}`);
+    
+    try {
+        const currentSong = await RoomManager.getInstance().getCurrentPlayingSong(data.spaceId!);
+        const space = RoomManager.getInstance().spaces.get(data.spaceId!);
+        
+        const syncData = {
+            spaceId: data.spaceId,
+            discordGuildId: data.discordGuildId,
+            currentTrack: currentSong ? {
+                id: currentSong.id,
+                title: currentSong.title,
+                artist: currentSong.artist,
+                url: currentSong.url,
+                duration: currentSong.duration,
+                extractedId: currentSong.extractedId,
+                thumbnail: currentSong.smallImg || currentSong.bigImg
+            } : null,
+            isPlaying: space?.playbackState?.isPlaying || false,
+            volume: 0.5 // Default volume
+        };
+        
+        ws.send(JSON.stringify({
+            type: "space-sync-response",
+            data: syncData
+        }));
+    } catch (error) {
+        console.error("Error handling Discord sync request:", error);
+        sendError(ws, "Failed to sync space");
+    }
+}
 
 async function handleJoinRoom(ws: WebSocket , data : Data){
     console.log("Joining the room")
@@ -459,6 +535,15 @@ async function handleConnection(ws:WebSocket) {
             switch (type){
                 case "join-room":
                     await handleJoinRoom(ws , data);
+                    break;
+                case "discord-join-space":
+                    await handleDiscordJoinSpace(ws, data);
+                    break;
+                case "discord-leave-space":
+                    await handleDiscordLeaveSpace(ws, data);
+                    break;
+                case "discord-request-sync":
+                    await handleDiscordRequestSync(ws, data);
                     break;
                 case "discord-activity-update":
                     await RoomManager.getInstance().broadcastDiscordActivity(data.spaceId, data);
