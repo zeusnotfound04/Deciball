@@ -110,7 +110,7 @@ model Upvote {
 }
 
 model Space {
-  id            String         @id @default(uuid())
+  id            String         @id
   name          String
   hostId        String
   isActive      Boolean        @default(true)

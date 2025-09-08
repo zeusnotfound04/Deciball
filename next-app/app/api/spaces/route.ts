@@ -1,5 +1,6 @@
 import { authOptions } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/db";
+import { generateId } from "@/lib/id-generator";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -35,12 +36,14 @@ export async function POST(req: NextRequest) {
 
 
         console.log("Creating space with data:", {
+            id: generateId(),
             name: data.spaceName,
             hostId: session.user.id
         });
 
         const space = await prisma.space.create({
             data: {
+                id: generateId(),
                 name: data.spaceName,
                 hostId: session.user.id,
                 
