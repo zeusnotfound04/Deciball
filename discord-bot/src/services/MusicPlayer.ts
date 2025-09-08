@@ -311,21 +311,22 @@ export class MusicPlayer {
         return;
       }
 
-      // Create audio stream with error handling
+      // Create audio stream with error handling and retry logic
       let stream;
       try {
-        stream = this.youtubeService.createAudioStream(track.url, {
+        stream = await this.youtubeService.createAudioStreamWithRetry(track.url, {
           filter: 'audioonly',
           quality: 'highestaudio',
-          highWaterMark: 1 << 25,
-          requestOptions: {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-          }
+          highWaterMark: 1 << 25
         });
       } catch (streamError) {
-        console.error(` Failed to create audio stream for "${track.title}":`, streamError);
+        console.error(` Failed to create audio stream for "${track.title}" after retries:`, streamError);
+        
+        // If it's a bot detection error, provide helpful message
+        if (streamError instanceof Error && streamError.message.includes('Sign in to confirm you\'re not a bot')) {
+          console.error(` Bot detection triggered for "${track.title}". Please check if YouTube cookies are valid.`);
+        }
+        
         setTimeout(() => this.playNext(), 1000);
         return;
       }

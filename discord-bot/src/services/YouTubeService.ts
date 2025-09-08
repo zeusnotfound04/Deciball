@@ -1,6 +1,7 @@
 // Use CommonJS require for better compatibility
 const ytdl = require('@distube/ytdl-core');
 const youtubesearchapi = require('youtube-search-api');
+require('dotenv').config();
 
 export interface YouTubeTrack {
   id: string;
@@ -12,6 +13,25 @@ export interface YouTubeTrack {
 }
 
 export class YouTubeService {
+  private cookies: string;
+
+  constructor() {
+    // Load cookies from environment variables
+    this.cookies = process.env.COOKIES || '';
+    console.log(`[YouTubeService] Initialized with cookies: ${this.cookies ? 'Yes' : 'No'}`);
+  }
+
+  // Method to refresh cookies if needed
+  refreshCookies(): void {
+    this.cookies = process.env.COOKIES || '';
+    console.log(`[YouTubeService] Cookies refreshed: ${this.cookies ? 'Yes' : 'No'}`);
+  }
+
+  // Method to set cookies manually
+  setCookies(cookies: string): void {
+    this.cookies = cookies;
+    console.log(`[YouTubeService] Cookies manually set`);
+  }
   
   async searchTrack(query: string): Promise<YouTubeTrack | null> {
     try {
@@ -110,7 +130,8 @@ export class YouTubeService {
 
   async isVideoPlayable(url: string): Promise<boolean> {
     try {
-      const info = await ytdl.getBasicInfo(url);
+      const requestOptions = this.getRequestOptions();
+      const info = await ytdl.getBasicInfo(url, { requestOptions });
       return !info.videoDetails.isLiveContent && 
              info.videoDetails.lengthSeconds !== '0' &&
              !info.videoDetails.isPrivate;
@@ -122,23 +143,42 @@ export class YouTubeService {
 
   async getVideoInfo(url: string): Promise<any> {
     try {
-      return await ytdl.getInfo(url);
+      const requestOptions = this.getRequestOptions();
+      return await ytdl.getInfo(url, { requestOptions });
     } catch (error) {
       console.error(`Error getting video info for ${url}:`, error);
       throw error;
     }
   }
 
+  private getRequestOptions(): any {
+    const headers: any = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Accept-Encoding': 'gzip, deflate',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+    };
+
+    // Add cookies if available
+    if (this.cookies && this.cookies.trim()) {
+      headers['Cookie'] = this.cookies;
+      console.log(`[YouTubeService] Using cookies for authentication`);
+    }
+
+    return { headers };
+  }
+
   createAudioStream(url: string, options?: any) {
+    const requestOptions = this.getRequestOptions();
+    
     const defaultOptions: any = {
       filter: 'audioonly',
       quality: 'highestaudio',
       highWaterMark: 1 << 25, // 32MB buffer
-      requestOptions: {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      }
+      requestOptions
     };
 
     const stream = ytdl(url, { ...defaultOptions, ...options });
@@ -146,6 +186,13 @@ export class YouTubeService {
     // Add error handling to the stream
     stream.on('error', (error: any) => {
       console.error(`YouTube stream error for ${url}:`, error);
+      
+      // Check if it's a bot detection error
+      if (error.message && error.message.includes('Sign in to confirm you\'re not a bot')) {
+        console.warn(`[YouTubeService] Bot detection triggered. Make sure cookies are valid and up to date.`);
+        console.warn(`[YouTubeService] Current cookies set: ${this.cookies ? 'Yes' : 'No'}`);
+        console.warn(`[YouTubeService] You may need to update the COOKIES environment variable with fresh YouTube session cookies.`);
+      }
     });
 
     stream.on('info', (info: any) => {
@@ -153,6 +200,67 @@ export class YouTubeService {
     });
 
     return stream;
+  }
+
+  // New method to create stream with retry logic
+  async createAudioStreamWithRetry(url: string, options?: any, maxRetries: number = 2): Promise<any> {
+    let lastError: any;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[YouTubeService] Creating audio stream (attempt ${attempt}/${maxRetries}) for: ${url}`);
+        
+        const stream = this.createAudioStream(url, options);
+        
+        // Test the stream by listening for the first few events
+        return new Promise((resolve, reject) => {
+          let resolved = false;
+          
+          const timeout = setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              reject(new Error('Stream creation timeout'));
+            }
+          }, 10000); // 10 second timeout
+          
+          stream.on('error', (error: any) => {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(timeout);
+              reject(error);
+            }
+          });
+          
+          stream.on('info', () => {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(timeout);
+              resolve(stream);
+            }
+          });
+          
+          // Also resolve if data starts flowing
+          stream.on('readable', () => {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(timeout);
+              resolve(stream);
+            }
+          });
+        });
+        
+      } catch (error) {
+        lastError = error;
+        console.warn(`[YouTubeService] Stream creation attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxRetries) {
+          console.log(`[YouTubeService] Waiting 2 seconds before retry...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    }
+    
+    throw lastError || new Error('Failed to create audio stream after all attempts');
   }
 
   validateURL(url: string): boolean {
