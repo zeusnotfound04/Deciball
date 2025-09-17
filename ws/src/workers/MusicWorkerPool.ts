@@ -44,48 +44,33 @@ export class MusicWorkerPool extends EventEmitter {
         errors: number;
     } = { totalProcessed: 0, totalTime: 0, errors: 0 };
 
-    // Task timeout in milliseconds
     private readonly TASK_TIMEOUT = parseInt(process.env.TASK_TIMEOUT || '30000', 10);
 
     constructor(maxWorkers?: number) {
         super();
-        // Optimize for t2.small instances - limit to 2 workers maximum
         const cpuCount = os.cpus().length;
         
-        // Check for environment variable override first
         const envMaxWorkers = process.env.MAX_WORKERS ? parseInt(process.env.MAX_WORKERS, 10) : undefined;
         const instanceType = (process.env.INSTANCE_TYPE as 't2.micro' | 't2.small' | 't2.medium' | 't3.small' | 'auto') || 'auto';
-        
-        // Priority: manual parameter > env variable > auto-detection
         if (maxWorkers !== undefined) {
-            this.maxWorkers = Math.max(1, Math.min(maxWorkers, 4)); // Clamp between 1-4
-            console.log(`[WorkerPool] 🎯 Manual worker count override: ${this.maxWorkers} worker(s)`);
+            this.maxWorkers = Math.max(1, Math.min(maxWorkers, 4));
         } else if (envMaxWorkers !== undefined && !isNaN(envMaxWorkers)) {
-            this.maxWorkers = Math.max(1, Math.min(envMaxWorkers, 4)); // Clamp between 1-4
-            console.log(`[WorkerPool] 🔧 Environment variable override: ${this.maxWorkers} worker(s)`);
+            this.maxWorkers = Math.max(1, Math.min(envMaxWorkers, 4)); 
         } else {
-            // Auto-detect optimal worker count for production stability
             this.maxWorkers = MusicWorkerPool.getOptimalWorkerCount(instanceType);
         }
         
-        console.log(`[WorkerPool] 🔧 CPU optimization: ${cpuCount} vCPUs detected, using ${this.maxWorkers} worker(s) (Instance: ${instanceType})`);
-        
-        // Log optimization status for different instance types
         if (cpuCount <= 2) {
-            console.log(`[WorkerPool] ⚡ Low resource environment (t2.small/micro) - optimized for ${this.maxWorkers} worker(s)`);
+            console.log(`[WorkerPool] Low resource environment (t2.small/micro) - optimized for ${this.maxWorkers} worker(s)`);
         } else if (cpuCount <= 4) {
-            console.log(`[WorkerPool] 🚀 Medium resource environment - using ${this.maxWorkers} worker(s)`);
+            console.log(`[WorkerPool] Medium resource environment - using ${this.maxWorkers} worker(s)`);
         } else {
-            console.log(`[WorkerPool] 💪 High resource environment - using ${this.maxWorkers} worker(s)`);
+            console.log(`[WorkerPool] High resource environment - using ${this.maxWorkers} worker(s)`);
         }
         
-        // Determine the correct worker script path based on environment
-        // Check multiple possible locations
         const possiblePaths = [
-            // Production paths (compiled)
             path.resolve(__dirname, 'musicWorker.js'),
             path.resolve(__dirname, './musicWorker.js'),
-            // Development paths (source)
             path.resolve(__dirname, '../workers/musicWorker.ts'),
             path.resolve(__dirname, './musicWorker.ts'),
             // Fallback paths
@@ -105,17 +90,15 @@ export class MusicWorkerPool extends EventEmitter {
             this.workerScript = foundPath;
             
         } else {
-            // Last resort - use the most likely production path
             this.workerScript = path.resolve(__dirname, 'musicWorker.js');
-            console.error(`[WorkerPool] ❌ Worker script not found in any expected location. Using fallback: ${this.workerScript}`);
+            console.error(`[WorkerPool]  Worker script not found in any expected location. Using fallback: ${this.workerScript}`);
             console.error(`[WorkerPool] __dirname: ${__dirname}`);
             console.error(`[WorkerPool] Searched paths:`, possiblePaths);
         }
         
-        // Additional safety check: if we somehow end up with a .ts path in production, convert it to .js
         if (this.workerScript.endsWith('.ts') && this.workerScript.includes('/dist/')) {
             const jsPath = this.workerScript.replace('.ts', '.js');
-            console.warn(`[WorkerPool] ⚠️ Detected .ts file in dist directory, converting to .js: ${jsPath}`);
+            console.warn(`[WorkerPool]  Detected .ts file in dist directory, converting to .js: ${jsPath}`);
             this.workerScript = jsPath;
         }
         
@@ -134,23 +117,19 @@ export class MusicWorkerPool extends EventEmitter {
         try {
             
             
-            // Check if the worker script file exists
             if (!fs.existsSync(this.workerScript)) {
                 throw new Error(`Worker script not found: ${this.workerScript}`);
             }
             
-            // Check if we're using the compiled version or source version
             const isCompiledVersion = this.workerScript.endsWith('.js');
             
             let worker: Worker;
             if (isCompiledVersion) {
-                // Use compiled .js file without ts-node
                 console.log(`[WorkerPool] Using compiled worker (no ts-node): ${this.workerScript}`);
                 worker = new Worker(this.workerScript, {
                     workerData: { workerId }
                 });
             } else {
-                // Use TypeScript source file with ts-node
                 console.log(`[WorkerPool] Using TypeScript worker (with ts-node): ${this.workerScript}`);
                 worker = new Worker(this.workerScript, {
                     workerData: { workerId },
@@ -166,13 +145,13 @@ export class MusicWorkerPool extends EventEmitter {
             });
 
             worker.on('error', (error) => {
-                console.error(`[WorkerPool] ❌ Worker ${workerId} error:`, error);
+                console.error(`[WorkerPool] Worker ${workerId} error:`, error);
                 this.handleWorkerError(worker, error);
             });
 
             worker.on('exit', (exitCode) => {
                 if (exitCode !== 0) {
-                    console.error(`[WorkerPool] ❌ Worker ${workerId} exited with code ${exitCode}`);
+                    console.error(`[WorkerPool] Worker ${workerId} exited with code ${exitCode}`);
                     this.handleWorkerExit(worker);
                 }
             });
@@ -183,24 +162,23 @@ export class MusicWorkerPool extends EventEmitter {
             
             return worker;
         } catch (error) {
-            console.error(`[WorkerPool] ❌ Failed to create worker ${workerId}:`, error);
+            console.error(`[WorkerPool]  Failed to create worker ${workerId}:`, error);
             console.error(`[WorkerPool] Worker script path: ${this.workerScript}`);
             console.error(`[WorkerPool] __dirname: ${__dirname}`);
             throw error;
         }
-    }    private handleWorkerResponse(worker: Worker, task: WorkerTask, result: any): void {
+    }
+
+    private handleWorkerResponse(worker: Worker, task: WorkerTask, result: any): void {
         const processingTime = Date.now() - task.timestamp;
         
-        // Clear timeout
         if (task.timeout) {
             clearTimeout(task.timeout);
         }
 
-        // Remove task from worker mapping
         this.workerTasks.delete(worker);
         this.availableWorkers.push(worker);
 
-        // Update statistics
         this.taskStats.totalProcessed++;
         this.taskStats.totalTime += processingTime;
 
@@ -269,13 +247,13 @@ export class MusicWorkerPool extends EventEmitter {
             
             
         } catch (error) {
-            console.error('[WorkerPool] ❌ Error replacing worker:', error);
+            console.error('[WorkerPool]  Error replacing worker:', error);
         }
     }
 
     private processNextTask(): void {
         if (this.availableWorkers.length === 0) {
-            return; // No available workers
+            return;
         }
 
         // Process high priority tasks first
@@ -285,7 +263,7 @@ export class MusicWorkerPool extends EventEmitter {
         }
 
         if (!task) {
-            return; // No tasks in queue
+            return;
         }
 
         const worker = this.availableWorkers.shift()!;
@@ -315,7 +293,7 @@ export class MusicWorkerPool extends EventEmitter {
             
             
         } catch (error) {
-            console.error(`[WorkerPool] ❌ Error sending task to worker:`, error);
+            console.error(`[WorkerPool]  Error sending task to worker:`, error);
             if (task.timeout) {
                 clearTimeout(task.timeout);
             }
@@ -334,9 +312,6 @@ export class MusicWorkerPool extends EventEmitter {
         this.processNextTask();
     }
 
-    // Public API Methods
-
-    // Process single song with optional priority
     async processSong(songData: any, priority: 'high' | 'normal' | 'low' = 'normal'): Promise<any> {
         return new Promise((resolve, reject) => {
             const task: WorkerTask = {
@@ -352,8 +327,6 @@ export class MusicWorkerPool extends EventEmitter {
             this.addTask(task);
         });
     }
-
-    // Process batch of songs with parallel execution
     async processBatch(songs: any[], priority: 'high' | 'normal' | 'low' = 'normal'): Promise<any[]> {
         if (songs.length === 0) {
             return [];

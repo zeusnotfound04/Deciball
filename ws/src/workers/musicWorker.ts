@@ -118,7 +118,7 @@ class MusicWorker {
                     return;
                 }
 
-                console.log(`[MusicWorker-${this.workerId}] 🚀 Processing task ${taskId} (${type})`);
+                console.log(`[MusicWorker-${this.workerId}]  Processing task ${taskId} (${type})`);
                 
                 let result;
                 switch (type) {

@@ -1,5 +1,6 @@
 // Use CommonJS require for better compatibility
-const ytdl = require('@distube/ytdl-core');
+const ytdlDistube = require('@distube/ytdl-core');
+const ytdlCore = require('ytdl-core');
 const youtubesearchapi = require('youtube-search-api');
 require('dotenv').config();
 
@@ -14,11 +15,19 @@ export interface YouTubeTrack {
 
 export class YouTubeService {
   private cookies: string;
+  private primaryYtdl: any;
+  private fallbackYtdl: any;
 
   constructor() {
     // Load cookies from environment variables
     this.cookies = process.env.COOKIES || '';
+    
+    // Set up primary and fallback ytdl instances
+    this.primaryYtdl = ytdlDistube;
+    this.fallbackYtdl = ytdlCore;
+    
     console.log(`[YouTubeService] Initialized with cookies: ${this.cookies ? 'Yes' : 'No'}`);
+    console.log(`[YouTubeService] Primary ytdl: @distube/ytdl-core, Fallback: ytdl-core`);
   }
 
   // Method to refresh cookies if needed
@@ -131,10 +140,22 @@ export class YouTubeService {
   async isVideoPlayable(url: string): Promise<boolean> {
     try {
       const requestOptions = this.getRequestOptions();
-      const info = await ytdl.getBasicInfo(url, { requestOptions });
-      return !info.videoDetails.isLiveContent && 
-             info.videoDetails.lengthSeconds !== '0' &&
-             !info.videoDetails.isPrivate;
+      
+      // Try with primary ytdl first
+      try {
+        const info = await this.primaryYtdl.getBasicInfo(url, { requestOptions });
+        return !info.videoDetails.isLiveContent && 
+               info.videoDetails.lengthSeconds !== '0' &&
+               !info.videoDetails.isPrivate;
+      } catch (primaryError) {
+        console.warn(`[YouTubeService] Primary ytdl failed, trying fallback:`, (primaryError as Error).message);
+        
+        // Fallback to secondary ytdl
+        const info = await this.fallbackYtdl.getBasicInfo(url, { requestOptions });
+        return !info.videoDetails.isLiveContent && 
+               info.videoDetails.lengthSeconds !== '0' &&
+               !info.videoDetails.isPrivate;
+      }
     } catch (error) {
       console.warn(`Video not accessible: ${url}`, error);
       return false;
@@ -144,7 +165,16 @@ export class YouTubeService {
   async getVideoInfo(url: string): Promise<any> {
     try {
       const requestOptions = this.getRequestOptions();
-      return await ytdl.getInfo(url, { requestOptions });
+      
+      // Try with primary ytdl first
+      try {
+        return await this.primaryYtdl.getInfo(url, { requestOptions });
+      } catch (primaryError) {
+        console.warn(`[YouTubeService] Primary ytdl getInfo failed, trying fallback:`, (primaryError as Error).message);
+        
+        // Fallback to secondary ytdl
+        return await this.fallbackYtdl.getInfo(url, { requestOptions });
+      }
     } catch (error) {
       console.error(`Error getting video info for ${url}:`, error);
       throw error;
@@ -181,7 +211,29 @@ export class YouTubeService {
       requestOptions
     };
 
-    const stream = ytdl(url, { ...defaultOptions, ...options });
+  createAudioStream(url: string, options?: any) {
+    const requestOptions = this.getRequestOptions();
+    
+    const defaultOptions: any = {
+      filter: 'audioonly',
+      quality: 'highestaudio',
+      highWaterMark: 1 << 25, // 32MB buffer
+      requestOptions
+    };
+
+    // Try primary ytdl first, then fallback
+    let stream: any;
+    let usingFallback = false;
+    
+    try {
+      stream = this.primaryYtdl(url, { ...defaultOptions, ...options });
+      console.log(`[YouTubeService] Using primary ytdl (@distube/ytdl-core) for stream`);
+    } catch (primaryError) {
+      console.warn(`[YouTubeService] Primary ytdl failed, using fallback:`, (primaryError as Error).message);
+      stream = this.fallbackYtdl(url, { ...defaultOptions, ...options });
+      usingFallback = true;
+      console.log(`[YouTubeService] Using fallback ytdl (ytdl-core) for stream`);
+    }
     
     // Add error handling to the stream
     stream.on('error', (error: any) => {
@@ -193,10 +245,19 @@ export class YouTubeService {
         console.warn(`[YouTubeService] Current cookies set: ${this.cookies ? 'Yes' : 'No'}`);
         console.warn(`[YouTubeService] You may need to update the COOKIES environment variable with fresh YouTube session cookies.`);
       }
+      
+      // If it's a parsing error, suggest using the fallback
+      if (error.message && error.message.includes('Error when parsing watch.html')) {
+        console.warn(`[YouTubeService] YouTube HTML parsing error detected. This usually means YouTube changed their page structure.`);
+        if (!usingFallback) {
+          console.warn(`[YouTubeService] Consider updating @distube/ytdl-core or using the fallback ytdl-core.`);
+        }
+      }
     });
 
     stream.on('info', (info: any) => {
-      console.log(`YouTube stream info: ${info.videoDetails.title} - ${info.videoDetails.lengthSeconds}s`);
+      const ytdlType = usingFallback ? 'fallback ytdl-core' : 'primary @distube/ytdl-core';
+      console.log(`YouTube stream info (${ytdlType}): ${info.videoDetails.title} - ${info.videoDetails.lengthSeconds}s`);
     });
 
     return stream;
