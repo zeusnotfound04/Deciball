@@ -1,11 +1,3 @@
-#!/usr/bin/env ts-node
-
-/**
- * Redis Cache Management Interface
- * 
- * This script provides an interactive interface to manage your Redis cache
- * including viewing statistics, selective deletion, and full flush operations.
- */
 
 import { createClient, RedisClientType } from 'redis';
 import * as dotenv from 'dotenv';
