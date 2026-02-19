@@ -1,1 +1,34 @@
-{}
+{
+  "name": "deciball-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deciball - Music collaboration platform monorepo",
+  "packageManager": "pnpm@10.7.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "discord-bot:dev": "turbo run dev --filter=discord-bot",
+    "web:dev": "turbo run dev --filter=web",
+    "ws:dev": "turbo run dev --filter=ws",
+    "discord-bot:build": "turbo run build --filter=discord-bot",
+    "web:build": "turbo run build --filter=web",
+    "ws:build": "turbo run build --filter=ws"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "prettier": "^3.3.3",
+    "turbo": "^2.3.3",
+    "typescript": "^5.9.2"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
