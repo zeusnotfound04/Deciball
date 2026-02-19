@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  provider      Provider  @default(Google)
+  password      String?
+  username      String?   @unique
+  pfpUrl        String?   @default("")
+  name          String?   @default("")
+  createdAt     DateTime  @default(now())
+  image         String?
+  updatedAt     DateTime  @default(now()) @updatedAt
+  emailVerified DateTime? @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  hostedSpaces  Space[]   @relation("hostedBy")
+  upvotes       Upvote[]
+  addedStreams  Stream[]  @relation("addedBy")
+  streams       Stream[]  @relation("user")
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Stream {
+  id            String         @id @default(uuid())
+  type          StreamType
+  url           String
+  extractedId   String
+  title         String         @default("")
+  smallImg      String         @default("")
+  bigImg        String         @default("")
+  active        Boolean        @default(true)
+  artist        String?
+  album         String?
+  duration      Int?
+  played        Boolean        @default(false)
+  playedTs      DateTime?
+  privousURL    String?
+  createAt      DateTime       @default(now())
+  userId        String
+  addedBy       String
+  spaceId       String?
+  currentStream CurrentStream?
+  upvotes       Upvote[]
+  addedByUser   User           @relation("addedBy", fields: [addedBy], references: [id])
+  space         Space?         @relation("spaceStreams", fields: [spaceId], references: [id], onDelete: Cascade)
+  user          User           @relation("user", fields: [userId], references: [id])
+
+  @@map("streams")
+}
+
+model CurrentStream {
+  id       String  @id @default(uuid())
+  userId   String
+  streamId String? @unique
+  spaceId  String? @unique
+  space    Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  stream   Stream? @relation(fields: [streamId], references: [id])
+}
+
+model Upvote {
+  id       String @id @default(uuid())
+  userId   String
+  streamId String
+  stream   Stream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, streamId])
+}
+
+model Space {
+  id            String         @id
+  name          String
+  hostId        String
+  isActive      Boolean        @default(true)
+  currentStream CurrentStream?
+  host          User           @relation("hostedBy", fields: [hostId], references: [id])
+  streams       Stream[]       @relation("spaceStreams")
+}
+
+enum StreamType {
+  Spotify
+  Youtube
+}
+
+enum Provider {
+  Google
+}
