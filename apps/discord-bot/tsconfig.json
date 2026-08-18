@@ -1,4 +1,5 @@
 {
+  "extends": "@deciball/typescript-config/node.json",
   "compilerOptions": {
     // File Layout
     "rootDir": "./src",
