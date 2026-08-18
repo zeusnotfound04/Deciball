@@ -110,7 +110,6 @@ export class RoomManager {
         this.redisClient = createClient({
             url : redisUrl,
             socket : {
-                tls : true,
                 reconnectStrategy : () => 1000,
             }
         })
@@ -118,7 +117,6 @@ export class RoomManager {
         this.publisher = createClient({
             url : redisUrl,
             socket : {
-                tls : true,
                 reconnectStrategy : () => 1000,
             }
         })
@@ -126,7 +124,6 @@ export class RoomManager {
         this.subscriber = createClient({
             url : redisUrl,
             socket : {
-                tls : true,
                 reconnectStrategy : () => 1000,
             }
         })
@@ -2565,7 +2562,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         }
     }
 
-    async playSong(spaceId : string , songId : string | undefined){
+    async playSong(spaceId : string , songId : string | undefined): Promise<void> {
 
         try{
 
@@ -2577,7 +2574,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
             if(!song){
                 console.log(`No Song Found by this ${songId} `)
 
-                return null
+                return
             }
                await this.setCurrentPlayingSong(spaceId, song);
 
