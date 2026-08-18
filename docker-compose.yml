@@ -1,11 +1,65 @@
+version: '3.9'
+
 services:
-  app:
-    container_name: main-Deciball
+  # PostgreSQL Database - Shared by web and ws
+  postgres:
+    container_name: deciball-postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: deciball
+      POSTGRES_PASSWORD: deciball_password
+      POSTGRES_DB: deciball
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deciball -d deciball"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - deciball-network
+
+  # Redis - Shared by web and ws
+  redis:
+    container_name: deciball-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass deciball_redis_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - deciball-network
+
+  # Next.js Web Application
+  web:
+    container_name: deciball-web
     build:
-      context: ./next-app
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: ./apps/web/Dockerfile.dev
+    restart: unless-stopped
     env_file:
-      - ./next-app/.env
+      - ./apps/web/.env
+    environment:
+      - DATABASE_URL=postgresql://deciball:deciball_password@postgres:5432/deciball
+      - DIRECT_URL=postgresql://deciball:deciball_password@postgres:5432/deciball
+      - REDIS_URL=redis://:deciball_redis_password@redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=deciball_redis_password
+      - NODE_ENV=development
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXT_PUBLIC_WSS_URL=ws://localhost:8080
     ports:
       - "3000:3000"
       - "5555:5555"
@@ -15,52 +69,32 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./next-app:/usr/src/app
-      - /usr/src/app/node_modules
+      - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
+    networks:
+      - deciball-network
 
-  postgres:
-    container_name: prisma-postgres
-    image: postgres:latest
-    restart: always
-    env_file:
-      - ./next-app/.env
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      
-  redis:
-    container_name: redis-server
-    image: redis/redis-stack:latest
-    restart: always
-    env_file:
-      - ./ws/.env
-    ports:
-      - "6379:6379"
-      - "8001:8001"
-    environment:
-      REDIS_ARGS: "--requirepass root --user admin on >root ~* allcommands --user default off nopass nocommands"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  websockets:
-    container_name: websockets
-    restart: always
+  # WebSocket Server
+  ws:
+    container_name: deciball-ws
     build:
-      context: ./ws
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: ./apps/ws/Dockerfile.dev
+    restart: unless-stopped
     env_file:
-      - ./ws/.env
+      - ./apps/ws/.env
+    environment:
+      - DATABASE_URL=postgresql://deciball:deciball_password@postgres:5432/deciball
+      - DIRECT_URL=postgresql://deciball:deciball_password@postgres:5432/deciball
+      - REDIS_URL=redis://:deciball_redis_password@redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=deciball_redis_password
+      - NODE_ENV=development
+      - PORT=8080
     ports:
       - "8080:8080"
     depends_on:
@@ -69,11 +103,40 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./ws:/usr/src/app
-      - /usr/src/app/node_modules
+      - ./apps/ws:/app/apps/ws
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/ws/node_modules
+      - /app/apps/ws/dist
+    networks:
+      - deciball-network
+
+  # Discord Bot (Optional - uncomment to run)
+  # discord-bot:
+  #   container_name: deciball-discord-bot
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/discord-bot/Dockerfile.dev
+  #   restart: unless-stopped
+  #   env_file:
+  #     - ./apps/discord-bot/.env
+  #   environment:
+  #     - NODE_ENV=development
+  #   volumes:
+  #     - ./apps/discord-bot:/app/apps/discord-bot
+  #     - ./packages:/app/packages
+  #     - /app/node_modules
+  #     - /app/apps/discord-bot/node_modules
+  #     - /app/apps/discord-bot/dist
+  #   networks:
+  #     - deciball-network
 
 volumes:
   postgres-data:
-    external: false
+    driver: local
   redis-data:
-    external: false
+    driver: local
+
+networks:
+  deciball-network:
+    driver: bridge

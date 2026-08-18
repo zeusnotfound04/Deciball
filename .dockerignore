@@ -1,0 +1,54 @@
+# Node modules
+node_modules
+**/node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Build outputs
+dist
+build
+.next
+out
+.turbo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+*.lcov
+
+# Logs
+logs
+*.log
+
+# Documentation
+*.md
+!README.md
+
+# Misc
+.cache
+.eslintcache
+prisma/*.db
+prisma/*.db-journal

@@ -1,0 +1,108 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database - Production
+  postgres:
+    container_name: deciball-postgres-prod
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-deciball}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-deciball}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-deciball} -d ${POSTGRES_DB:-deciball}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - deciball-network
+
+  # Redis - Production
+  redis:
+    container_name: deciball-redis-prod
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - deciball-network
+
+  # Next.js Web Application - Production
+  web:
+    container_name: deciball-web-prod
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+    restart: always
+    env_file:
+      - ./apps/web/.env.production
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - deciball-network
+
+  # WebSocket Server - Production
+  ws:
+    container_name: deciball-ws-prod
+    build:
+      context: .
+      dockerfile: ./apps/ws/Dockerfile
+    restart: always
+    env_file:
+      - ./apps/ws/.env.production
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - deciball-network
+
+  # Discord Bot - Production
+  discord-bot:
+    container_name: deciball-discord-bot-prod
+    build:
+      context: .
+      dockerfile: ./apps/discord-bot/Dockerfile
+    restart: always
+    env_file:
+      - ./apps/discord-bot/.env.production
+    environment:
+      - NODE_ENV=production
+    networks:
+      - deciball-network
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  deciball-network:
+    driver: bridge
