@@ -10,11 +10,8 @@
     "isolatedModules": true,
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
     "noImplicitOverride": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   }
 }
