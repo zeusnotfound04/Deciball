@@ -34,8 +34,10 @@ declare module 'youtube-search-api' {
     };
   }
 
-  export default {
+  const api: {
     GetListByKeyword: (query: string, playlist?: boolean, limit?: number, options?: any) => Promise<SearchResult>;
     GetVideoDetails: (videoId: string) => Promise<VideoDetails>;
   };
+
+  export default api;
 }
