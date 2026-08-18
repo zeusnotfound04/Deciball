@@ -72,6 +72,9 @@ importers:
         specifier: ^4.11.5
         version: 4.11.5
     devDependencies:
+      '@deciball/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
       '@types/node':
         specifier: ^24.3.1
         version: 24.10.13
@@ -292,6 +295,9 @@ importers:
         specifier: ^5.0.3
         version: 5.0.11(@types/react@19.2.14)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
+      '@deciball/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
       '@types/jsonwebtoken':
         specifier: ^9.0.9
         version: 9.0.10
@@ -374,6 +380,9 @@ importers:
         specifier: ^1.2.2
         version: 1.2.2
     devDependencies:
+      '@deciball/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
       '@types/jsonwebtoken':
         specifier: ^9.0.6
         version: 9.0.10
