@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
+  output   = "../generated/client"
 }
 
 datasource db {
@@ -127,4 +127,5 @@ enum StreamType {
 
 enum Provider {
   Google
+  Credentials
 }
