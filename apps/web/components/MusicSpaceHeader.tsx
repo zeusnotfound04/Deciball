@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import BlurText from './ui/BlurEffects';
 
-interface MusicRoomHeaderProps {
+interface MusicSpaceHeaderProps {
   spaceId: string;
   roomName: string;
   isAdmin: boolean;
@@ -21,7 +21,7 @@ interface MusicRoomHeaderProps {
   onBatchSelect: (tracks: any[]) => void;
 }
 
-export const MusicRoomHeader: React.FC<MusicRoomHeaderProps> = ({
+export const MusicSpaceHeader: React.FC<MusicSpaceHeaderProps> = ({
   spaceId,
   roomName,
   isAdmin,

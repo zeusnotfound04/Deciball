@@ -30,18 +30,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar'
 import BlurText, { BlurComponent } from './ui/BlurEffects';
 import { RecommendationPanel } from './RecommendationPanel';
 import SpaceEndedModal from './SpaceEndedModal';
-import MusicRoomLayout from './MusicRoomLayout';
+import MusicSpaceLayout from './MusicSpaceLayout';
 import { lexend, poppins, signikaNegative, inter, manrope, spaceGrotesk, jetBrainsMono, outfit } from '@/lib/font';
 
-interface MusicRoomProps {
+interface MusicSpaceProps {
   spaceId: string;
 }
 
-export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
+export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   const { data: session } = useSession();
   const { user, setUser, isAdmin, setIsAdmin } = useUserStore(); // Get isAdmin from store
   const { setVolume,  setCurrentSpaceId } = useAudio();
-  const { sendMessage, socket, loading, connectionError } = useSocket();
+  const { sendMessage, socket, loading, connectionError, user: socketUser } = useSocket();
   const router = useRouter();
   const isMobile = useIsMobile();
   
@@ -315,17 +315,15 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         
         switch (type) {
           case 'room-info':
-            // Prioritize server-side admin status if available
-            if (data.isAdmin !== undefined) {
-              setIsAdmin(data.isAdmin);
-              
+            if (data.isCreator !== undefined) {
+              setIsAdmin(data.isCreator);
             }
             setConnectedUsers(data.userCount || 0);
             setRoomName(data.spaceName);
             
             break;
             
-          case 'room-joined':
+          case 'space-joined':
             
             
             
@@ -364,7 +362,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             
           case 'user-left':
             setConnectedUsers(prev => Math.max(0, prev - 1));
-            console.log('User left - new count will be:', Math.max(0, connectedUsers - 1));
             break;
             
           case 'queue-update':
@@ -396,9 +393,9 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
               });
               
               if (authErrorCount < maxAuthErrors && user?.token && socket?.readyState === WebSocket.OPEN) {
-                console.log(`Attempting to rejoin room due to authorization error (attempt ${authErrorCount}/${maxAuthErrors})...`);
+                console.log(`Attempting to rejoin space due to authorization error (attempt ${authErrorCount}/${maxAuthErrors})...`);
                 setTimeout(() => {
-                  sendMessage('join-room', { 
+                  sendMessage('join-space', { 
                     spaceId, 
                     token: user.token,
                     spaceName: spaceInfo?.spaceName
@@ -421,54 +418,74 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             
         }
       } catch (error) {
-        console.error('Error parsing WebSocket message in MusicRoom:', error);
+        console.error('Error parsing WebSocket message in MusicSpace:', error);
       }
     };
-  }, [setIsAdmin, setConnectedUsers, setRoomName, setUserDetails, connectedUsers, socket, sendMessage, spaceId, user, spaceInfo?.spaceName]);
+  }, [setIsAdmin, setConnectedUsers, setRoomName, setUserDetails, socket, sendMessage, spaceId, user, spaceInfo?.spaceName]);
 
-  // WebSocket connection and room joining effect
+  // WebSocket connection and space joining effect
   useEffect(() => {
     if (!socket || !user || !spaceInfo) return;
 
     const handleMessage = createWebSocketMessageHandler();
     socket.addEventListener('message', handleMessage);
 
-    // Join room logic
-    console.log('Attempting to join room:', { 
-      spaceId, 
-      spaceName: spaceInfo.spaceName,
-      userId: user.id, 
-      hasToken: !!user.token,
-      tokenLength: user.token?.length,
-      tokenPreview: user.token?.substring(0, 20) + '...'
-    });
-    
-    const roomJoined = sendMessage('join-room', { 
-      spaceId, 
-      token: user.token,
-      spaceName: spaceInfo.spaceName
-    });
-    
-    if (!roomJoined) {
-      console.error('Failed to join room - connection issue');
-    } else {
-      
-      
-      // Fallback requests after joining
-      setTimeout(() => {
-        if (socket?.readyState === WebSocket.OPEN) {
-          
+    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+    let joined = false;
+
+    // The ws token is issued asynchronously (socket connect -> /api/auth/ws-token
+    // -> setUser), and the NextAuth session carries no token of its own. So this
+    // effect can run before a token exists. Joining then would fail and, worse,
+    // flip the context into its connection-error state. Wait for readiness and
+    // re-attempt instead of firing once.
+    const attemptJoin = () => {
+      if (joined) return;
+      if (socket.readyState !== WebSocket.OPEN) return;
+      // The ws token lives in SocketContext, not in the Zustand user store
+      // (the NextAuth session carries no token, so useUserStore().user.token is
+      // always ''). sendMessage injects this same token itself.
+      if (!socketUser?.token) return; // not issued yet; effect re-runs when it lands
+
+      const spaceJoined = sendMessage('join-space', {
+        spaceId,
+        token: socketUser.token,
+        spaceName: spaceInfo.spaceName
+      });
+
+      if (!spaceJoined) {
+        console.error('Failed to join space - connection issue', {
+          readyState: socket.readyState,
+          hasToken: !!socketUser?.token,
+          userId: socketUser?.id ?? user.id
+        });
+        return;
+      }
+
+      joined = true;
+
+      // Re-request room state once the join has been registered server-side.
+      // The server answers get-queue/get-current-song only for a user already
+      // in RoomManager.users, so requests sent by components that mount before
+      // the join lands (QueueManager fires get-queue on mount) are dropped
+      // silently. Asking again after joining is what actually populates them.
+      fallbackTimer = setTimeout(() => {
+        if (socket.readyState === WebSocket.OPEN) {
           sendMessage('get-current-song', { spaceId });
           sendMessage('get-space-image', { spaceId });
-          sendMessage('get-room-users', { spaceId });
+          sendMessage('get-queue', { spaceId });
         }
       }, 1000);
-    }
+    };
+
+    attemptJoin();
+    socket.addEventListener('open', attemptJoin);
 
     return () => {
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+      socket.removeEventListener('open', attemptJoin);
       socket.removeEventListener('message', handleMessage);
     };
-  }, [socket, user, spaceId, sendMessage, spaceInfo, createWebSocketMessageHandler]);
+  }, [socket, user, socketUser?.token, spaceId, sendMessage, spaceInfo, createWebSocketMessageHandler]);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
@@ -477,7 +494,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
   
   if (loading || !user) {
     return (
-      <MusicRoomLayout showSidebar={false}>
+      <MusicSpaceLayout showSidebar={false}>
         <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
           {/* Background Animation Orbs */}
           <div className="absolute inset-0 pointer-events-none">
@@ -509,7 +526,7 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             {/* Title with Gradient */}
             <div className="mb-4">
               <h2 className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-2 ${spaceGrotesk.className}`}>
-                Connecting to Music Room
+                Connecting to Music Space
               </h2>
               
               {/* Animated Loading Dots */}
@@ -552,12 +569,12 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
             }
           `}</style>
         </div>
-      </MusicRoomLayout>
+      </MusicSpaceLayout>
     );
   }
 
   return (
-    <MusicRoomLayout 
+    <MusicSpaceLayout 
       userDetails={userDetails} 
       connectedUsers={connectedUsers}
       isAdmin={isAdmin}
@@ -864,6 +881,6 @@ export const MusicRoom: React.FC<MusicRoomProps> = ({ spaceId }) => {
         message={spaceEndedMessage}
       />
       </div>
-    </MusicRoomLayout>
+    </MusicSpaceLayout>
   );
 };

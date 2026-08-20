@@ -25,7 +25,7 @@ export function DiscordPresence() {
           artist: 'Deciball Music',
           isPlaying: false,
           spaceId: currentSpaceId || undefined,
-          spaceName: 'Music Room'
+          spaceName: 'Music Space'
         });
       }
       return;
@@ -48,7 +48,7 @@ export function DiscordPresence() {
       startTime: Date.now() - (currentProgress * 1000),
       isPlaying: isPlaying,
       spaceId: currentSpaceId || undefined,
-      spaceName: 'Deciball Music Room'
+      spaceName: 'Deciball Music Space'
     };
 
     try {

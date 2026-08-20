@@ -86,7 +86,7 @@ export default function Page() {
             transition={{ delay: 0.1 }}
             className="text-zinc-400 text-lg"
           >
-            Set up a collaborative music room where you can listen together with friends
+            Set up a collaborative music space where you can listen together with friends
           </motion.p>
         </div>
 

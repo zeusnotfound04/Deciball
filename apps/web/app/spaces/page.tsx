@@ -268,7 +268,7 @@ export default function SpacesPage() {
                     transition={{ delay: 0.1 }}
                     className="text-zinc-400 text-base sm:text-lg px-2"
                   >
-                    Join your previously created music rooms
+                    Join your previously created music spaces
                   </motion.p>
                 </div>
 

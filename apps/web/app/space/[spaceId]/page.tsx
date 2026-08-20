@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { SocketContextProvider } from '@/context/socket-context';
-import { MusicRoom } from '@/components/MusicRoom';
+import { MusicSpace } from '@/components/MusicSpace';
 
 export default function SpacePage() {
   const params = useParams();
@@ -45,8 +45,8 @@ export default function SpacePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Invalid Room</h1>
-          <p>Room ID not found.</p>
+          <h1 className="text-2xl font-bold mb-4">Invalid Space</h1>
+          <p>Space ID not found.</p>
         </div>
       </div>
     );
@@ -54,7 +54,7 @@ export default function SpacePage() {
 
   return (
     <SocketContextProvider>
-      <MusicRoom spaceId={spaceId} />
+      <MusicSpace spaceId={spaceId} />
     </SocketContextProvider>
   );
 }

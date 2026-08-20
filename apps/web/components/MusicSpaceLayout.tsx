@@ -10,7 +10,7 @@ import DarkGradientBackground from './Background';
 import { DiscordPresence } from './DiscordPresence';
 import { ElectronDetector } from './ElectronDetector';
 
-interface MusicRoomLayoutProps {
+interface MusicSpaceLayoutProps {
   children: React.ReactNode;
   userDetails?: any[];
   connectedUsers?: number;
@@ -19,14 +19,14 @@ interface MusicRoomLayoutProps {
   onKickListener?: (userId: string) => void;
 }
 
-export default function MusicRoomLayout({ 
+export default function MusicSpaceLayout({ 
   children, 
   userDetails = [], 
   connectedUsers = 0, 
   showSidebar = true,
   isAdmin = false,
   onKickListener
-}: MusicRoomLayoutProps) {
+}: MusicSpaceLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(90); // Default collapsed width
   const isMobile = useIsMobile();
@@ -53,7 +53,7 @@ export default function MusicRoomLayout({
       return Array.from({ length: connectedUsers }, (_, i) => ({
         userId: `user-${i}`,
         isCreator: i === 0,
-        name: i === 0 ? 'Room Creator' : `Listener ${i + 1}`,
+        name: i === 0 ? 'Space Creator' : `Listener ${i + 1}`,
         imageUrl: null
       }));
     }
@@ -134,7 +134,7 @@ export default function MusicRoomLayout({
                     <Menu className="h-5 w-5" />
                     <span className="sr-only">Open sidebar</span>
                   </Button>
-                  <div className="text-sm font-medium text-white/80">Music Room</div>
+                  <div className="text-sm font-medium text-white/80">Music Space</div>
                   <div className="w-10"></div> {/* Spacer for centering */}
                 </div>
               </div>
@@ -151,8 +151,8 @@ export default function MusicRoomLayout({
   );
 }
 
-// Layout wrapper for music room pages
-export function MusicRoomLayoutWrapper({ 
+// Layout wrapper for music space pages
+export function MusicSpaceLayoutWrapper({ 
   children, 
   userDetails, 
   connectedUsers 
@@ -162,12 +162,12 @@ export function MusicRoomLayoutWrapper({
   connectedUsers?: number;
 }) {
   return (
-    <MusicRoomLayout 
+    <MusicSpaceLayout 
       showSidebar={true}
       userDetails={userDetails}
       connectedUsers={connectedUsers}
     >
       {children}
-    </MusicRoomLayout>
+    </MusicSpaceLayout>
   );
 }
