@@ -6,8 +6,8 @@ export async function searchPlaylists(query: string, limit: number = 20, offset:
   try {
     const result = await api.searchPlaylists(query, { limit, offset });
     return result.body.playlists;
-  } catch (error) {
-    console.error('Error searching playlists:', error);
-    throw new Error('Failed to search playlists');
+  } catch (error: any) {
+    console.error('Error searching playlists:', error?.statusCode, error?.body ?? error?.message);
+    throw Object.assign(new Error('Failed to search playlists'), { statusCode: error?.statusCode });
   }
 }

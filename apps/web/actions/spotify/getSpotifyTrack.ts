@@ -1,4 +1,4 @@
-import ytmusic from "@/lib/YTmusic";
+import { getYTMusic } from "@/lib/YTmusic";
 interface Artist {
     external_urls : string[];
     href : string;
@@ -16,7 +16,7 @@ export const getSpotifyTrack = async (
         const name = song.name;
         
        
-        await ytmusic.initialize({})
+        const ytmusic = await getYTMusic();
         const ytSongs = await ytmusic.searchSongs(`${name} ${artists}`);
        
         const tracks = ytSongs?.slice(0, 3).map((s: any) => ({
