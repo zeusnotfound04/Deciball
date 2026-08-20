@@ -1,4 +1,4 @@
-import { hash } from 'bcrypt';
+import { hash } from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import z from "zod";
 import {prisma} from "@/app/lib/db";

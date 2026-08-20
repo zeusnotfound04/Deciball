@@ -30,5 +30,11 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "pnpm": {
+    "overrides": {
+      "@prisma/client": "5.19.1",
+      "prisma": "5.19.1"
+    }
+  }
 }

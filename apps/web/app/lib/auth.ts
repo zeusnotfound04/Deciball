@@ -2,7 +2,7 @@
 import { NextAuthOptions, Session } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./db";
-import { compare } from "bcrypt";
+import { compare } from "bcryptjs";
 import { User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";

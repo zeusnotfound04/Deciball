@@ -1,3 +1,23 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# pnpm 10 blocks dependency lifecycle scripts by default. These packages need
+# theirs to fetch or compile binaries; without the allowlist Prisma ships no
+# query engine, which makes `prisma generate` recurse into `pnpm add`.
+# Deliberately excluded: sodium (native build fails on modern Node; the
+# discord-bot uses pure-JS libsodium-wrappers) and @biomejs/biome (unused).
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - prisma
+  - esbuild
+  - sharp
+  - ffmpeg-static
+  - youtube-dl-exec
+  - '@discordjs/opus'
+  - bufferutil
+  - utf-8-validate
+  - msgpackr-extract
+  - '@parcel/watcher'
+  - unrs-resolver
