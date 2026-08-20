@@ -1,5 +1,5 @@
 import { useSession } from "next-auth/react";
-import { createContext, Dispatch, SetStateAction, PropsWithChildren, useState, useEffect, useContext, useCallback } from "react";
+import { createContext, Dispatch, SetStateAction, PropsWithChildren, useState, useEffect, useContext, useCallback, useMemo } from "react";
 
 const getWebSocketToken = async (): Promise<string | null> => {
   try {
@@ -45,30 +45,21 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
   const sendMessage = useCallback(
     (type: string, data: { [key: string]: any }) => {
-      
-      console.log("Socket state:", {
-        socketExists: !!socket,
-        readyState: socket?.readyState,
-        readyStateText: socket?.readyState === WebSocket.OPEN ? 'OPEN' : 
-                       socket?.readyState === WebSocket.CONNECTING ? 'CONNECTING' :
-                       socket?.readyState === WebSocket.CLOSING ? 'CLOSING' :
-                       socket?.readyState === WebSocket.CLOSED ? 'CLOSED' : 'UNKNOWN'
-      });
-      console.log("User info:", { 
-        userExists: !!user,
-        userId: user?.id,
-        hasToken: !!user?.token 
-      });
-      
+      // Connection state is owned by this provider's open/error/close handlers.
+      // A send that arrives before the socket is ready is transient, not a
+      // failure, and must not flip the whole app into its error UI.
       if (!socket) {
         console.warn("WebSocket instance is null. Cannot send message.");
-        setConnectionError(true);
         return false;
       }
-      
+
       if (socket.readyState !== WebSocket.OPEN) {
         console.warn(`WebSocket is not open (state: ${socket.readyState}). Cannot send message.`);
-        setConnectionError(true);
+        // CONNECTING is still on its way; only a closing/closed socket is a
+        // genuine connection failure.
+        if (socket.readyState === WebSocket.CLOSING || socket.readyState === WebSocket.CLOSED) {
+          setConnectionError(true);
+        }
         return false;
       }
       
@@ -217,11 +208,8 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
             
             
             switch (message.type) {
-              case "room-joined":
-                
-                break;
               case "user-update":
-                
+
                 break;
               case "current-song-update":
                 
@@ -274,7 +262,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                   }
                 }));
                 break;
-              case "room-joined":
+              case "space-joined":
                 
                 if (message.data.playbackState) {
                   
@@ -344,8 +332,13 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 }));
                 break;
               case "playback-state-update":
-                
+              case "playback-sync":
                 window.dispatchEvent(new CustomEvent('playback-state-update', {
+                  detail: message.data
+                }));
+                break;
+              case "current-queue":
+                window.dispatchEvent(new CustomEvent('queue-update', {
                   detail: message.data
                 }));
                 break;
@@ -458,8 +451,44 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
     };
   }, [session.status, session.data?.user?.id]);
 
+  // Safety net for the token gap. `onopen` issues the ws token exactly once per
+  // socket, but the connect effect's cleanup calls setUser(null), and MusicSpace
+  // then re-seeds `user` from the NextAuth session, which carries no token. That
+  // leaves an OPEN socket with an empty token and nothing to re-issue it, so
+  // every message fails authorization. Detect that gap and re-issue.
+  useEffect(() => {
+    if (session.status !== 'authenticated' || !session.data?.user?.id) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    if (user?.token) return;
+
+    let cancelled = false;
+
+    getWebSocketToken()
+      .then((wsToken) => {
+        if (cancelled || !wsToken) return;
+        setUser((prev: any) => ({
+          ...(prev ?? {
+            id: session.data!.user.id,
+            email: session.data!.user.email,
+            username: session.data!.user.username,
+            name: session.data!.user.name,
+          }),
+          token: wsToken,
+        }));
+        setConnectionError(false);
+      })
+      .catch((error) => console.error('Failed to re-issue WebSocket token:', error));
+
+    return () => { cancelled = true; };
+  }, [socket, user?.token, session.status, session.data?.user?.id]);
+
+  const contextValue = useMemo(
+    () => ({ socket, user, connectionError, setUser, loading, sendMessage }),
+    [socket, user, connectionError, setUser, loading, sendMessage]
+  );
+
   return (
-    <SocketContext.Provider value={{ socket, user, connectionError, setUser, loading, sendMessage }}>
+    <SocketContext.Provider value={contextValue}>
       {children}
     </SocketContext.Provider>
   );
@@ -467,8 +496,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
-  console.log("Logging the Socket from the context", context.socket)
-  
+
   if (!context) {
     throw new Error('useSocket must be used within a SocketContextProvider');
   }

@@ -887,6 +887,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       
       switch (type) {
         case 'queue-update':
+        case 'current-queue':
           setQueue(data.queue || []);
           break;
         case 'current-song-update':
