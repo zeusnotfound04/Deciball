@@ -149,16 +149,16 @@ async function handleDiscordRequestSync(ws: WebSocket, data: Data) {
     }
 }
 
-async function handleJoinRoom(ws: WebSocket , data : Data){
-    console.log("Joining the room")
-    
-    
+async function handleJoinSpace(ws: WebSocket , data : Data){
+    console.log("Joining the space")
+
+
     if (!data.token) {
-        console.error("No token provided in join room request");
+        console.error("No token provided in join space request");
         sendError(ws, "Authentication token is required");
         return;
     }
-    
+
     jwt.verify(
         data.token,
         process.env.JWT_SECRET as string,
@@ -166,38 +166,38 @@ async function handleJoinRoom(ws: WebSocket , data : Data){
             if(err){
                 console.log("JWT verification error:", err.message || err)
                 sendError(ws , "Token verification failed")
-                return; 
+                return;
             } else {
-                
+
                 const creatorId = decoded.creatorId || decoded.userId;
                 const userId = decoded.userId;
-                
-                
-                
+
+
+
                 try {
-                    await RoomManager.getInstance().joinRoom(
+                    await RoomManager.getInstance().joinSpace(
                         data.spaceId,
                         creatorId,
                         userId,
                         ws,
-                        
+
                         data.token,
                         // data.userData,
                         data.spaceName
                     );
-                    console.log(`User ${userId} successfully joined room ${data.spaceId}${data.spaceName ? ` (${data.spaceName})` : ''}`);
-                    
+                    console.log(`User ${userId} successfully joined space ${data.spaceId}${data.spaceName ? ` (${data.spaceName})` : ''}`);
+
                     ws.send(JSON.stringify({
-                        type: "room-joined",
+                        type: "space-joined",
                         data: {
                             spaceId: data.spaceId,
                             userId: userId,
-                            message: "Successfully joined room"
+                            message: "Successfully joined space"
                         }
                     }));
                 } catch (error) {
-                    console.error("Error joining room:", error);
-                    sendError(ws, "Failed to join room");
+                    console.error("Error joining space:", error);
+                    sendError(ws, "Failed to join space");
                 }
             }
         }
@@ -533,8 +533,8 @@ async function handleConnection(ws:WebSocket) {
             console.log("Parsed message type:", type, "data keys:", Object.keys(data || {}));
 
             switch (type){
-                case "join-room":
-                    await handleJoinRoom(ws , data);
+                case "join-space":
+                    await handleJoinSpace(ws , data);
                     break;
                 case "discord-join-space":
                     await handleDiscordJoinSpace(ws, data);

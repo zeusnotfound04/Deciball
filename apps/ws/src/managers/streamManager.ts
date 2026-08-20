@@ -899,7 +899,7 @@ export class RoomManager {
         }
       }
       
-      async joinRoom(
+      async joinSpace(
         spaceId: string,
         creatorId: string,
         userId: string,
