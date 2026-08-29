@@ -148,9 +148,9 @@ export function PlaceholdersAndVanishInput({
     <div className="w-full relative max-w-xl mx-auto">
       <form
         className={cn(
-          "w-full relative bg-zinc-900/90 backdrop-blur-md border border-zinc-600/50 h-14 rounded-2xl overflow-hidden transition-all duration-300 shadow-lg",
-          value && "bg-zinc-800/95 border-zinc-500/70 shadow-xl",
-          "hover:border-zinc-500/70 hover:shadow-xl"
+          "w-full relative bg-midnight-surface border border-graphite h-14 rounded-2xl overflow-hidden transition-all duration-300",
+          value && "bg-graphite border-slate-custom",
+          "hover:border-slate-custom"
         )}
         onSubmit={handleSubmit}
       >
@@ -173,7 +173,7 @@ export function PlaceholdersAndVanishInput({
         value={value}
         type="text"
         className={cn(
-          "w-full relative text-base sm:text-lg z-50 border-none text-white bg-transparent h-full rounded-2xl focus:outline-none focus:ring-0 pl-6 sm:pl-8 pr-16 font-medium placeholder:text-zinc-500",
+          "w-full relative text-base sm:text-lg z-50 border-none text-paper-white bg-transparent h-full rounded-2xl focus:outline-none focus:ring-0 pl-6 sm:pl-8 pr-16 font-medium placeholder:text-steel-gray font-mono",
           animating && "text-transparent"
         )}
         placeholder="Enter your space name"
