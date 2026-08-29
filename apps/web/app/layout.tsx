@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./provider";
-import DarkGradientBackground from "@/components/Background";
 import { Trademark } from "@/components/Trademark";
-
+import { instrumentSerif, dmMono, geist, satoshi } from "@/lib/font";
 
 export const metadata: Metadata = {
   title: "Deciball - Sync the Beat, Vote the Heat!",
@@ -17,12 +16,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>
-<Providers>
-{children}
-<Trademark />
-</Providers>
+    <html
+      lang="en"
+      className={`${instrumentSerif.variable} ${dmMono.variable} ${geist.variable} ${satoshi.variable}`}
+    >
+      <body className="font-satoshi">
+        <Providers>
+          {children}
+          <Trademark />
+        </Providers>
       </body>
     </html>
   );

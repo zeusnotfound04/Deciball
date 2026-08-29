@@ -3,58 +3,157 @@
 @tailwind utilities;
 
 :root {
+  /* ── Colors ── */
+  --color-electric-cyan: #19d0e8;
+  --color-sky-signal: #44ccff;
+  --color-deep-teal: #062f34;
+  --color-void-black: #000000;
+  --color-obsidian: #010101;
+  --color-midnight-surface: #191919;
+  --color-graphite: #282828;
+  --color-charcoal: #363636;
+  --color-slate: #3f3f3f;
+  --color-steel-gray: #7f7f7f;
+  --color-paper-white: #ffffff;
+  --color-ghost-gray: #c0c0c0;
+
+  /* ── Surfaces ── */
+  --surface-void: #000000;
+  --surface-midnight: #191919;
+  --surface-graphite: #282828;
+  --surface-charcoal: #363636;
+  --surface-paper: #ffffff;
+
+  /* ── Typography — Scale ── */
+  --text-caption: 10px;
+  --leading-caption: 1.4;
+  --tracking-caption: 0.21px;
+  --text-body: 17px;
+  --leading-body: 1.4;
+  --text-subheading: 20px;
+  --leading-subheading: 1.2;
+  --tracking-subheading: -0.2px;
+  --text-heading-sm: 32px;
+  --leading-heading-sm: 1.1;
+  --tracking-heading-sm: 0.26px;
+  --text-heading: 48px;
+  --leading-heading: 1.1;
+  --tracking-heading: -1.44px;
+  --text-heading-lg: 72px;
+  --leading-heading-lg: 1;
+  --tracking-heading-lg: -2.16px;
+  --text-display: 96px;
+  --leading-display: 0.9;
+  --tracking-display: -3.84px;
+
+  /* ── Typography — Weights ── */
+  --font-weight-regular: 400;
+
+  /* ── Spacing ── */
+  --spacing-5: 5px;
+  --spacing-6: 6px;
+  --spacing-8: 8px;
+  --spacing-9: 9px;
+  --spacing-10: 10px;
+  --spacing-11: 11px;
+  --spacing-12: 12px;
+  --spacing-14: 14px;
+  --spacing-16: 16px;
+  --spacing-18: 18px;
+  --spacing-19: 19px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-40: 40px;
+  --spacing-72: 72px;
+
+  /* ── Layout ── */
+  --page-max-width: 1200px;
+  --section-gap: 80px;
+  --card-padding: 24px;
+  --element-gap: 10px;
+
+  /* ── Border Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
+  --radius-3xl: 40px;
+  --radius-full: 100000px;
+
+  /* ── Named Radii ── */
+  --radius-tags: 100000px;
+  --radius-cards: 18px;
+  --radius-buttons: 100000px;
+  --radius-avatars: 100000px;
+  --radius-album-art: 12px;
+  --radius-player-bar: 18px;
+  --radius-inputs: 8px;
+
+  /* ── Shadows (use sparingly) ── */
+  --shadow-subtle: rgba(0, 0, 0, 0.7) 3px 3px 2px 0px inset, rgba(255, 255, 255, 0.25) 3px 2px 2px 0px;
+  --shadow-sm: rgba(0, 0, 0, 0.25) 0px 4px 4px 0px, rgba(255, 255, 255, 0.25) 1px 1px 2px 0px, rgba(0, 0, 0, 0.5) 1px 1px 1px 0px inset, rgba(0, 0, 0, 0.7) 2px 2px 12px 0px inset;
+  --shadow-subtle-2: rgba(0, 0, 0, 0.63) 0px 0px 0px 1px;
+  --shadow-md: rgb(14, 93, 102) 6px 6px 10px 0px inset, rgba(255, 255, 255, 0.2) 4px 4px 4px 0px, rgba(255, 255, 255, 0.25) 1px 1px 2px 0px;
+
+  /* ── Now-playing glow ── */
+  --glow-playing: 0 0 12px rgba(25, 208, 232, 0.15);
+
+  /* ── shadcn/ui compat (mapped to design tokens) ── */
   --background: 0 0% 0%;
   --foreground: 0 0% 100%;
-  --card: 0 0% 0%;
+  --card: 0 0% 10%;
   --card-foreground: 0 0% 100%;
-  --popover: 0 0% 0%;
+  --popover: 0 0% 10%;
   --popover-foreground: 0 0% 100%;
   --primary: 0 0% 100%;
   --primary-foreground: 0 0% 0%;
   --secondary: 0 0% 10%;
   --secondary-foreground: 0 0% 100%;
   --muted: 0 0% 10%;
-  --muted-foreground: 0 0% 60%;
-  --accent: 0 0% 10%;
+  --muted-foreground: 0 0% 50%;
+  --accent: 187 82% 50%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 10%;
-  --input: 0 0% 10%;
-  --ring: 0 0% 100%;
+  --border: 0 0% 16%;
+  --input: 0 0% 16%;
+  --ring: 0 0% 16%;
+  --radius: 0.5rem;
+}
+
+/* Kill all white/visible focus outlines globally */
+*:focus {
+  outline: none !important;
+}
+
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  ring: none !important;
 }
 
 body {
-  background: black;
+  background: var(--color-void-black);
+  color: var(--color-paper-white);
   min-height: 100vh;
-  color: white;
 }
 
-/* Enhanced Mobile Touch Optimization */
+/* ── Mobile Touch Optimization ── */
 * {
-  -webkit-tap-highlight-color: transparent !important;
-  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Allow text selection only where needed */
 input, textarea, [contenteditable] {
-  -webkit-user-select: text !important;
-  -khtml-user-select: text !important;
-  -moz-user-select: text !important;
-  -ms-user-select: text !important;
-  user-select: text !important;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
-/* Ensure all buttons and interactive elements work on mobile */
-button, [role="button"], [onClick], [onTouchStart] {
-  touch-action: manipulation !important;
-  -webkit-tap-highlight-color: transparent !important;
-  cursor: pointer !important;
-  -webkit-user-select: none !important;
-  -khtml-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  user-select: none !important;
+button, [role="button"] {
+  touch-action: manipulation;
+  cursor: pointer;
+  user-select: none;
 }
 
 /* Prevent zoom on mobile inputs */
@@ -62,60 +161,17 @@ input, select, textarea {
   font-size: 16px !important;
 }
 
-/* Enhanced click target size for mobile */
 @media (max-width: 640px) {
   button, [role="button"] {
-    min-height: 44px !important;
-    min-width: 44px !important;
+    min-height: 44px;
+    min-width: 44px;
   }
-}
-
-/* Force hardware acceleration */
-button, [role="button"], .motion-element {
-  transform: translateZ(0) !important;
-  -webkit-transform: translateZ(0) !important;
-  will-change: transform !important;
-}
-
-/* Better tap feedback */
-button:active, [role="button"]:active {
-  transform: scale(0.95) translateZ(0) !important;
-  transition: transform 0.1s ease !important;
-}
-
-/* Prevent text selection on interactive elements */
-.group, .motion-div, [class*="motion-"] {
-  -webkit-user-select: none !important;
-  -khtml-user-select: none !important;
-  -moz-user-select: none !important;
-  -ms-user-select: none !important;
-  user-select: none !important;
 }
 
 @layer base {
   body {
     background: hsl(var(--background));
     color: hsl(var(--foreground));
-  }
-  :root {
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-  .dark {
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -129,7 +185,7 @@ button:active, [role="button"]:active {
   .text-balance {
     text-wrap: balance;
   }
-  
+
   /* Custom xs breakpoint utilities */
   @media (min-width: 475px) {
     .xs\:text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
@@ -164,31 +220,17 @@ button:active, [role="button"]:active {
     .xs\:h-4 { height: 1rem; }
     .xs\:grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
   }
-  
-  /* Mobile-specific optimizations */
-  @media (max-width: 640px) {
-    .mobile-text-shadow { 
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); 
-    }
-    .mobile-backdrop { 
-      backdrop-filter: blur(8px) saturate(150%); 
-    }
-    .mobile-touch-target {
-      min-height: 44px;
-      min-width: 44px;
-    }
-  }
-  
-  /* Enhanced gradient text */
+
+  /* Accent gradient text — uses Electric Cyan */
   .gradient-text {
-    background: linear-gradient(135deg, #00d4ff, #00b8e6, #0ea5e9);
+    background: linear-gradient(135deg, #19d0e8, #44ccff);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 }
 
-/* Optimize animations */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
@@ -198,107 +240,12 @@ button:active, [role="button"]:active {
   }
 }
 
-.animate-glow {
-  animation: glow 4s ease-in-out infinite alternate;
-}
-
-@keyframes glow {
-  from {
-    box-shadow: 0 0 0px white;
-  }
-  to {
-    box-shadow: 0 0 20px white;
-  }
-}
-
-/* Custom Sidebar Animations */
-[data-sidebar] {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-[data-sidebar="collapsed"] {
-  width: 60px !important;
-}
-
-[data-sidebar="expanded"] {
-  width: 240px !important;
-}
-
-/* Smooth backdrop transitions */
-.sidebar-backdrop {
-  backdrop-filter: blur(4px);
-  transition: backdrop-filter 0.3s ease-in-out;
-}
-
-/* Enhanced hover animations for sidebar items */
-.sidebar-item {
-  transition: all 0.2s ease-in-out;
-  transform: translateX(0);
-}
-
-.sidebar-item:hover {
-  transform: translateX(2px);
-  background-color: rgba(55, 65, 81, 0.7);
-}
-
-/* Staggered animation support */
-.stagger-children > * {
-  opacity: 0;
-  transform: translateX(-10px);
-  animation: slideInLeft 0.3s ease-out forwards;
-}
-
-.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
-.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
-.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
-.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
-.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
-
-@keyframes slideInLeft {
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/*
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-*/
-
-/* Hide Scrollbar Utility */
+/* Hide scrollbar utility */
 .hide-scrollbar {
-  /* Firefox */
   scrollbar-width: none;
-  /* Safari and Chrome */
   -ms-overflow-style: none;
 }
 
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
-}
-
-/* Mobile Touch Optimization - Ensure main content has proper touch handling */
-@media (max-width: 767px) {
-  /* Ensure main content area has proper touch handling */
-  .music-room-main-content {
-    touch-action: manipulation !important;
-    pointer-events: auto !important;
-    z-index: 999 !important;
-    position: relative !important;
-  }
-  
-  /* Force all interactive elements to be touchable */
-  button, [role="button"], [data-testid*="button"], [onclick], [onTouchStart] {
-    touch-action: manipulation !important;
-    pointer-events: auto !important;
-    position: relative !important;
-    z-index: 1000 !important;
-  }
 }

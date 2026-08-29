@@ -1,11 +1,3 @@
-import { keyframes } from "framer-motion";
-
-const defaultTheme = require("tailwindcss/defaultTheme");
- 
-const colors = require("tailwindcss/colors");
-const {
-  default: flattenColorPalette,
-} = require("tailwindcss/lib/util/flattenColorPalette");
 module.exports = {
   darkMode: ["class"],
   content: [
@@ -16,71 +8,54 @@ module.exports = {
     "*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-  	extend: {
-		keyframes	: {
-			glitch: {
-          "0%": { "clip-path": "inset(20% 0 50% 0)" },
-          "5%": { "clip-path": "inset(10% 0 60% 0)" },
-          "10%": { "clip-path": "inset(15% 0 55% 0)" },
-          "15%": { "clip-path": "inset(25% 0 35% 0)" },
-          "20%": { "clip-path": "inset(30% 0 40% 0)" },
-          "25%": { "clip-path": "inset(40% 0 20% 0)" },
-          "30%": { "clip-path": "inset(10% 0 60% 0)" },
-          "35%": { "clip-path": "inset(15% 0 55% 0)" },
-          "40%": { "clip-path": "inset(25% 0 35% 0)" },
-          "45%": { "clip-path": "inset(30% 0 40% 0)" },
-          "50%": { "clip-path": "inset(20% 0 50% 0)" },
-          "55%": { "clip-path": "inset(10% 0 60% 0)" },
-          "60%": { "clip-path": "inset(15% 0 55% 0)" },
-          "65%": { "clip-path": "inset(25% 0 35% 0)" },
-          "70%": { "clip-path": "inset(30% 0 40% 0)" },
-          "75%": { "clip-path": "inset(40% 0 20% 0)" },
-          "80%": { "clip-path": "inset(20% 0 50% 0)" },
-          "85%": { "clip-path": "inset(10% 0 60% 0)" },
-          "90%": { "clip-path": "inset(15% 0 55% 0)" },
-          "95%": { "clip-path": "inset(25% 0 35% 0)" },
-          "100%": { "clip-path": "inset(30% 0 40% 0)" },
+    extend: {
+      fontFamily: {
+        satoshi: ['var(--font-satoshi)', 'Satoshi', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-geist)', 'Geist', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-instrument-serif)', 'Instrument Serif', 'Georgia', 'serif'],
+        mono: ['var(--font-dm-mono)', 'DM Mono', 'SFMono-Regular', 'monospace'],
+        display: ['var(--font-instrument-serif)', 'Instrument Serif', 'Georgia', 'serif'],
+      },
+      colors: {
+        'electric-cyan': '#19d0e8',
+        'sky-signal': '#44ccff',
+        'deep-teal': '#062f34',
+        'void-black': '#000000',
+        'obsidian': '#010101',
+        'midnight-surface': '#191919',
+        'graphite': '#282828',
+        'charcoal': '#363636',
+        'slate-custom': '#3f3f3f',
+        'steel-gray': '#7f7f7f',
+        'paper-white': '#ffffff',
+        'ghost-gray': '#c0c0c0',
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar-background, 0 0% 10%))',
+          foreground: 'hsl(var(--sidebar-foreground, 0 0% 96%))',
+          primary: 'hsl(var(--sidebar-primary, 0 0% 10%))',
+          'primary-foreground': 'hsl(var(--sidebar-primary-foreground, 0 0% 100%))',
+          accent: 'hsl(var(--sidebar-accent, 0 0% 16%))',
+          'accent-foreground': 'hsl(var(--sidebar-accent-foreground, 0 0% 96%))',
+          border: 'hsl(var(--sidebar-border, 0 0% 16%))',
+          ring: 'hsl(var(--sidebar-ring, 187 82% 50%))',
         },
       },
-	    animation: {
-        "glitch-after": "glitch var(--after-duration) infinite linear alternate-reverse",
-        "glitch-before": "glitch var(--before-duration) infinite linear alternate-reverse",
+      borderRadius: {
+        'cards': '18px',
+        'buttons': '100000px',
+        'tags': '100000px',
+        'album-art': '12px',
+        'player-bar': '18px',
       },
-  		fontFamily: {
-  			sans: [
-  				'Inter',
-  				'sans-serif'
-  			],
-  			display: [
-  				'Poppins',
-  				'sans-serif'
-  			]
-  		},
-  		colors: {
-  			sidebar: {
-  				DEFAULT: 'hsl(var(--sidebar-background))',
-  				foreground: 'hsl(var(--sidebar-foreground))',
-  				primary: 'hsl(var(--sidebar-primary))',
-  				'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-  				accent: 'hsl(var(--sidebar-accent))',
-  				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-  				border: 'hsl(var(--sidebar-border))',
-  				ring: 'hsl(var(--sidebar-ring))'
-  			}
-  		}
-  	}
+      spacing: {
+        'section-gap': '80px',
+        'card-padding': '24px',
+        'element-gap': '10px',
+      },
+      maxWidth: {
+        'page': '1200px',
+      },
+    },
   },
   plugins: [require("tailwindcss-animate")],
-}
-
- 
-function addVariablesForColors({ addBase, theme }: any) {
-  let allColors = flattenColorPalette(theme("colors"));
-  let newVars = Object.fromEntries(
-    Object.entries(allColors).map(([key, val]) => [`--${key}`, val])
-  );
- 
-  addBase({
-    ":root": newVars,
-  });
-}
+};
