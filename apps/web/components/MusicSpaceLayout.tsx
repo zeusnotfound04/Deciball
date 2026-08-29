@@ -6,7 +6,7 @@ import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
 import { Button } from '@/app/components/ui/button';
 import { Menu } from 'lucide-react';
-import DarkGradientBackground from './Background';
+import Silk from '@/components/ui/SlickBackground';
 import { DiscordPresence } from './DiscordPresence';
 import { ElectronDetector } from './ElectronDetector';
 
@@ -73,8 +73,12 @@ export default function MusicSpaceLayout({
   }, []);
 
   return (
-    <DarkGradientBackground>
-      <div className="h-screen w-screen text-white overflow-hidden">
+    <div className="relative h-screen w-screen text-white overflow-hidden bg-void-black">
+      {/* Ambient silk background */}
+      <div className="absolute inset-0 z-0 opacity-60">
+        <Silk speed={1.5} scale={1} color="#3f3f3f" noiseIntensity={1} />
+      </div>
+      <div className="relative z-10 h-full w-full">
         <DiscordPresence />
         <ElectronDetector />
         
@@ -98,11 +102,11 @@ export default function MusicSpaceLayout({
           {/* Mobile Sidebar Overlay */}
           {showSidebar && isMobile && sidebarOpen && (
             <div className="fixed inset-0 z-50 lg:hidden">
-              <div 
-                className="fixed inset-0 bg-black/50" 
+              <div
+                className="fixed inset-0 bg-void-black/80"
                 onClick={() => setSidebarOpen(false)}
               />
-              <div className="fixed inset-y-0 left-0 w-64 bg-black/90 backdrop-blur-xl h-full">
+              <div className="fixed inset-y-0 left-0 w-64 bg-midnight-surface border-r border-graphite h-full">
                 <SidebarProvider defaultOpen={true}>
                   <ListenerSidebar 
                     listeners={listeners} 
@@ -123,18 +127,18 @@ export default function MusicSpaceLayout({
           >
             {/* Mobile menu button */}
             {showSidebar && isMobile && (
-              <div className="lg:hidden sticky top-0 z-40 bg-black/20 backdrop-blur-xl border-b border-white/10 flex-shrink-0">
+              <div className="lg:hidden sticky top-0 z-40 bg-midnight-surface border-b border-graphite flex-shrink-0">
                 <div className="hidden lg:flex items-center justify-between h-12 px-4">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-white hover:bg-white/10"
+                    className="text-paper-white hover:bg-charcoal"
                     onClick={() => setSidebarOpen(true)}
                   >
                     <Menu className="h-5 w-5" />
                     <span className="sr-only">Open sidebar</span>
                   </Button>
-                  <div className="text-sm font-medium text-white/80">Music Space</div>
+                  <div className="text-sm font-mono text-steel-gray">Music Space</div>
                   <div className="w-10"></div> {/* Spacer for centering */}
                 </div>
               </div>
@@ -147,9 +151,10 @@ export default function MusicSpaceLayout({
           </main>
         </div>
       </div>
-    </DarkGradientBackground>
+    </div>
   );
 }
+
 
 // Layout wrapper for music space pages
 export function MusicSpaceLayoutWrapper({ 

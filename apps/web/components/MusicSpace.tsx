@@ -24,14 +24,14 @@ import { Player } from './Player';
 import SearchSongPopup from '@/app/components/Search';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { Users, Music, Settings, VolumeX, Volume2, Play, Pause, LogOut, User, Share2, Copy, Check } from 'lucide-react';
+import { Users, Music, Settings, VolumeX, Volume2, Play, Pause, LogOut, User, Share2, Copy, Check, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
-import BlurText, { BlurComponent } from './ui/BlurEffects';
 import { RecommendationPanel } from './RecommendationPanel';
 import SpaceEndedModal from './SpaceEndedModal';
 import MusicSpaceLayout from './MusicSpaceLayout';
-import { lexend, poppins, signikaNegative, inter, manrope, spaceGrotesk, jetBrainsMono, outfit } from '@/lib/font';
+import Loader from '@/components/ui/Loader';
+import PixelBlast from '@/components/ui/PixelBlast';
 
 interface MusicSpaceProps {
   spaceId: string;
@@ -349,7 +349,6 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
           case 'user-update':
             setConnectedUsers(data.userCount || data.connectedUsers || 0);
             if (data.userDetails) {
-              
               setUserDetails(data.userDetails);
             }
             
@@ -495,79 +494,44 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   if (loading || !user) {
     return (
       <MusicSpaceLayout showSidebar={false}>
-        <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-          {/* Background Animation Orbs */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-cyan-500/20 rounded-full blur-xl animate-pulse"></div>
-            <div className="absolute top-3/4 right-1/4 w-24 h-24 bg-purple-500/20 rounded-full blur-xl animate-pulse delay-500"></div>
-            <div className="absolute top-1/2 left-3/4 w-20 h-20 bg-teal-500/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+        <div className="flex-1 h-full w-full flex flex-col overflow-hidden">
+          {/* Skeleton header */}
+          <div className="flex items-center justify-center p-2 sm:p-3 md:p-4 w-full flex-shrink-0">
+            <div className="flex items-center gap-4 bg-midnight-surface border border-graphite rounded-cards px-4 md:px-8 py-3 w-full max-w-[96%] lg:max-w-6xl">
+              <div className="h-5 w-32 bg-graphite rounded animate-pulse" />
+              <div className="flex-1 h-10 bg-graphite rounded-full animate-pulse" />
+              <div className="h-10 w-10 bg-graphite rounded-full animate-pulse" />
+            </div>
           </div>
 
-          <div className="text-center relative z-10 max-w-md px-4">
-            {/* Main Loading Spinner */}
-            <div className="relative mb-8">
-              <div className="w-20 h-20 mx-auto relative">
-                {/* Outer Ring */}
-                <div className="absolute inset-0 rounded-full border-4 border-gray-700/30"></div>
-                
-                {/* Animated Ring */}
-                <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-cyan-400 border-r-purple-400 animate-spin"></div>
-                
-                {/* Inner Pulsing Dot */}
-                <div className="absolute inset-4 rounded-full bg-gradient-to-br from-cyan-400 to-purple-400 animate-pulse shadow-lg shadow-cyan-400/25"></div>
-                
-                {/* Center Music Note */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Music className="w-6 h-6 text-white animate-bounce" />
+          {/* Skeleton content */}
+          <div className="flex-1 flex justify-center w-full p-2 sm:p-4 min-h-0">
+            <div className="w-full flex flex-col md:grid md:grid-cols-2 gap-3 md:gap-4">
+              {/* Player skeleton */}
+              <div className="bg-midnight-surface border border-graphite rounded-cards p-4 flex flex-col items-center justify-center h-[50vh] md:h-full">
+                <div className="w-48 h-48 sm:w-56 sm:h-56 bg-graphite rounded-album-art animate-pulse mb-6 flex items-center justify-center">
+                  <Loader size="lg" />
+                </div>
+                <div className="h-5 w-40 bg-graphite rounded animate-pulse mb-2" />
+                <div className="h-4 w-28 bg-graphite rounded animate-pulse" />
+              </div>
+              {/* Queue skeleton */}
+              <div className="bg-midnight-surface border border-graphite rounded-cards p-4 h-[50vh] md:h-full">
+                <div className="h-4 w-16 bg-graphite rounded animate-pulse mb-4" />
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-graphite rounded-lg animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
+                      <div className="w-10 h-10 bg-charcoal rounded-album-art flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-3/4 bg-charcoal rounded" />
+                        <div className="h-2 w-1/2 bg-charcoal rounded" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-
-            {/* Title with Gradient */}
-            <div className="mb-4">
-              <h2 className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-2 ${spaceGrotesk.className}`}>
-                Connecting to Music Space
-              </h2>
-              
-              {/* Animated Loading Dots */}
-              <div className="flex justify-center items-center gap-1">
-                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce delay-150"></div>
-                <div className="w-2 h-2 bg-teal-400 rounded-full animate-bounce delay-300"></div>
-              </div>
-            </div>
-
-            {/* Description */}
-            <p className={`text-gray-300 text-base sm:text-lg mb-6 leading-relaxed ${inter.className}`}>
-              Preparing your collaborative music experience...
-            </p>
-
-            {/* Progress Bar */}
-            <div className="w-full bg-gray-700/50 rounded-full h-2 mb-4 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full animate-pulse shadow-lg shadow-cyan-400/25" 
-                   style={{
-                     width: '100%',
-                     animation: 'loading-progress 2s ease-in-out infinite'
-                   }}>
-              </div>
-            </div>
-
-            {/* Fun Loading Messages */}
-            <div className={`text-sm text-gray-400 ${jetBrainsMono.className} font-mono`}>
-              <div className="animate-pulse">
-                🎵 Syncing beats and vibes...
-              </div>
-            </div>
           </div>
-
-          {/* CSS for loading animation */}
-          <style jsx>{`
-            @keyframes loading-progress {
-              0% { transform: translateX(-100%); }
-              50% { transform: translateX(0%); }
-              100% { transform: translateX(100%); }
-            }
-          `}</style>
         </div>
       </MusicSpaceLayout>
     );
@@ -583,79 +547,81 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
       <div className="flex-1 h-full w-full flex flex-col overflow-hidden md:overflow-hidden">
         {/* Header Section */}
         <div className="flex items-center justify-center p-2 sm:p-3 md:p-4 w-full overflow-hidden flex-shrink-0">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 md:gap-6 bg-black/20 backdrop-blur-xl border border-white/10 rounded-xl sm:rounded-2xl px-3 sm:px-4 md:px-8 py-3 sm:py-3 md:py-3 shadow-2xl w-full max-w-[98%] sm:max-w-[95%] md:max-w-[96%] lg:max-w-6xl">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 md:gap-6 bg-midnight-surface/80 border border-graphite/50 rounded-cards px-3 sm:px-4 md:px-8 py-3 sm:py-3 md:py-3 w-full max-w-[98%] sm:max-w-[95%] md:max-w-[96%] lg:max-w-6xl">
           
           {/* Mobile Layout - Header with profile picture and room name */}
           <div className="flex items-center justify-between w-full sm:hidden">
             <div className="flex-1 flex justify-center">
-              <BlurText 
-                text={roomName} 
-                animateBy="words"
-                className={`text-lg font-bold text-white text-center ${spaceGrotesk.className}`}
-                delay={150}
-                direction="top"
-              />
+              <h1 className="text-lg font-serif italic text-paper-white text-center">
+                {roomName}
+              </h1>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button
                 onClick={handleShare}
                 variant="ghost"
                 size="sm"
-                className="h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30"
+                className="h-10 w-10 rounded-full p-0 hover:bg-charcoal transition-all duration-300 bg-graphite border border-graphite"
               >
                 {shareClicked ? (
                   <Check className="h-4 w-4 text-green-400" />
                 ) : (
-                  <Share2 className="h-4 w-4 text-gray-300 hover:text-white" />
+                  <Share2 className="h-4 w-4 text-ghost-gray hover:text-paper-white" />
                 )}
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30">
-                    <Avatar className="h-9 w-9 ring-1 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
-                      <AvatarImage 
-                        src={getProfilePicture() || undefined} 
-                        alt={String(session?.user?.name || session?.user?.username || 'User')} 
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-charcoal transition-all duration-300 bg-graphite border border-graphite">
+                    <Avatar className="h-9 w-9 ring-1 ring-electric-cyan/30 transition-all duration-300">
+                      <AvatarImage
+                        src={getProfilePicture() || undefined}
+                        alt={String(session?.user?.name || session?.user?.username || 'User')}
                         className="object-cover"
                       />
-                      <AvatarFallback className={`bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold text-sm ${outfit.className}`}>
+                      <AvatarFallback className="bg-graphite text-paper-white font-mono text-sm">
                         {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
-                  <DropdownMenuLabel className={`font-normal ${inter.className}`}>
+                <DropdownMenuContent className="w-56 bg-midnight-surface border-graphite" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className={`text-sm font-medium leading-none text-white ${manrope.className}`}>
+                      <p className="text-sm font-satoshi font-medium leading-none text-paper-white">
                         {session?.user?.name || session?.user?.username || 'User'}
                       </p>
-                      <p className={`text-xs leading-none text-gray-400 ${jetBrainsMono.className} font-mono`}>
+                      <p className="text-xs leading-none text-steel-gray font-mono">
                         {session?.user?.email}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-white text-black border-0 ${outfit.className} font-medium`}>
-                          {isAdmin ? 'Admin' : 'Listener'}
-                        </Badge>
+                        {isAdmin ? (
+                          <span className="font-mono text-[10px] tracking-[0.02em] uppercase text-electric-cyan border border-electric-cyan/30 rounded-full px-2 py-0.5">
+                            Admin
+                          </span>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs font-mono">
+                            Listener
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/20" />
-                  <DropdownMenuItem 
-                    className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
+                  <DropdownMenuSeparator className="bg-graphite" />
+                  <DropdownMenuItem
+                    className="text-ghost-gray hover:text-paper-white hover:bg-charcoal cursor-pointer font-satoshi"
                     onClick={() => router.push('/profile')}
                   >
                     <User className="mr-2 h-4 w-4" />
-                    <span className={`${outfit.className} font-medium`}>Profile</span>
+                    <span className="font-satoshi font-medium">Profile</span>
                   </DropdownMenuItem>
-                  
-                  <DropdownMenuSeparator className="bg-white/20" />
-                  <DropdownMenuItem 
-                    className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
+
+                  <DropdownMenuSeparator className="bg-graphite" />
+                  <DropdownMenuItem
+                    className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer font-satoshi"
                     onClick={handleLogout}
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span className={`${outfit.className} font-medium text-red-400`}>Log out</span>
+                    <span className="font-satoshi font-medium text-red-400">Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -665,22 +631,18 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
           {/* Desktop Layout - Original layout */}
           <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4 md:gap-8 w-full">
             <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
-              <BlurText 
-                text={roomName} 
-                animateBy="words"
-                className={`text-base sm:text-lg md:text-xl font-bold text-white text-left truncate flex-1 sm:flex-none ${spaceGrotesk.className}`}
-                delay={150}
-                direction="top"
-              />
+              <h1 className="text-base sm:text-lg md:text-xl font-serif italic text-paper-white text-left truncate flex-1 sm:flex-none">
+                {roomName}
+              </h1>
             </div>
-            
+
             <div className="flex-1 w-full sm:max-w-xs md:max-w-xl overflow-hidden">
-              <SearchSongPopup 
+              <SearchSongPopup
                 onSelect={(track) => {
-                  
+
                 }}
                 onBatchSelect={handleBatchAddToQueue}
-                buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 backdrop-blur-sm transition-all duration-300 text-xs sm:text-sm md:text-base ${inter.className}`}
+                buttonClassName="w-full bg-graphite hover:bg-charcoal border-slate-custom hover:border-slate-custom text-ghost-gray rounded-full px-3 sm:px-4 md:px-6 py-2 sm:py-2 md:py-2.5 transition-all duration-300 text-xs sm:text-sm md:text-base font-satoshi"
                 maxResults={12}
                 isAdmin={true}
                 enableBatchSelection={true}
@@ -693,62 +655,68 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                 onClick={handleShare}
                 variant="ghost"
                 size="sm"
-                className="h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300 shadow-lg bg-black/40 backdrop-blur-xl border border-white/20 hover:border-white/30"
+                className="h-10 w-10 rounded-full p-0 hover:bg-charcoal transition-all duration-300 bg-graphite border border-graphite"
                 title={shareClicked ? "Link copied!" : "Share space"}
               >
                 {shareClicked ? (
                   <Check className="h-4 w-4 text-green-400" />
                 ) : (
-                  <Share2 className="h-4 w-4 text-gray-300 hover:text-white" />
+                  <Share2 className="h-4 w-4 text-ghost-gray hover:text-paper-white" />
                 )}
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-white/10 transition-all duration-300">
-                    <Avatar className="h-10 w-10 ring-2 ring-cyan-400/30 hover:ring-cyan-400/50 transition-all duration-300">
-                      <AvatarImage 
-                        src={getProfilePicture() || undefined} 
-                        alt={String(session?.user?.name || session?.user?.username || 'User')} 
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 hover:bg-charcoal transition-all duration-300">
+                    <Avatar className="h-10 w-10 ring-2 ring-electric-cyan/30 transition-all duration-300">
+                      <AvatarImage
+                        src={getProfilePicture() || undefined}
+                        alt={String(session?.user?.name || session?.user?.username || 'User')}
                         className="object-cover"
                       />
-                      <AvatarFallback className={`bg-gradient-to-br from-cyan-500 to-purple-500 text-white font-semibold ${outfit.className}`}>
+                      <AvatarFallback className="bg-graphite text-paper-white font-mono font-semibold">
                         {getUserInitials()}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 bg-black/90 border-white/20 backdrop-blur-xl" align="end" forceMount>
-                  <DropdownMenuLabel className={`font-normal ${inter.className}`}>
+                <DropdownMenuContent className="w-56 bg-midnight-surface border-graphite" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className={`text-sm font-medium leading-none text-white ${manrope.className}`}>
+                      <p className="text-sm font-satoshi font-medium leading-none text-paper-white">
                         {session?.user?.name || session?.user?.username || 'User'}
                       </p>
-                      <p className={`text-xs leading-none text-gray-400 ${jetBrainsMono.className} font-mono`}>
+                      <p className="text-xs leading-none text-steel-gray font-mono">
                         {session?.user?.email}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant={isAdmin ? 'default' : 'secondary'} className={`text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 ${outfit.className} font-medium`}>
-                          {isAdmin ? 'Admin' : 'Listener'}
-                        </Badge>
+                        {isAdmin ? (
+                          <span className="font-mono text-[10px] tracking-[0.02em] uppercase text-electric-cyan border border-electric-cyan/30 rounded-full px-2 py-0.5">
+                            Admin
+                          </span>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs font-mono">
+                            Listener
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/20" />
-                  <DropdownMenuItem 
-                    className={`text-gray-300 hover:text-white hover:bg-white/10 cursor-pointer ${inter.className}`}
+                  <DropdownMenuSeparator className="bg-graphite" />
+                  <DropdownMenuItem
+                    className="text-ghost-gray hover:text-paper-white hover:bg-charcoal cursor-pointer font-satoshi"
                     onClick={() => router.push('/profile')}
                   >
                     <User className="mr-2 h-4 w-4" />
-                    <span className={`${outfit.className} font-medium`}>Profile</span>
+                    <span className="font-satoshi font-medium">Profile</span>
                   </DropdownMenuItem>
-                
-                  <DropdownMenuSeparator className="bg-white/20" />
-                  <DropdownMenuItem 
-                    className={`text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer ${inter.className}`}
+
+                  <DropdownMenuSeparator className="bg-graphite" />
+                  <DropdownMenuItem
+                    className="text-red-400 hover:text-red-300 hover:bg-red-900/20 cursor-pointer font-satoshi"
                     onClick={handleLogout}
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span className={`${outfit.className} font-medium text-red-400`}>Log out</span>
+                    <span className="font-satoshi font-medium text-red-400">Log out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -762,7 +730,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                 
               }}
               onBatchSelect={handleBatchAddToQueue}
-              buttonClassName={`w-full bg-black/40 hover:bg-black/50 border-white/20 hover:border-white/30 text-gray-200 rounded-full px-4 py-2.5 backdrop-blur-sm transition-all duration-300 text-sm ${inter.className}`}
+              buttonClassName="w-full bg-graphite hover:bg-charcoal border-slate-custom hover:border-slate-custom text-ghost-gray rounded-full px-4 py-2.5 transition-all duration-300 text-sm font-satoshi"
               maxResults={12}
               isAdmin={true}
               enableBatchSelection={true}
@@ -785,57 +753,40 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
             <div className="relative w-full min-h-0 flex-1 rounded-none sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-2 xl:p-6 2xl:p-8 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 sm:gap-2 md:gap-3 lg:gap-1 xl:gap-5 2xl:gap-8 md:min-h-0 sm:flex sm:flex-col sm:h-auto md:place-items-center md:justify-items-center">
               {/* Left Column - Player */}
               <div className="flex flex-col gap-1 sm:gap-2 md:gap-4 order-1 w-full max-w-full min-w-0 flex-shrink-0 sm:h-[60vh] md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
-                <BlurComponent 
-                  delay={500} 
-                  direction="top"
-                  className="w-full max-w-full flex-1 h-full block"
-                  stepDuration={0.4}
-                >
+                <div className="w-full max-w-full flex-1 h-full block">
                   {showPlayer && (
-                    <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl flex flex-col">
-                      <Player 
+                    <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl flex flex-col overflow-hidden">
+                      <div className="absolute inset-0 z-0 opacity-[0.18] rounded-cards overflow-hidden pointer-events-none">
+                        <PixelBlast variant="circle" pixelSize={3} color="#19d0e8" speed={0.4} patternDensity={0.5} edgeFade={0.3} enableRipples={true} rippleSpeed={0.2} rippleIntensityScale={0.5} />
+                      </div>
+                      <Player
                         spaceId={spaceId}
                         isAdmin={isAdmin}
                         userCount={connectedUsers}
                         userDetails={userDetails}
-                        className="w-full h-full flex-1"
+                        className="relative z-10 w-full h-full flex-1"
                       />
                     </div>
                   )}
-                </BlurComponent>
-
-                {/* <BlurComponent
-                  delay={700}
-                  direction="bottom"
-                  className="flex-1 hidden lg:block w-full min-h-0"
-                  stepDuration={0.4}
-                >
-                  <RecommendationPanel 
-                    spaceId={spaceId}
-                    isAdmin={isAdmin}
-                    className="w-full h-full"
-                  />
-                </BlurComponent> */}
+                </div>
               </div>
 
               {/* Right Column - QueueManager */}
               <div className="w-full max-w-full order-2 min-w-0 flex-shrink-0 md:h-full md:min-h-0">
-                <BlurComponent
-                  delay={600}
-                  direction="top"
-                  className="h-full w-full max-w-full block"
-                  stepDuration={0.4}
-                >
+                <div className="h-full w-full max-w-full block">
                   {showQueue && (
-                    <div className="backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-gray-600/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[60vh] sm:h-[65vh] md:h-[70vh] lg:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col">
-                      <QueueManager 
-                        spaceId={spaceId} 
+                    <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[60vh] sm:h-[65vh] md:h-[70vh] lg:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col overflow-hidden">
+                      <div className="absolute inset-0 z-0 opacity-[0.15] rounded-cards overflow-hidden pointer-events-none">
+                        <PixelBlast variant="square" pixelSize={3} color="#19d0e8" speed={0.3} patternDensity={0.45} edgeFade={0.3} enableRipples={true} rippleSpeed={0.15} rippleIntensityScale={0.4} />
+                      </div>
+                      <QueueManager
+                        spaceId={spaceId}
                         isAdmin={isAdmin}
-                        className="w-full h-full flex-1 min-h-0"
+                        className="relative z-10 w-full h-full flex-1 min-h-0"
                       />
                     </div>
                   )}
-                </BlurComponent>
+                </div>
               </div>
             </div>
           </div>
@@ -845,24 +796,24 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
         <DragOverlay>
           {activeId && draggedSong ? (
             <div className="opacity-90 transform rotate-2 scale-105 pointer-events-none">
-              <div className="bg-[#1C1E1F] border border-blue-400/50 rounded-xl p-3 shadow-2xl">
+              <div className="bg-midnight-surface border border-electric-cyan/30 rounded-lg p-3">
                 <div className="flex items-center space-x-3">
-                  <img 
-                    src={draggedSong.smallImg} 
+                  <img
+                    src={draggedSong.smallImg}
                     alt={draggedSong.title}
                     className="w-12 h-12 rounded-lg object-cover"
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-white truncate text-sm">
+                    <h4 className="font-semibold text-paper-white truncate text-sm">
                       {draggedSong.title}
                     </h4>
                     {draggedSong.artist && (
-                      <p className="text-gray-400 truncate text-xs">
+                      <p className="text-steel-gray truncate text-xs">
                         {draggedSong.artist}
                       </p>
                     )}
                   </div>
-                  <Music className="w-5 h-5 text-blue-400" />
+                  <Music className="w-5 h-5 text-electric-cyan" />
                 </div>
               </div>
             </div>
