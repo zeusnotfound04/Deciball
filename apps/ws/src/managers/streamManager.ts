@@ -870,20 +870,20 @@ export class RoomManager {
     
     async addUser(userId: string, ws: WebSocket, token: string) {
         let user = this.users.get(userId);
-        
+
         const userTokenInfo : UserTokenInfo | null = this.decodeUserToken(token);
-       
+
+        // Always store/refresh user info in Redis (token always has latest pfpUrl)
+        if (userTokenInfo) {
+          await this.storeUserInfo(userId, {
+            username: userTokenInfo.username,
+            email: userTokenInfo.email,
+            name: userTokenInfo.name,
+            pfpUrl: userTokenInfo.pfpUrl
+          });
+        }
+
         if (!user) {
-          
-          if (userTokenInfo) {
-            await this.storeUserInfo(userId, {
-              username: userTokenInfo.username,
-              email: userTokenInfo.email,
-              name : userTokenInfo.name,
-              pfpUrl: userTokenInfo.pfpUrl
-            });
-          }
-          
           this.users.set(userId, {
             userId,
             ws: [ws],
@@ -2859,15 +2859,15 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
         // return "Unknown Space";
     }
 
-    private decodeUserToken(token: string): { userId: string; username?: string; email?: string; name?: string } | null {
+    private decodeUserToken(token: string): { userId: string; username?: string; email?: string; name?: string; pfpUrl?: string } | null {
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
             return {
-                
                 userId: decoded.userId,
                 username: decoded.username,
                 email: decoded.email,
-                name: decoded.name
+                name: decoded.name,
+                pfpUrl: decoded.pfpUrl
             };
         } catch (error) {
             console.error('Error decoding JWT token:', error);
@@ -2877,6 +2877,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
 
     async storeUserInfo(userId: string, userInfo: { username?: string; email?: string; name?: string, pfpUrl?: string }): Promise<void> {
         try {
+            console.log(`[DEBUG storeUserInfo] userId=${userId.slice(0,8)} pfpUrl=${userInfo.pfpUrl?.slice(0,60) || 'NONE'}`);
             await this.redisClient.set(
                 `user-info-${userId}`,
                 JSON.stringify(userInfo),
@@ -2898,11 +2899,13 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
     async getUserInfo(userId: string): Promise<{ username?: string; email?: string; name?: string, pfpUrl?: string } | null> {
         try {
             const userInfo = await this.redisClient.get(`user-info-${userId}`);
+            console.log(`[DEBUG getUserInfo] userId=${userId.slice(0,8)} raw=${userInfo?.slice(0,200)}`);
             if (userInfo) {
-                return JSON.parse(userInfo);
-                
+                const parsed = JSON.parse(userInfo);
+                console.log(`[DEBUG getUserInfo] parsed pfpUrl=${parsed.pfpUrl?.slice(0,60) || 'MISSING'}`);
+                return parsed;
             }
-            
+            console.log(`[DEBUG getUserInfo] NO DATA IN REDIS for ${userId.slice(0,8)}`);
         } catch (error) {
             console.error(`Error getting user info for ${userId}:`, error);
         }

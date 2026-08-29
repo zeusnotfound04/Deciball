@@ -140,7 +140,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
             console.error("WebSocket connection timeout");
             ws.close();
           }
-        }, 10000);
+        }, 5000);
 
         ws.onopen = async () => {
           clearTimeout(connectionTimeout);
@@ -426,8 +426,13 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
       }
     };
 
-    setLoading(true);
     setConnectionError(false);
+
+    // Start connecting immediately, don't set loading if we already have a session
+    // This prevents the full-screen loader from flashing
+    if (!socket) {
+      setLoading(true);
+    }
 
     connectWebSocket();
 
