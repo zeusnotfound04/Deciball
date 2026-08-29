@@ -59,19 +59,18 @@ export function SignupForm() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-black to-zinc-900">
-      <div className="max-w-md w-full mx-auto rounded-xl p-6 md:p-8 shadow-2xl bg-zinc-900/90 backdrop-blur-md border border-zinc-800 text-white">
+    <div className="flex items-center justify-center min-h-screen bg-void-black">
+      <div className="max-w-md w-full mx-auto rounded-cards p-6 md:p-8 shadow-2xl bg-midnight-surface border border-graphite text-white">
         <div className="text-center mb-6">
-          <h2 className="font-bold text-2xl text-white bg-gradient-to-r from-cyan-400 to-teal-500 bg-clip-text text-transparent">Welcome to Decibal</h2>
-          <div className="w-16 h-1 bg-gradient-to-r from-cyan-400 to-teal-500 mx-auto my-3 rounded-full"></div>
-          <p className="text-zinc-400 text-sm max-w-sm mt-2">
+          <h2 className="text-paper-white font-serif italic text-[32px]">Welcome to Decibal</h2>
+          <p className="text-steel-gray font-satoshi text-sm max-w-sm mt-2">
             Create your account to start exploring music together
           </p>
         </div>
         
         <form className="my-6 space-y-5" onSubmit={handleSubmit}>
           <LabelInputContainer>
-            <Label htmlFor="username" className="text-zinc-300 font-medium">Username</Label>
+            <Label htmlFor="username" className="text-steel-gray font-mono text-xs tracking-[0.02em] uppercase">Username</Label>
             <div className="relative">
               <Input
                 id="username"
@@ -80,13 +79,13 @@ export function SignupForm() {
                 value={formData.username}
                 onChange={handleChange}
                 required
-                className="bg-zinc-800/50 text-zinc-200 border-zinc-700 h-11 pl-4 rounded-lg focus:ring-2 focus:ring-cyan-400/50 focus:border-transparent transition-all duration-200 placeholder:text-zinc-500"
+                className="bg-graphite text-paper-white border-graphite h-11 pl-4 rounded-lg focus:border-slate-custom focus:ring-0 transition-all duration-200 placeholder:text-steel-gray font-satoshi"
               />
             </div>
           </LabelInputContainer>
           
           <LabelInputContainer>
-            <Label htmlFor="email" className="text-zinc-300 font-medium">Email Address</Label>
+            <Label htmlFor="email" className="text-steel-gray font-mono text-xs tracking-[0.02em] uppercase">Email Address</Label>
             <div className="relative">
               <Input
                 id="email"
@@ -95,13 +94,13 @@ export function SignupForm() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="bg-zinc-800/50 text-zinc-200 border-zinc-700 h-11 pl-4 rounded-lg focus:ring-2 focus:ring-cyan-400/50 focus:border-transparent transition-all duration-200 placeholder:text-zinc-500"
+                className="bg-graphite text-paper-white border-graphite h-11 pl-4 rounded-lg focus:border-slate-custom focus:ring-0 transition-all duration-200 placeholder:text-steel-gray font-satoshi"
               />
             </div>
           </LabelInputContainer>
           
           <LabelInputContainer>
-            <Label htmlFor="password" className="text-zinc-300 font-medium">Password</Label>
+            <Label htmlFor="password" className="text-steel-gray font-mono text-xs tracking-[0.02em] uppercase">Password</Label>
             <div className="relative">
               <Input
                 id="password"
@@ -110,19 +109,19 @@ export function SignupForm() {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="bg-zinc-800/50 text-zinc-200 border-zinc-700 h-11 pl-4 rounded-lg focus:ring-2 focus:ring-cyan-400/50 focus:border-transparent transition-all duration-200 placeholder:text-zinc-500"
+                className="bg-graphite text-paper-white border-graphite h-11 pl-4 rounded-lg focus:border-slate-custom focus:ring-0 transition-all duration-200 placeholder:text-steel-gray font-satoshi"
               />
             </div>
           </LabelInputContainer>
 
           {error && (
-            <div className="bg-red-900/20 border border-red-800/30 p-3 rounded-lg">
+            <div className="bg-graphite border border-red-400/30 p-3 rounded-lg">
               <span className="text-red-400 text-sm">{error}</span>
             </div>
           )}
 
           <button
-            className="relative bg-gradient-to-r from-cyan-600 to-teal-600 block w-full text-white rounded-lg h-12 font-medium mt-6 shadow-lg shadow-cyan-900/30 hover:from-cyan-500 hover:to-teal-500 transition-all duration-300 overflow-hidden group"
+            className="bg-graphite hover:bg-charcoal text-paper-white font-mono rounded-full block w-full h-12 font-medium mt-6 transition-all duration-300 overflow-hidden group"
             type="submit"
           >
             {loading ? (
@@ -141,12 +140,11 @@ export function SignupForm() {
                 </svg>
               </span>
             )}
-            <div className="absolute bottom-0 left-0 h-0.5 w-full bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
           </button>
           
-          <div className="text-center mt-8 border-t border-zinc-800 pt-6">
-            <p className="text-zinc-400 text-sm">
-              Already have an account? <Link href="/login" className="text-cyan-400 hover:text-cyan-300 transition-colors font-medium">Log in</Link>
+          <div className="text-center mt-8 border-t border-graphite pt-6">
+            <p className="text-steel-gray font-mono text-xs">
+              Already have an account? <Link href="/login" className="text-electric-cyan hover:text-sky-signal transition-colors font-medium">Log in</Link>
             </p>
           </div>
         </form>

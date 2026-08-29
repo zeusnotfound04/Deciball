@@ -2,11 +2,9 @@
 
 import { Button } from '@/app/components/ui/button';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
-import { spaceGrotesk } from '@/lib/font';
 
 type AuthProvider = 'google';
 
@@ -28,9 +26,6 @@ interface AuthCardProps {
   className?: string;
 }
 
-/**
- * Authentication provider icons
- */
 const AuthIcons = {
   Google: (props: AuthIconProps) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" {...props}>
@@ -42,9 +37,6 @@ const AuthIcons = {
   ),
 };
 
-/**
- * Button component for social authentication providers using NextAuth
- */
 const SignInButton = ({
   title,
   provider,
@@ -55,19 +47,14 @@ const SignInButton = ({
 }: SignInButtonProps) => (
   <Button
     variant="outline"
-    className={cn(
-      'w-full py-3 gap-3 bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10',
-      'transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl',
-      'hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-400/20',
-      spaceGrotesk.className
-    )}
+    className="w-full py-3 gap-3 bg-graphite border border-slate-custom rounded-full font-mono text-sm text-paper-white h-12 transition-colors hover:bg-charcoal hover:border-steel-gray"
     disabled={loading}
     onClick={async () => {
       setLoading(true);
       try {
-        await signIn(provider, { 
+        await signIn(provider, {
           callbackUrl: callbackURL,
-          redirect: true 
+          redirect: true,
         });
       } catch (error) {
         console.error('Sign in error:', error);
@@ -76,9 +63,9 @@ const SignInButton = ({
     }}
   >
     {loading ? (
-      <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+      <Loader2 className="w-5 h-5 animate-spin text-electric-cyan" />
     ) : (
-      <div className="w-5 h-5 text-white">{icon}</div>
+      <div className="w-5 h-5 text-paper-white">{icon}</div>
     )}
     <span className="font-medium">
       {loading ? 'Signing in...' : `Continue with ${title}`}
@@ -86,34 +73,22 @@ const SignInButton = ({
   </Button>
 );
 
-/**
- * Standalone AuthCard component for sign-in pages
- */
 export default function AuthCard({
-  title = "Welcome to Deciball",
-  description = "Sign in to create and join music spaces with your friends",
-  callbackURL = "/",
+  title = 'Welcome to Deciball',
+  description = 'Sign in to create and join music spaces with your friends',
+  callbackURL = '/',
   className,
 }: AuthCardProps) {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   return (
-    <div className={cn(
-      "flex items-center justify-center",
-      className
-    )}>
-      <div className="w-full max-w-md bg-black/90 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
+    <div className={`flex items-center justify-center ${className ?? ''}`}>
+      <div className="w-full max-w-md bg-midnight-surface border border-graphite rounded-cards p-8">
         <div className="text-center mb-8">
-          <h2 className={cn(
-            "text-2xl font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent mb-3",
-            spaceGrotesk.className
-          )}>
+          <h2 className="font-serif italic text-[32px] text-paper-white mb-3">
             {title}
           </h2>
-          <p className={cn(
-            "text-white/70 text-base leading-relaxed",
-            spaceGrotesk.className
-          )}>
+          <p className="font-satoshi text-steel-gray text-base leading-relaxed">
             {description}
           </p>
         </div>
@@ -127,16 +102,13 @@ export default function AuthCard({
             callbackURL={callbackURL}
             icon={<AuthIcons.Google />}
           />
-          
+
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/20" />
+              <div className="w-full border-t border-graphite" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className={cn(
-                "bg-black/90 px-4 text-white/50 font-medium",
-                spaceGrotesk.className
-              )}>
+            <div className="relative flex justify-center">
+              <span className="bg-midnight-surface px-4 font-mono text-[10px] tracking-[0.02em] uppercase text-steel-gray">
                 Secure Sign In
               </span>
             </div>
@@ -144,21 +116,18 @@ export default function AuthCard({
         </div>
 
         <div className="text-center">
-          <p className={cn(
-            "text-xs text-white/50 leading-relaxed",
-            spaceGrotesk.className
-          )}>
+          <p className="font-mono text-[10px] text-steel-gray leading-relaxed">
             By continuing, you agree to our{' '}
             <Link
               href="/terms-of-service"
-              className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors"
+              className="text-electric-cyan hover:text-sky-signal transition-colors"
             >
               Terms of Service
             </Link>{' '}
             and{' '}
             <Link
               href="/privacy-policy"
-              className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 transition-colors"
+              className="text-electric-cyan hover:text-sky-signal transition-colors"
             >
               Privacy Policy
             </Link>
