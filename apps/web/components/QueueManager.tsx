@@ -15,24 +15,14 @@ import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
 import { useAudio, useAudioStore } from '@/store/audioStore';
 import { Button } from '@/app/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
-import { Badge } from '@/app/components/ui/badge';
 import { Input } from '@/app/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
 import { PiArrowFatLineUpFill } from "react-icons/pi";
 import { LuArrowBigUpDash } from "react-icons/lu";
-import { Link, Plus, Loader2, MessageCircle, X, Trash2, Music } from 'lucide-react';
+import { Link, Plus, Loader2, MessageCircle, Trash2 } from 'lucide-react';
 import { Chat } from './Chat';
-import { 
-  PlayIcon, 
-  DeleteIcon, 
-  NextIcon,
-  UsersIcon,
-  TimeIcon,
-  PlayListIcon,
-  SearchIcon
-} from '@/components/icons';
-import { inter, outfit, manrope, spaceGrotesk } from '@/lib/font';
+import { PlayListIcon } from '@/components/icons';
+import PixelBlast from '@/components/ui/PixelBlast';
 import axios from 'axios';
 
 // Drag zone identifiers
@@ -85,12 +75,12 @@ interface QueueManagerProps {
 
 const PlayingAnimation = () => {
   return (
-    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-xl flex items-center justify-center">
+    <div className="absolute inset-0 bg-void-black/40 rounded-xl flex items-center justify-center">
       <div className="flex items-center space-x-1">
         {[...Array(4)].map((_, i) => (
           <motion.div
             key={i}
-            className="w-1 bg-blue-400 rounded-full"
+            className="w-1 bg-electric-cyan rounded-full"
             animate={{
               height: [4, 16, 8, 20, 4],
             }}
@@ -107,312 +97,147 @@ const PlayingAnimation = () => {
   );
 };
 
+// Suggested songs for empty state
+const SUGGESTIONS = [
+  { img: "https://upload.wikimedia.org/wikipedia/en/c/c1/The_Weeknd_-_After_Hours.png", title: "After Hours", artist: "The Weeknd" },
+  { img: "https://m.media-amazon.com/images/I/61MWIe1BzwL._SL1000_.jpg", title: "DAMN.", artist: "Kendrick Lamar" },
+  { img: "https://upload.wikimedia.org/wikipedia/en/2/23/Travis_Scott_-_Utopia.png", title: "Utopia", artist: "Travis Scott" },
+  { img: "https://upload.wikimedia.org/wikipedia/en/a/a0/Blonde_-_Frank_Ocean.jpeg", title: "Blonde", artist: "Frank Ocean" },
+  { img: "https://upload.wikimedia.org/wikipedia/en/2/2b/Rockstar_%28soundtrack%29.jpg", title: "Rockstar", artist: "Soundtrack" },
+  { img: "https://f4.bcbits.com/img/a3924108681_16.jpg", title: "न", artist: "Seedhe Maut" },
+  { img: "https://i.scdn.co/image/ab67616d0000b2736cec8bf8302ee175e429c9c1", title: "Tadipaar", artist: "MC STAN" },
+  { img: "https://c.saavncdn.com/020/Guru-Hindi-2006-20190516131307-500x500.jpg", title: "Tere Bina", artist: "A.R. Rahman" },
+  { img: "https://cdn-images.dzcdn.net/images/cover/8c6578a2099561992fb7544e6826f767/1900x1900-000000-80-0-0.jpg", title: "I Wonder", artist: "Kanye West" },
+  { img: "https://upload.wikimedia.org/wikipedia/en/4/41/17_XXXTENTACION_Cover.png", title: "17", artist: "XXXTENTACION" },
+];
+
 // Personalized Empty Queue Message Component
-const PersonalizedEmptyMessage = ({ userName }: { userName?: string }) => {
+const PersonalizedEmptyMessage = ({ userName, onSuggestionClick }: { userName?: string; onSuggestionClick?: (song: typeof SUGGESTIONS[0]) => void }) => {
   const displayName = userName || "Music Lover";
   const message = `What's in your mind, ${displayName}?`;
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4 }}
-      className="h-full flex items-center justify-center min-h-[200px]"
+      className="h-full flex flex-col min-h-[200px] relative overflow-hidden rounded-xl"
     >
-      <Card className="bg-[#1C1E1F] border-[#424244] w-full">
-        <CardContent className="py-8 sm:py-12 text-center text-gray-400">
-          <motion.div 
-            className="flex flex-col items-center gap-3 sm:gap-4"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
+      <div className="absolute inset-0 opacity-20 pointer-events-none">
+        <PixelBlast
+          variant="circle"
+          pixelSize={2}
+          color="#19d0e8"
+          speed={0.3}
+          patternDensity={0.3}
+          edgeFade={0.4}
+          enableRipples={false}
+        />
+      </div>
+
+      {/* Message */}
+      <div className="relative z-10 text-center px-6 pt-8 pb-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="text-steel-gray">
+            <PlayListIcon width={40} height={40} className="text-steel-gray" />
+          </div>
+          <div>
+            <p className="font-satoshi text-lg text-ghost-gray mb-1">
+              {message}
+            </p>
+            <p className="font-mono text-[11px] text-paper-white/30 flex items-center justify-center gap-2 mt-2">
+              Press
+              <kbd className="px-1.5 py-0.5 bg-paper-white/10 border border-paper-white/15 rounded text-[10px] text-paper-white/50">⌘ K</kbd>
+              to search &amp; add songs
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Horizontal song suggestions */}
+      <div className="relative z-10 mt-auto px-2 pb-4">
+        <p className="font-mono text-[10px] tracking-[0.05em] uppercase text-steel-gray mb-3 px-2">
+          Popular right now
+        </p>
+        <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
+          {SUGGESTIONS.map((song, i) => (
             <motion.div
-              animate={{ 
-                rotate: [0, 5, -5, 0],
-                scale: [1, 1.05, 1]
-              }}
-              transition={{ 
-                duration: 4, 
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
+              key={i}
+              className="flex-shrink-0 w-[100px] group cursor-pointer"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 + i * 0.05 }}
+              onClick={() => onSuggestionClick?.(song)}
+              whileTap={{ scale: 0.95 }}
             >
-              <div className="text-gray-600">
-                <PlayListIcon width={48} height={48} className="sm:w-16 sm:h-16 text-gray-600" />
+              <div className="w-[100px] h-[100px] rounded-xl overflow-hidden mb-1.5 bg-graphite">
+                <img
+                  src={song.img}
+                  alt={song.title}
+                  loading="lazy"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  draggable={false}
+                />
               </div>
+              <p className="font-satoshi text-[11px] text-ghost-gray truncate group-hover:text-paper-white transition-colors">
+                {song.title}
+              </p>
+              <p className="font-mono text-[9px] text-steel-gray truncate">
+                {song.artist}
+              </p>
             </motion.div>
-            
-            {/* Animated Personalized Message */}
-            <div>
-              <motion.p 
-                className="text-base sm:text-lg font-medium mb-2 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent"
-                animate={{ 
-                  opacity: [0.7, 1, 0.7],
-                }}
-                transition={{ 
-                  duration: 3, 
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              >
-                {message}
-              </motion.p>
-              <motion.p 
-                className="text-sm"
-                animate={{ opacity: [0.5, 0.8, 0.5] }}
-                transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
-              >
-                Add some music to get the party started!
-              </motion.p>
-            </div>
-            
-            <motion.div 
-              className="flex items-center gap-2 text-xs sm:text-sm"
-              animate={{ 
-                opacity: [0.4, 0.8, 0.4],
-                y: [0, -2, 0]
-              }}
-              transition={{ 
-                duration: 2.2, 
-                repeat: Infinity,
-                delay: 1
-              }}
-            >
-              <div className="text-current">
-                <SearchIcon width={14} height={14} className="sm:w-4 sm:h-4" />
-              </div>
-              <span className="text-center">Search and add your favorite tracks</span>
-            </motion.div>
-          </motion.div>
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      </div>
     </motion.div>
   );
 };
 
-// Floating heart/upvote particles animation
-const FloatingParticles = ({ trigger }: { trigger: boolean }) => {
-  const particles = Array.from({ length: 8 }, (_, i) => ({
-    id: i,
-    delay: i * 0.1,
-    angle: (i * 45) * (Math.PI / 180), // Convert to radians
-  }));
-
-  if (!trigger) return null;
-
-  return (
-    <div className="absolute inset-0 pointer-events-none">
-      {particles.map((particle) => (
-        <motion.div
-          key={particle.id}
-          className="absolute top-1/2 left-1/2 text-blue-400"
-          initial={{ 
-            opacity: 0, 
-            scale: 0, 
-            x: -8, 
-            y: -8,
-            rotate: 0 
-          }}
-          animate={{
-            opacity: [0, 1, 0],
-            scale: [0, 1.2, 0.8],
-            x: Math.cos(particle.angle) * 30 - 8,
-            y: Math.sin(particle.angle) * 30 - 8,
-            rotate: 360,
-          }}
-          transition={{
-            duration: 1.2,
-            delay: particle.delay,
-            ease: "easeOut"
-          }}
-        >
-          <PiArrowFatLineUpFill size={12} />
-        </motion.div>
-      ))}
-    </div>
-  );
-};
-
-// Ripple effect animation
-const RippleEffect = ({ trigger }: { trigger: boolean }) => {
-  if (!trigger) return null;
-
-  return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl">
-      {[0, 0.2, 0.4].map((delay, index) => (
-        <motion.div
-          key={index}
-          className="absolute inset-0 border-2 border-blue-400/50 rounded-xl"
-          initial={{ scale: 0, opacity: 0.8 }}
-          animate={{ scale: 2, opacity: 0 }}
-          transition={{
-            duration: 0.8,
-            delay,
-            ease: "easeOut"
-          }}
-        />
-      ))}
-    </div>
-  );
-};
-
-const UpvoteButton = ({ 
-  onClick, 
+const UpvoteButton = ({
+  onClick,
   isVoted = false,
   voteCount = 0
-}: { 
+}: {
   onClick: (e?: any) => void;
   isVoted?: boolean;
   voteCount?: number;
 }) => {
-  const [animationTrigger, setAnimationTrigger] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-
   // Simple click handler that works on both desktop and mobile
   const handleVoteClick = (e: any) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    // Trigger particle animation
-    setAnimationTrigger(true);
-    setShowSuccess(true);
-    
-    // Reset animation trigger
-    setTimeout(() => setAnimationTrigger(false), 1200);
-    setTimeout(() => setShowSuccess(false), 2000);
-    
     onClick(e);
   };
-  
+
   return (
-    <motion.div className="relative">
-      {/* Success message */}
-      <AnimatePresence>
-        {showSuccess && !isVoted && (
-          <motion.div
-            className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-green-500/20 text-green-400 px-3 py-1 rounded-lg text-xs font-bold backdrop-blur-xl border border-green-500/30 shadow-lg z-10"
-            initial={{ opacity: 0, y: 10, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.8 }}
-            transition={{ duration: 0.3 }}
-          >
-            Upvoted! 🎵
-          </motion.div>
+    <motion.button
+      onClick={handleVoteClick}
+      whileTap={{ scale: 0.95 }}
+      style={{ touchAction: 'manipulation' }}
+      className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg transition-colors font-mono text-xs min-w-[44px] min-h-[44px] ${
+        isVoted
+          ? 'bg-electric-cyan/10 border border-electric-cyan/30 text-electric-cyan'
+          : 'bg-transparent border border-graphite text-steel-gray hover:border-slate-custom hover:text-paper-white'
+      }`}
+    >
+      <div className="flex items-center justify-center" style={{ minWidth: '16px', minHeight: '16px' }}>
+        {isVoted ? (
+          <PiArrowFatLineUpFill
+            size={14}
+            className="sm:w-4 sm:h-4"
+          />
+        ) : (
+          <LuArrowBigUpDash
+            size={14}
+            className="sm:w-4 sm:h-4"
+          />
         )}
-      </AnimatePresence>
-
-      <motion.button
-        onClick={handleVoteClick}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.9 }}
-        style={{ touchAction: 'manipulation' }}
-        className={`relative flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl transition-all duration-300 backdrop-blur-xl border-2 shadow-xl overflow-hidden min-w-[44px] min-h-[44px] ${outfit.className} font-medium ${
-          isVoted 
-            ? 'bg-blue-500/20 text-blue-400 border-blue-500/40 shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30' 
-            : 'bg-white/10 text-gray-300 border-white/20 hover:bg-white/15 hover:border-white/30 hover:text-white hover:shadow-2xl hover:ring-1 hover:ring-white/20'
-        }`}
-      >
-        {/* Ripple effect */}
-        <RippleEffect trigger={animationTrigger} />
-        
-        {/* Floating particles */}
-        <FloatingParticles trigger={animationTrigger} />
-        
-        {/* Glow effect when clicked */}
-        <AnimatePresence>
-          {animationTrigger && (
-            <motion.div
-              className="absolute inset-0 bg-blue-400/20 rounded-xl"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 0.6, 0] }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.6 }}
-            />
-          )}
-        </AnimatePresence>
-
-        {/* Icon with enhanced animation */}
-        <motion.div
-          animate={
-            isVoted 
-              ? { scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] } 
-              : animationTrigger 
-                ? { scale: [1, 1.4, 1], rotate: [0, 15, 0] }
-                : {}
-          }
-          transition={{ duration: isVoted ? 0.4 : 0.6, ease: "easeOut" }}
-          className="flex items-center justify-center relative z-10"
-          style={{ minWidth: '16px', minHeight: '16px' }}
-        >
-          {isVoted ? (
-            <motion.div
-              animate={{ 
-                filter: ["brightness(1)", "brightness(1.5)", "brightness(1)"],
-              }}
-              transition={{ duration: 0.5, repeat: 2 }}
-            >
-              <PiArrowFatLineUpFill 
-                size={14} 
-                className="sm:w-4 sm:h-4 text-blue-400"
-                style={{ color: '#60a5fa', display: 'block' }} 
-              />
-            </motion.div>
-          ) : (
-            <LuArrowBigUpDash 
-              size={14} 
-              className="sm:w-4 sm:h-4 text-gray-300"
-              style={{ color: 'currentColor', display: 'block' }} 
-            />
-          )}
-        </motion.div>
-
-        {/* Vote count with enhanced animation */}
-        <motion.span 
-          className="font-bold text-xs sm:text-sm relative z-10"
-          animate={
-            isVoted 
-              ? { scale: [1, 1.2, 1], color: ["#60a5fa", "#93c5fd", "#60a5fa"] } 
-              : animationTrigger 
-                ? { scale: [1, 1.3, 1] }
-                : {}
-          }
-          transition={{ duration: isVoted ? 0.4 : 0.6 }}
-        >
-          {voteCount}
-        </motion.span>
-
-        {/* Sparkle effect */}
-        <AnimatePresence>
-          {animationTrigger && (
-            <>
-              {[...Array(6)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-1 h-1 bg-blue-400 rounded-full"
-                  style={{
-                    top: `${20 + Math.random() * 60}%`,
-                    left: `${20 + Math.random() * 60}%`,
-                  }}
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ 
-                    opacity: [0, 1, 0],
-                    scale: [0, 1, 0],
-                    rotate: 360
-                  }}
-                  transition={{
-                    duration: 1,
-                    delay: i * 0.1,
-                    ease: "easeOut"
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </AnimatePresence>
-      </motion.button>
-    </motion.div>
+      </div>
+      <span className="font-mono text-xs">
+        {voteCount}
+      </span>
+    </motion.button>
   );
 };
 
@@ -466,7 +291,7 @@ const DraggableSongCard = ({
       e.stopPropagation();
       return;
     }
-    
+
     if (!isCurrentlyPlaying && isAdmin) {
       e.preventDefault();
       e.stopPropagation();
@@ -480,43 +305,6 @@ const DraggableSongCard = ({
     onRemove();
   };
 
-  // Height-based responsive logic (exclude sm/md)
-  const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 900);
-  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowHeight(window.innerHeight);
-      setWindowWidth(window.innerWidth);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Height-based scaling only for lg and above (width >= 1024px)
-  const isLargeScreen = windowWidth >= 1024;
-  let albumArtSize = 64;
-  let titleFontSize = '1.5rem';
-  let artistFontSize = '1.125rem';
-  let verticalGap = '0.75rem';
-  if (isLargeScreen) {
-    if (windowHeight < 700) {
-      albumArtSize = 36;
-      titleFontSize = '0.95rem';
-      artistFontSize = '0.7rem';
-      verticalGap = '0.25rem';
-    } else if (windowHeight < 800) {
-      albumArtSize = 48;
-      titleFontSize = '1.1rem';
-      artistFontSize = '0.85rem';
-      verticalGap = '0.5rem';
-    } else if (windowHeight < 900) {
-      albumArtSize = 56;
-      titleFontSize = '1.25rem';
-      artistFontSize = '1rem';
-      verticalGap = '0.75rem';
-    }
-  }
-
   return (
     <motion.div
       ref={setNodeRef}
@@ -527,119 +315,86 @@ const DraggableSongCard = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: isDragging || isSortableDragging ? 0.5 : 1, y: 0 }}
       exit={{ opacity: 0, y: -20, scale: 0.9 }}
-      transition={{ 
+      transition={{
         layout: { duration: 0.8, ease: [0.23, 1, 0.32, 1] },
         opacity: { duration: 0.4 },
         y: { duration: 0.4 }
       }}
       className="group cursor-grab active:cursor-grabbing"
     >
-      <Card
+      <div
         onClick={handleCardClick}
-        className={`transition-all duration-500 backdrop-blur-xl shadow-xl w-full max-w-full queue-card relative ${
-          isCurrentlyPlaying 
-            ? 'border-blue-500/40 bg-blue-900/20 shadow-2xl shadow-blue-500/25 ring-1 ring-blue-500/20' 
-            : isAdmin 
-              ? 'bg-[#1C1E1F] cursor-pointer hover:shadow-2xl hover:shadow-black/30 hover:ring-white/10 hover:border-blue-400/30'
-              : 'bg-[#1C1E1F] cursor-not-allowed opacity-75'
-        } ${(isDragging || isSortableDragging) ? 'shadow-2xl shadow-blue-500/50 ring-2 ring-blue-400/50 z-50' : ''}`}
+        className={`flex items-center gap-3 p-2.5 rounded-xl group hover:bg-paper-white/[0.03] transition-all duration-200 w-full max-w-full queue-card relative ${
+          isCurrentlyPlaying
+            ? 'bg-paper-white/[0.04] border border-electric-cyan/15'
+            : isAdmin
+              ? 'cursor-pointer'
+              : 'cursor-not-allowed opacity-75'
+        } ${(isDragging || isSortableDragging) ? 'opacity-50 z-50' : ''}`}
         role={!isCurrentlyPlaying && isAdmin ? "button" : undefined}
         tabIndex={!isCurrentlyPlaying && isAdmin ? 0 : undefined}
         title={
-          !isCurrentlyPlaying 
+          !isCurrentlyPlaying
             ? (isAdmin ? "Drag to player or click to play instantly (Admin only)" : "Play instantly (Admin only)")
             : undefined
         }
       >
-        <CardContent className="p-2 sm:p-3 w-full max-w-full">
-          <div className="flex items-center w-full max-w-full min-w-0" style={{ gap: verticalGap }}>
-            <motion.div 
-              className="relative flex-shrink-0"
-              layout
-              transition={{ duration: 0.6 }}
+        <span className="font-mono text-[11px] text-steel-gray/50 w-5 text-right flex-shrink-0">
+          {index + 1}
+        </span>
+        <div className="relative flex-shrink-0">
+          <img
+            src={item.smallImg}
+            alt={item.title}
+            className="w-11 h-11 rounded-lg object-cover"
+          />
+          {isCurrentlyPlaying && <PlayingAnimation />}
+        </div>
+        <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+          <h4 className="font-satoshi text-[13px] font-medium text-paper-white truncate w-full queue-text">
+            {item.title}
+          </h4>
+          {item.artist && (
+            <p className="font-mono text-[11px] text-steel-gray truncate w-full queue-text">
+              {item.artist}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+          {!isCurrentlyPlaying && (
+            <div
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              className="pointer-events-auto"
             >
-              <motion.img 
-                src={item.smallImg} 
-                alt={item.title}
-                style={{ width: albumArtSize, height: albumArtSize }}
-                className="rounded-xl object-cover shadow-2xl"
-                whileHover={!isCurrentlyPlaying ? { scale: 1.05 } : {}}
-                transition={{ duration: 0.3 }}
+              <UpvoteButton
+                onClick={onVote}
+                isVoted={hasUserVoted}
+                voteCount={item.voteCount}
               />
-              {isCurrentlyPlaying && <PlayingAnimation />}
-            </motion.div>
-            <motion.div 
-              className="flex-1 min-w-0 max-w-full overflow-hidden" 
-              layout
-              transition={{ duration: 0.6 }}
+            </div>
+          )}
+
+          {isAdmin && (
+            <div
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              className="pointer-events-auto"
             >
-              <motion.h4 
-                style={{ fontSize: titleFontSize }}
-                className="font-semibold text-white truncate w-full queue-text"
-                layout
+              <button
+                onClick={handleRemoveClick}
+                className="text-steel-gray hover:text-red-400 p-1.5 rounded-lg hover:bg-charcoal transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+                title="Remove song from queue"
               >
-                {item.title}
-              </motion.h4>
-              {item.artist && (
-                <motion.p 
-                  style={{ fontSize: artistFontSize }}
-                  className="text-gray-400 truncate w-full queue-text"
-                  layout
-                >
-                  {item.artist}
-                </motion.p>
-              )}
-            </motion.div>
-            
-            <motion.div 
-              className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0"
-              layout
-              transition={{ duration: 0.6 }}
-            >
-              {!isCurrentlyPlaying && (
-                <motion.div
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1, duration: 0.4 }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className="pointer-events-auto"
-                >
-                  <UpvoteButton
-                    onClick={onVote}
-                    isVoted={hasUserVoted}
-                    voteCount={item.voteCount}
-                  />
-                </motion.div>
-              )}
-              
-              {isAdmin && (
-                <motion.div
-                  initial={{ opacity: 1, scale: 1 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ duration: 0.3 }}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  className="pointer-events-auto"
-                >
-                  <Button
-                    size="sm"
-                    onClick={handleRemoveClick}
-                    className={`px-2 sm:px-3 py-1.5 sm:py-2 bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/30 hover:border-red-500/50 backdrop-blur-xl shadow-xl ring-1 ring-red-500/20 hover:ring-red-500/30 min-w-[44px] min-h-[44px] flex items-center justify-center ${outfit.className} font-medium`}
-                    title="Remove song from queue"
-                  >
-                    <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-400" />
-                  </Button>
-                </motion.div>
-              )}
-            </motion.div>
-          </div>
-        </CardContent>
-      </Card>
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 };
@@ -1251,12 +1006,12 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #6b7280;
+          background: #363636;
           border-radius: 3px;
           border: none;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #9ca3af;
+          background: #3f3f3f;
         }
         .custom-scrollbar::-webkit-scrollbar-button {
           display: none;
@@ -1272,7 +1027,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           }
         }
       `}</style>
-      <div className={`h-full w-full max-w-full flex flex-col min-h-0 ${className}`}>
+      <div className={`h-full w-full max-w-full flex flex-col min-h-0 relative ${className}`}>
       <motion.div 
         className={`flex flex-col h-full min-h-0 p-2 sm:p-3 ${showChatOverlay ? 'pointer-events-none' : ''}`}
         initial={{ opacity: 0 }}
@@ -1280,62 +1035,32 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         transition={{ duration: 0.5 }}
       >
         {/* Header - Fixed */}
-        <motion.div 
-          className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 lg:gap-4 xl:gap-6 flex-shrink-0 mb-2 relative z-10"
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0">
-            <motion.div
-              whileHover={{ rotate: 5, scale: 1.1 }}
-              transition={{ duration: 0.2 }}
-              className="flex-shrink-0"
-            >
-              <div className="text-white">
-                <PlayListIcon width={24} height={24} className="sm:w-7 sm:h-7 text-white" />
-              </div>
-            </motion.div>
-            <div className="flex flex-col">
-              <h2 className="text-xl sm:text-2xl font-bold text-white truncate">Music Queue</h2>
-            </div>
+        <div className="flex items-center justify-between flex-shrink-0 mb-4">
+          <div className="flex items-baseline gap-2">
+            <h2 className="font-satoshi font-bold text-lg text-paper-white">Queue</h2>
+            <span className="font-mono text-[11px] text-steel-gray">{sortedQueue.length} tracks</span>
           </div>
-          
-          {/* Admin Action Buttons - Add Direct URL and Playlist */}
-          <div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto justify-center lg:justify-end transition-all duration-300 ease-in-out relative z-10">
-            {/* Chat Button - Available to all users */}
-            <Button
-              onClick={() => setShowChatOverlay(true)}
-              variant="outline"
-              size="sm"
-              className="bg-cyan-500/20 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/30 hover:text-cyan-200 transition-all duration-200"
-            >
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Chat
-            </Button>
-            
-            {/* Admin Only Buttons */}
-            {adminStatus && (
-              <>                
+
+          {adminStatus && (
+            <div className="flex items-center gap-1.5">
                 {/* Direct URL/Link Button */}
                 <Dialog open={showDirectUrlDialog} onOpenChange={setShowDirectUrlDialog}>
                 <DialogTrigger asChild>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="bg-green-500/20 border-green-500/30 text-green-300 hover:bg-green-500/30 hover:text-green-200 transition-all duration-200"
+                    className="w-8 h-8 p-0 text-steel-gray hover:text-paper-white hover:bg-charcoal rounded-lg"
                   >
-                    <Link className="w-4 h-4 mr-2" />
-                    Add Link
+                    <Link className="w-4 h-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl p-0 max-w-md">
+                <DialogContent className="bg-midnight-surface border border-graphite rounded-cards p-0 max-w-md">
                   <div className="p-8">
                     <DialogHeader className="mb-8">
-                      <DialogTitle className={`text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-3 text-center ${spaceGrotesk.className}`}>
+                      <DialogTitle className="text-2xl font-bold text-electric-cyan mb-3 text-center font-serif">
                         Add Direct Link
                       </DialogTitle>
-                      <p className={`text-white/70 text-base leading-relaxed text-center ${spaceGrotesk.className}`}>
+                      <p className="text-steel-gray text-base leading-relaxed text-center font-satoshi">
                         Paste a YouTube video or Spotify track URL to add it instantly to the queue
                       </p>
                     </DialogHeader>
@@ -1344,7 +1069,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                         value={directUrl}
                         onChange={(e) => setDirectUrl(e.target.value)}
                         placeholder="Paste YouTube video URL or Spotify track URL..."
-                        className={`w-full py-3 px-4 bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white placeholder-white/50 text-base h-12 rounded-xl focus:border-green-400/50 focus:ring-1 focus:ring-green-400/20 ${spaceGrotesk.className}`}
+                        className={`w-full py-3 px-4 bg-graphite border border-slate-custom hover:bg-charcoal transition-all duration-300 text-paper-white placeholder-steel-gray text-base h-12 rounded-xl focus:border-electric-cyan/50 focus:ring-1 focus:ring-electric-cyan/20 font-satoshi `}
                         disabled={isAddingDirectUrl}
                       />
                       <div className="flex justify-end gap-3">
@@ -1355,14 +1080,14 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                             setDirectUrl('');
                           }}
                           disabled={isAddingDirectUrl}
-                          className={`bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl px-6 ${spaceGrotesk.className}`}
+                          className={`bg-graphite border border-slate-custom hover:bg-charcoal transition-all duration-300 text-paper-white hover:text-paper-white text-base h-12 rounded-xl px-6 font-satoshi `}
                         >
                           Cancel
                         </Button>
                         <Button
                           onClick={handleAddDirectUrl}
                           disabled={!directUrl.trim() || isAddingDirectUrl}
-                          className={`bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-base h-12 rounded-xl px-6 transition-all duration-300 shadow-lg hover:shadow-green-500/25 ${spaceGrotesk.className}`}
+                          className="bg-graphite hover:bg-charcoal text-paper-white font-mono text-sm rounded-full h-12 px-6 transition-colors"
                         >
                           {isAddingDirectUrl && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                           Add to Queue
@@ -1377,15 +1102,14 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
                 <DialogTrigger asChild>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="bg-purple-500/20 border-purple-500/30 text-purple-300 hover:bg-purple-500/30 hover:text-purple-200 transition-all duration-200"
+                    className="w-8 h-8 p-0 text-steel-gray hover:text-paper-white hover:bg-charcoal rounded-lg"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Playlist
+                    <Plus className="w-4 h-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl p-0 max-w-md">
+                <DialogContent className="bg-midnight-surface border border-graphite rounded-cards p-0 max-w-md">
                   <div className="p-8">
                     <DialogHeader className="mb-8">
                       <div className="flex items-center justify-center mb-4">
@@ -1393,10 +1117,10 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                           <SpotifyLogo className="w-8 h-8 text-green-500" />
                         </div>
                       </div>
-                      <DialogTitle className={`text-2xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent mb-3 text-center ${spaceGrotesk.className}`}>
+                      <DialogTitle className="text-2xl font-bold text-electric-cyan mb-3 text-center font-serif">
                         Add Spotify Playlist
                       </DialogTitle>
-                      <p className={`text-white/70 text-base leading-relaxed text-center ${spaceGrotesk.className}`}>
+                      <p className="text-steel-gray text-base leading-relaxed text-center font-satoshi">
                         Import an entire Spotify playlist to the queue with optimized processing
                       </p>
                     </DialogHeader>
@@ -1405,7 +1129,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                         value={playlistUrl}
                         onChange={(e) => setPlaylistUrl(e.target.value)}
                         placeholder="Paste Spotify playlist URL..."
-                        className={`w-full py-3 px-4 bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white placeholder-white/50 text-base h-12 rounded-xl focus:border-green-400/50 focus:ring-1 focus:ring-green-400/20 ${spaceGrotesk.className}`}
+                        className={`w-full py-3 px-4 bg-graphite border border-slate-custom hover:bg-charcoal transition-all duration-300 text-paper-white placeholder-steel-gray text-base h-12 rounded-xl focus:border-electric-cyan/50 focus:ring-1 focus:ring-electric-cyan/20 font-satoshi `}
                         disabled={isProcessingPlaylist}
                       />
                       
@@ -1413,15 +1137,15 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                       {playlistProgress && (
                         <div className="space-y-3">
                           <div className="flex justify-between text-sm">
-                            <span className={`text-white/80 ${spaceGrotesk.className}`}>{playlistProgress.status}</span>
-                            <span className={`text-white/60 ${spaceGrotesk.className}`}>
+                            <span className="text-ghost-gray font-satoshi">{playlistProgress.status}</span>
+                            <span className="text-steel-gray font-mono">
                               {playlistProgress.total > 0 && 
                                 `${playlistProgress.current}/${playlistProgress.total}`
                               }
                             </span>
                           </div>
                           {playlistProgress.total > 0 && (
-                            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                            <div className="w-full bg-graphite rounded-full h-2 overflow-hidden">
                               <div 
                                 className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-300 shadow-lg"
                                 style={{ width: `${playlistProgress.percentage}%` }}
@@ -1430,7 +1154,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                           )}
                           {playlistProgress.currentTrack && (
                             <div className="w-full min-w-0">
-                              <p className={`text-xs text-white/60 truncate ${spaceGrotesk.className}`}>
+                              <p className="text-xs text-steel-gray truncate font-mono">
                                 Processing: {playlistProgress.currentTrack}
                               </p>
                             </div>
@@ -1447,14 +1171,14 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                             setPlaylistProgress(null);
                           }}
                           disabled={isProcessingPlaylist}
-                          className={`bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl px-6 ${spaceGrotesk.className}`}
+                          className={`bg-graphite border border-slate-custom hover:bg-charcoal transition-all duration-300 text-paper-white hover:text-paper-white text-base h-12 rounded-xl px-6 font-satoshi `}
                         >
                           Cancel
                         </Button>
                         <Button
                           onClick={handleProcessSpotifyPlaylist}
                           disabled={!playlistUrl.trim() || isProcessingPlaylist}
-                          className={`bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-base h-12 rounded-xl px-6 transition-all duration-300 shadow-lg hover:shadow-green-500/25 ${spaceGrotesk.className}`}
+                          className="bg-graphite hover:bg-charcoal text-paper-white font-mono text-sm rounded-full h-12 px-6 transition-colors"
                         >
                           {isProcessingPlaylist && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                           Process Playlist
@@ -1464,10 +1188,59 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                   </div>
                 </DialogContent>
               </Dialog>
-              </>
-            )}
-          </div>
-        </motion.div>
+
+              {/* Clear Queue Button */}
+              {sortedQueue.length > 0 && (
+                <Dialog open={showClearQueueDialog} onOpenChange={setShowClearQueueDialog}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-8 h-8 p-0 text-steel-gray hover:text-red-400 hover:bg-charcoal rounded-lg"
+                      disabled={sortedQueue.length === 0}
+                      title="Clear entire queue (Admin only)"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-midnight-surface border border-red-500/30 rounded-cards p-0 max-w-md">
+                    <div className="p-8">
+                      <DialogHeader className="mb-8">
+                        <div className="flex items-center justify-center mb-4">
+                          <div className="p-3 bg-red-500/10 rounded-full border border-red-500/20">
+                            <Trash2 className="w-8 h-8 text-red-500" />
+                          </div>
+                        </div>
+                        <DialogTitle className="text-2xl font-bold text-red-400 mb-3 text-center font-serif">
+                          Clear Queue
+                        </DialogTitle>
+                        <p className="text-steel-gray text-base leading-relaxed text-center font-satoshi">
+                          Are you sure you want to remove all {sortedQueue.length} songs from the queue? This action cannot be undone.
+                        </p>
+                      </DialogHeader>
+                      <div className="flex justify-center gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowClearQueueDialog(false)}
+                          className="bg-graphite border border-slate-custom hover:bg-charcoal transition-all duration-300 text-paper-white hover:text-paper-white text-base h-12 rounded-xl px-6 font-satoshi"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleEmptyQueue}
+                          className="bg-red-500/20 text-red-400 border border-red-500/30 font-mono text-sm rounded-full h-12 px-6 transition-colors hover:bg-red-500/30"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Clear Queue
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Scrollable Content Area with Enhanced Height Control */}
         <div className="flex-1 min-h-0 flex flex-col">
@@ -1482,68 +1255,10 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               transition={{ duration: 0.4 }}
               className="flex-shrink-0 mb-4"
             >
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
-                <motion.h3 
-                  className="text-base sm:text-lg font-semibold text-white flex items-center gap-2"
-                  initial={{ x: -10, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                >
-                  <div className="text-green-400">
-                    <PlayIcon width={18} height={18} className="sm:w-5 sm:h-5 text-green-400" />
-                  </div>
-                  Now Playing
-                </motion.h3>
-                
-                {/* Clear Queue Button - Next to Now Playing */}
-                {adminStatus && sortedQueue.length > 0 && (
-                  <Dialog open={showClearQueueDialog} onOpenChange={setShowClearQueueDialog}>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-red-500/20 border-red-500/30 text-red-300 hover:bg-red-500/30 hover:text-red-200 transition-all duration-200 shadow-lg hover:shadow-red-500/20"
-                        disabled={sortedQueue.length === 0}
-                        title="Clear entire queue (Admin only)"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Clear All ({sortedQueue.length})
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-black/90 backdrop-blur-xl border border-red-500/30 rounded-2xl p-0 max-w-md">
-                      <div className="p-8">
-                        <DialogHeader className="mb-8">
-                          <div className="flex items-center justify-center mb-4">
-                            <div className="p-3 bg-red-500/10 rounded-full border border-red-500/20">
-                              <Trash2 className="w-8 h-8 text-red-500" />
-                            </div>
-                          </div>
-                          <DialogTitle className={`text-2xl font-bold bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent mb-3 text-center ${spaceGrotesk.className}`}>
-                            Clear Queue
-                          </DialogTitle>
-                          <p className={`text-white/70 text-base leading-relaxed text-center ${spaceGrotesk.className}`}>
-                            Are you sure you want to remove all {sortedQueue.length} songs from the queue? This action cannot be undone.
-                          </p>
-                        </DialogHeader>
-                        <div className="flex justify-center gap-3">
-                          <Button
-                            variant="outline"
-                            onClick={() => setShowClearQueueDialog(false)}
-                            className={`bg-white/5 backdrop-blur-sm border border-white/20 hover:bg-white/10 transition-all duration-300 text-white hover:text-white text-base h-12 rounded-xl px-6 ${spaceGrotesk.className}`}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleEmptyQueue}
-                            className={`bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white text-base h-12 rounded-xl px-6 transition-all duration-300 shadow-lg hover:shadow-red-500/25 ${spaceGrotesk.className}`}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Clear Queue
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
+              <div className="mb-2">
+                <span className="font-mono text-[10px] tracking-[0.05em] uppercase text-electric-cyan flex items-center gap-1.5">
+                  <span className="w-1 h-1 rounded-full bg-electric-cyan animate-pulse" /> now playing
+                </span>
               </div>
               
               <SongCard
@@ -1561,37 +1276,50 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           </AnimatePresence>
 
           {/* Up Next Header - Fixed */}
-          <motion.h3 
-            className="text-base sm:text-lg font-semibold text-white flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-shrink-0 mb-2"
-            initial={{ x: -10, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
+          <h3 className="text-base font-semibold text-paper-white flex items-center gap-2 flex-shrink-0 mb-2 font-satoshi">
             <span>Up Next</span>
-            <motion.span 
-              className="text-xs sm:text-sm font-normal text-gray-400"
-              animate={{ opacity: [0.7, 1, 0.7] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
+            <span className="font-mono text-[11px] text-steel-gray">
               ({sortedQueue.length} songs)
-            </motion.span>
-          </motion.h3>
+            </span>
+          </h3>
           
           {/* Enhanced Scrollable Queue Songs Container */}
           <div 
             className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar queue-container-height"
             style={{
               scrollbarWidth: 'thin',
-              scrollbarColor: '#6b7280 transparent',
+              scrollbarColor: '#363636 transparent',
               maxHeight: 'calc(100vh - 440px)',
             }}
           >
             <AnimatePresence mode="popLayout">
               {sortedQueue.length === 0 ? (
-                <PersonalizedEmptyMessage userName={user?.name || user?.username} />
+                <PersonalizedEmptyMessage
+                  userName={user?.name || user?.username}
+                  onSuggestionClick={(song) => {
+                    sendMessage('add-to-queue', {
+                      spaceId,
+                      userId: user?.id,
+                      autoPlay: true,
+                      trackData: {
+                        title: song.title,
+                        artist: song.artist,
+                        artistes: {
+                          all: [{ name: song.artist }],
+                          primary: [{ name: song.artist, id: 'suggestion', role: 'primary_artist', image: [], type: 'artist', url: '' }],
+                        },
+                        smallImg: song.img,
+                        bigImg: song.img,
+                        source: 'Spotify',
+                        duration: 0,
+                      },
+                      url: `https://www.youtube.com/results?search_query=${encodeURIComponent(song.title + ' ' + song.artist)}`,
+                    });
+                  }}
+                />
               ) : (
                 <SortableContext items={sortedQueue.map(item => item.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2 sm:space-y-3 pb-4">
+                  <div className="space-y-1 pb-4">
                     {sortedQueue.map((item, index) => (
                       <DraggableSongCard
                         key={item.id}
@@ -1613,7 +1341,16 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           </div>
         </div>
       </motion.div>
-      
+
+      {/* Floating Chat FAB */}
+      <motion.button
+        onClick={() => setShowChatOverlay(true)}
+        className="absolute bottom-4 right-4 z-20 w-12 h-12 bg-electric-cyan text-void-black rounded-full flex items-center justify-center hover:bg-sky-signal transition-colors shadow-lg"
+        whileTap={{ scale: 0.9 }}
+      >
+        <MessageCircle className="w-5 h-5" />
+      </motion.button>
+
       {/* Chat Overlay */}
       {showChatOverlay && (
         <div 
@@ -1629,7 +1366,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         >
           {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-void-black/50"
             onClick={() => setShowChatOverlay(false)}
             style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
           />
