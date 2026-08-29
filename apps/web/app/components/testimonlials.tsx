@@ -56,9 +56,9 @@ export default function Testimonials() {
             transition={{ duration: 0.5 }}
             className="bg-glass p-8 rounded-lg shadow-lg max-w-2xl mx-auto"
           >
-            <p className="text-gray-300 mb-4 italic">&ldquo;{testimonials[currentIndex].content}&rdquo;</p>
+            <p className="text-ghost-gray mb-4 italic">&ldquo;{testimonials[currentIndex].content}&rdquo;</p>
             <p className="text-secondary font-semibold">{testimonials[currentIndex].name}</p>
-            <p className="text-gray-400">{testimonials[currentIndex].role}</p>
+            <p className="text-steel-gray">{testimonials[currentIndex].role}</p>
           </motion.div>
           <button
             onClick={prevTestimonial}

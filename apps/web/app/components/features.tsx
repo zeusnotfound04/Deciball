@@ -46,7 +46,7 @@ export default function Features() {
                 {feature.icon}
               </motion.div>
               <h3 className="text-xl font-semibold mb-2 text-secondary">{feature.title}</h3>
-              <p className="text-gray-300">{feature.description}</p>
+              <p className="text-ghost-gray">{feature.description}</p>
             </motion.div>
           ))}
         </div>

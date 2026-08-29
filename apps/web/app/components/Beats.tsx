@@ -111,7 +111,7 @@ export default function BeatsSection() {
           ? Array(3)
               .fill(0)
               .map((_, index) => (
-                <Card key={index} className="bg-gray-900 border-purple-500">
+                <Card key={index} className="bg-midnight-surface border-graphite">
                   <CardContent className="p-6">
                     <Skeleton className="h-40 w-full mb-4" />
                     <Skeleton className="h-6 w-3/4 mb-2" />
@@ -124,9 +124,9 @@ export default function BeatsSection() {
               ))
           : beats.map((beat) => (
               <motion.div key={beat.id} variants={itemVariants} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Card className="bg-gray-900 border-purple-500 hover:border-purple-400 transition-colors">
+                <Card className="bg-midnight-surface border-graphite hover:border-slate-custom transition-colors">
                   <CardContent className="p-6">
-                    <div className="relative h-40 bg-purple-900 rounded-md overflow-hidden mb-4">
+                    <div className="relative h-40 bg-graphite rounded-md overflow-hidden mb-4">
                       <img
                         src={beat.image || "/placeholder.svg"}
                         alt={beat.name}
@@ -136,7 +136,7 @@ export default function BeatsSection() {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="bg-white text-purple-900 hover:bg-purple-100"
+                          className="bg-paper-white text-void-black hover:bg-ghost-gray"
                           onClick={() => togglePlay(beat.id)}
                         >
                           {playing === beat.id ? <Pause /> : <Play />}
@@ -144,10 +144,10 @@ export default function BeatsSection() {
                       </div>
                     </div>
                     <h3 className="text-2xl font-semibold mb-2">{beat.name}</h3>
-                    <p className="text-purple-400 mb-4">{beat.price}</p>
+                    <p className="text-electric-cyan mb-4">{beat.price}</p>
                   </CardContent>
                   <CardFooter>
-                    <Button asChild className="w-full bg-purple-600 hover:bg-purple-700">
+                    <Button asChild className="w-full bg-graphite hover:bg-charcoal">
                       <a href={beat.beatstarsUrl} target="_blank" rel="noopener noreferrer">
                         View on BeatStars <ExternalLink className="ml-2 h-4 w-4" />
                       </a>

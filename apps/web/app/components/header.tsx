@@ -39,7 +39,7 @@ export default function Header() {
         
         
         {status === "loading" ? (
-          <div className="hidden md:block w-20 h-9 bg-gray-700 animate-pulse rounded"></div>
+          <div className="hidden md:block w-20 h-9 bg-charcoal animate-pulse rounded"></div>
         ) : session ? (
           <Button 
             variant="outline" 
