@@ -445,12 +445,17 @@ export const Player: React.FC<PlayerProps> = ({
 
   if (!currentSong) {
     return (
-      <Card className={`w-full bg-[#1C1E1F] border-[#424244] ${className}`}>
+      <Card className={`w-full bg-midnight-surface border-graphite rounded-cards ${className}`}>
         <CardContent className="p-4 sm:p-6">
           <div className="text-center py-6 sm:py-8">
-            <Music className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-base sm:text-lg font-semibold text-gray-300 mb-2">No music playing</h3>
-            <p className="text-sm sm:text-base text-gray-500">Add some songs to the queue to get started!</p>
+            <span className="block font-serif italic text-[36px] sm:text-[48px] text-paper-white/10 leading-none mb-4 select-none">Deciball</span>
+            <h3 className="text-base sm:text-lg font-semibold text-ghost-gray font-serif italic mb-2">No music playing</h3>
+            <p className="text-sm sm:text-base text-steel-gray font-satoshi mb-4">Add some songs to the queue to get started!</p>
+            <p className="font-mono text-[11px] text-paper-white/30 flex items-center justify-center gap-2">
+              Press
+              <kbd className="px-1.5 py-0.5 bg-paper-white/10 border border-paper-white/15 rounded text-[10px] text-paper-white/50">⌘ K</kbd>
+              to search songs &amp; start playing
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -461,8 +466,8 @@ export const Player: React.FC<PlayerProps> = ({
   return (
     <motion.div
       ref={setNodeRef}
-      className={`w-full h-full flex flex-col space-y-4 ${className} ${isOver ? 'ring-2 ring-blue-400 ring-opacity-75' : ''} ${
-        isDragOverWithUrl ? 'bg-gradient-to-r from-purple-900/30 to-blue-900/30 ring-2 ring-purple-400 ring-opacity-75' : ''
+      className={`w-full h-full flex flex-col space-y-4 ${className} ${isOver ? 'ring-2 ring-electric-cyan/50' : ''} ${
+        isDragOverWithUrl ? 'bg-deep-teal/20 ring-2 ring-electric-cyan/50' : ''
       }`}
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
@@ -473,7 +478,7 @@ export const Player: React.FC<PlayerProps> = ({
       onDrop={handleDrop}
     >
       <motion.div
-        className={`w-full flex-1 overflow-hidden bg-[#1C1E1F] shadow-2xl rounded-2xl border border-[#424244] min-h-0 relative`}
+        className={`w-full flex-1 overflow-hidden bg-midnight-surface border border-graphite rounded-cards min-h-0 relative`}
         initial={{ scale: 0.98 }}
         animate={{ scale: 1 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
@@ -484,18 +489,18 @@ export const Player: React.FC<PlayerProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-blue-500/10 backdrop-blur-sm rounded-2xl border-2 border-blue-400/50 flex items-center justify-center z-10"
+            className="absolute inset-0 bg-electric-cyan/10 rounded-cards border-2 border-electric-cyan/30 flex items-center justify-center z-10"
           >
             <div className="text-center">
               <motion.div
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
-                className="text-blue-400 mb-2"
+                className="text-electric-cyan mb-2"
               >
                 <Music className="w-12 h-12 mx-auto" />
               </motion.div>
-              <p className="text-blue-300 font-semibold text-lg">Drop to Play Instantly!</p>
-              <p className="text-blue-400 text-sm mt-1">Release to start playing this track</p>
+              <p className="text-paper-white font-satoshi font-semibold text-lg">Drop to Play Instantly!</p>
+              <p className="text-steel-gray font-mono text-xs mt-1">Release to start playing this track</p>
             </div>
           </motion.div>
         )}
@@ -506,24 +511,24 @@ export const Player: React.FC<PlayerProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-purple-500/10 backdrop-blur-sm rounded-2xl border-2 border-purple-400/50 flex items-center justify-center z-10"
+            className="absolute inset-0 bg-electric-cyan/10 rounded-cards border-2 border-electric-cyan/30 flex items-center justify-center z-10"
           >
             <div className="text-center">
               <motion.div
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
-                className="text-purple-400 mb-2"
+                className="text-electric-cyan mb-2"
               >
                 <svg className="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
                 </svg>
               </motion.div>
-              <p className="text-purple-300 font-semibold text-lg">Drop YouTube URL!</p>
-              <p className="text-purple-400 text-sm mt-1">{isAdmin ? 'Release to play instantly' : 'Admin only feature'}</p>
+              <p className="text-paper-white font-satoshi font-semibold text-lg">Drop YouTube URL!</p>
+              <p className="text-steel-gray font-mono text-xs mt-1">{isAdmin ? 'Release to play instantly' : 'Admin only feature'}</p>
             </div>
           </motion.div>
         )}
-        <CardContent className="p-0 bg-[#1C1E1F] h-full relative">
+        <CardContent className="p-0 bg-midnight-surface h-full relative">
           {/* Download Icon in Left Corner */}
           <div className="absolute top-4 left-4 z-20">
             <TooltipProvider>
@@ -541,16 +546,16 @@ export const Player: React.FC<PlayerProps> = ({
                       disabled={isDownloading}
                       variant="ghost"
                       size="sm"
-                      className="w-10 h-10 p-0 bg-gradient-to-br from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 border border-purple-400/30 hover:border-purple-300/50 text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl backdrop-blur-md shadow-lg hover:shadow-purple-500/20"
+                      className="w-10 h-10 p-0 bg-graphite hover:bg-charcoal border border-graphite hover:border-slate-custom text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
                     >
                       {isDownloading ? (
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-4 h-4 border-2 border-purple-300/40 border-t-purple-300 rounded-full"
+                          className="w-4 h-4 border-2 border-graphite border-t-electric-cyan rounded-full"
                         />
                       ) : (
-                        <Download className="w-4 h-4 text-purple-200" />
+                        <Download className="w-4 h-4 text-paper-white" />
                       )}
                     </Button>
                   </motion.div>
@@ -559,12 +564,12 @@ export const Player: React.FC<PlayerProps> = ({
             </TooltipProvider>
           </div>
           <motion.div
-            className={`transition-all duration-300 bg-[#1C1E1F] h-full flex flex-col ${isExpanded ? 'min-h-0' : 'min-h-0'}`}
+            className={`transition-all duration-300 bg-midnight-surface h-full flex flex-col ${isExpanded ? 'min-h-0' : 'min-h-0'}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
-            <div className="rounded-xl p-3 sm:p-4 bg-[#1C1E1F] backdrop-blur-md flex-1 flex flex-col min-h-0 h-full">
+            <div className="rounded-xl p-3 sm:p-4 bg-midnight-surface flex-1 flex flex-col min-h-0 h-full">
               <div className={`grid gap-4 sm:gap-6 flex-1 min-h-0 h-full overflow-hidden ${isExpanded ? 'lg:grid-cols-2' : 'lg:grid-cols-1'}`}>
                 {activeTab === 'cover' && (
                   <div className="flex flex-col items-center h-full justify-center w-full overflow-hidden">
@@ -585,7 +590,7 @@ export const Player: React.FC<PlayerProps> = ({
                       whileInView={{ opacity: 1, y: 0 }}
                     >
                       <motion.h1
-                        className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-2 drop-shadow-lg line-clamp-2"
+                        className="text-lg sm:text-xl lg:text-2xl font-bold text-paper-white font-satoshi mb-2 line-clamp-2"
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.7, delay: 0.4 }}
@@ -594,7 +599,7 @@ export const Player: React.FC<PlayerProps> = ({
                       </motion.h1>
                       {currentSong.artistes?.primary?.[0]?.name && (
                         <motion.p
-                          className="text-sm sm:text-base lg:text-lg text-gray-400 mb-3 line-clamp-1"
+                          className="text-sm sm:text-base lg:text-lg text-steel-gray font-mono mb-3 line-clamp-1"
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.7, delay: 0.5 }}

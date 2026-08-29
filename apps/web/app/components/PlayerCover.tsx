@@ -186,7 +186,7 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
 
       <div
         draggable
-        className="relative h-1/2 sm:h-full w-auto aspect-square max-h-full mx-auto overflow-hidden rounded-xl bg-[#1C1E1F] shadow-lg border border-[#424244] transition-all duration-300 hover:shadow-xl hover:border-gray-600"
+        className="relative h-1/2 sm:h-full w-auto aspect-square max-h-full mx-auto overflow-hidden rounded-album-art bg-midnight-surface border border-graphite transition-all duration-300 hover:border-slate-custom"
       >
         {!currentSong?.video ? (
           <div className="relative">
@@ -239,8 +239,8 @@ function PLayerCoverComp({ spaceId, userId }: PlayerCoverProps) {
         )}
 
         {!currentSong && (
-          <div className="absolute inset-0 bg-[#1C1E1F] animate-pulse rounded-xl flex items-center justify-center">
-            <div className="text-gray-500 text-sm">Loading...</div>
+          <div className="absolute inset-0 bg-midnight-surface animate-pulse rounded-album-art flex items-center justify-center">
+            <div className="text-steel-gray font-mono text-xs">Loading...</div>
           </div>
         )}
       </div>

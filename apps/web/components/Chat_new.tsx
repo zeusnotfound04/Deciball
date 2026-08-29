@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar'
 import { Badge } from '@/app/components/ui/badge';
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
-import { inter, outfit, jetBrainsMono } from '@/lib/font';
 
 interface ChatMessage {
   id: string;
@@ -128,15 +127,15 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
   // Render overlay mode
   if (isOverlay) {
     return (
-      <div className={`w-full h-full bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl flex flex-col ${className}`}>
+      <div className={`w-full h-full bg-midnight-surface border border-graphite rounded-cards shadow-2xl flex flex-col ${className}`}>
         {/* Chat Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
+        <div className="flex items-center justify-between p-4 border-b border-graphite">
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-cyan-400" />
-            <h3 className={`font-semibold text-white ${outfit.className}`}>
+            <Users className="w-4 h-4 text-electric-cyan" />
+            <h3 className="font-serif font-semibold text-paper-white">
               Room Chat
             </h3>
-            <Badge variant="secondary" className="text-xs bg-white/10 text-gray-300">
+            <Badge variant="secondary" className="text-[10px] bg-graphite text-steel-gray font-mono">
               {messages.length}
             </Badge>
           </div>
@@ -144,7 +143,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
             onClick={toggleChat}
             variant="ghost"
             size="sm"
-            className="p-1 h-auto text-gray-400 hover:text-white hover:bg-white/10"
+            className="p-1 h-auto text-steel-gray hover:text-paper-white hover:bg-charcoal"
           >
             <X className="w-4 h-4" />
           </Button>
@@ -154,9 +153,9 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
         <div className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-3">
             {messages.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">
+              <div className="text-center text-steel-gray py-8">
                 <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className={`text-sm ${inter.className}`}>
+                <p className="text-sm font-satoshi">
                   No messages yet. Start the conversation!
                 </p>
               </div>
@@ -164,16 +163,13 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
               messages.map((message) => (
                 <div key={message.id} className="flex gap-3">
                   {/* Avatar */}
-                  <Avatar className="w-8 h-8 flex-shrink-0">
-                    <AvatarImage 
-                      src={message.userImage} 
+                  <Avatar className="w-8 h-8 flex-shrink-0 rounded-full">
+                    <AvatarImage
+                      src={message.userImage}
                       alt={message.username}
-                      className="object-cover"
+                      className="object-cover rounded-full"
                     />
-                    <AvatarFallback className={`
-                      text-xs font-medium bg-gradient-to-br from-cyan-500 to-purple-500 text-white
-                      ${outfit.className}
-                    `}>
+                    <AvatarFallback className="text-xs font-medium bg-electric-cyan text-void-black font-mono rounded-full">
                       {getUserInitials(message.username)}
                     </AvatarFallback>
                   </Avatar>
@@ -181,19 +177,19 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                   {/* Message Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-sm font-medium text-white truncate ${outfit.className}`}>
+                      <span className="font-mono text-xs text-steel-gray truncate">
                         {message.username}
                       </span>
                       {message.isAdmin && (
-                        <Badge className="text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 px-1.5 py-0">
+                        <Badge className="font-mono text-[10px] text-electric-cyan border border-electric-cyan/30 rounded-full bg-transparent px-1.5 py-0">
                           Admin
                         </Badge>
                       )}
-                      <span className={`text-xs text-gray-400 flex-shrink-0 ${jetBrainsMono.className}`}>
+                      <span className="font-mono text-[10px] text-slate-custom flex-shrink-0">
                         {formatTime(message.timestamp)}
                       </span>
                     </div>
-                    <p className={`text-sm text-gray-200 break-words ${inter.className}`}>
+                    <p className="text-sm text-paper-white break-words font-satoshi">
                       {message.message}
                     </p>
                   </div>
@@ -205,7 +201,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
         </div>
 
         {/* Message Input */}
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-graphite">
           <div className="flex gap-2">
             <Input
               ref={inputRef}
@@ -213,21 +209,13 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
-              className={`
-                flex-1 bg-white/10 border-white/20 focus:border-cyan-400/50 
-                text-white placeholder:text-gray-400 rounded-full px-4
-                ${inter.className}
-              `}
+              className="flex-1 bg-graphite border-slate-custom focus:border-electric-cyan text-paper-white placeholder:text-steel-gray rounded-full px-4 font-satoshi"
               maxLength={500}
             />
             <Button
               onClick={handleSendMessage}
               disabled={!newMessage.trim()}
-              className={`
-                px-3 py-2 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500
-                hover:from-cyan-400 hover:to-purple-400 disabled:opacity-50
-                disabled:cursor-not-allowed transition-all duration-300
-              `}
+              className="px-3 py-2 rounded-full bg-electric-cyan hover:bg-electric-cyan/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 text-void-black"
             >
               <Send className="w-4 h-4" />
             </Button>
@@ -243,19 +231,14 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
       {/* Chat Toggle Button */}
       <Button
         onClick={toggleChat}
-        className={`
-          relative flex items-center gap-2 px-3 py-2 rounded-full
-          bg-black/40 hover:bg-black/50 border border-white/20 hover:border-white/30
-          backdrop-blur-xl transition-all duration-300 text-gray-200 hover:text-white
-          ${inter.className}
-        `}
+        className="relative flex items-center gap-2 px-3 py-2 rounded-full bg-graphite hover:bg-charcoal border border-slate-custom transition-all duration-300 text-steel-gray hover:text-paper-white font-satoshi"
       >
         <MessageCircle className="w-4 h-4" />
         <span className="hidden sm:inline text-sm font-medium">Chat</span>
-        
+
         {/* Unread Count Badge */}
         {unreadCount > 0 && (
-          <Badge className="absolute -top-2 -right-2 bg-red-500 text-white text-xs min-w-[20px] h-5 rounded-full p-0 flex items-center justify-center border-2 border-black">
+          <Badge className="absolute -top-2 -right-2 bg-electric-cyan text-void-black text-xs min-w-[20px] h-5 rounded-full p-0 flex items-center justify-center border-2 border-void-black font-mono">
             {unreadCount > 99 ? '99+' : unreadCount}
           </Badge>
         )}
@@ -265,23 +248,23 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
       {isOpen && (
         <>
           {/* Mobile Overlay */}
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden" onClick={toggleChat} />
-          
+          <div className="fixed inset-0 bg-void-black/60 z-40 md:hidden" onClick={toggleChat} />
+
           {/* Chat Container */}
           <div className={`
             fixed md:absolute bottom-0 right-0 md:bottom-full md:right-0 md:mb-2
             w-full md:w-80 lg:w-96 h-[70vh] md:h-96
-            bg-black/90 backdrop-blur-xl border border-white/20 rounded-t-2xl md:rounded-2xl
+            bg-midnight-surface border border-graphite rounded-t-cards md:rounded-cards
             shadow-2xl z-50 flex flex-col
           `}>
             {/* Chat Header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/10">
+            <div className="flex items-center justify-between p-4 border-b border-graphite">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-cyan-400" />
-                <h3 className={`font-semibold text-white ${outfit.className}`}>
+                <Users className="w-4 h-4 text-electric-cyan" />
+                <h3 className="font-serif font-semibold text-paper-white">
                   Room Chat
                 </h3>
-                <Badge variant="secondary" className="text-xs bg-white/10 text-gray-300">
+                <Badge variant="secondary" className="text-[10px] bg-graphite text-steel-gray font-mono">
                   {messages.length}
                 </Badge>
               </div>
@@ -289,7 +272,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                 onClick={toggleChat}
                 variant="ghost"
                 size="sm"
-                className="p-1 h-auto text-gray-400 hover:text-white hover:bg-white/10"
+                className="p-1 h-auto text-steel-gray hover:text-paper-white hover:bg-charcoal"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -299,9 +282,9 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
             <div className="flex-1 p-4 overflow-y-auto">
               <div className="space-y-3">
                 {messages.length === 0 ? (
-                  <div className="text-center text-gray-400 py-8">
+                  <div className="text-center text-steel-gray py-8">
                     <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className={`text-sm ${inter.className}`}>
+                    <p className="text-sm font-satoshi">
                       No messages yet. Start the conversation!
                     </p>
                   </div>
@@ -309,16 +292,13 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                   messages.map((message) => (
                     <div key={message.id} className="flex gap-3">
                       {/* Avatar */}
-                      <Avatar className="w-8 h-8 flex-shrink-0">
-                        <AvatarImage 
-                          src={message.userImage} 
+                      <Avatar className="w-8 h-8 flex-shrink-0 rounded-full">
+                        <AvatarImage
+                          src={message.userImage}
                           alt={message.username}
-                          className="object-cover"
+                          className="object-cover rounded-full"
                         />
-                        <AvatarFallback className={`
-                          text-xs font-medium bg-gradient-to-br from-cyan-500 to-purple-500 text-white
-                          ${outfit.className}
-                        `}>
+                        <AvatarFallback className="text-xs font-medium bg-electric-cyan text-void-black font-mono rounded-full">
                           {getUserInitials(message.username)}
                         </AvatarFallback>
                       </Avatar>
@@ -326,19 +306,19 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                       {/* Message Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-sm font-medium text-white truncate ${outfit.className}`}>
+                          <span className="font-mono text-xs text-steel-gray truncate">
                             {message.username}
                           </span>
                           {message.isAdmin && (
-                            <Badge className="text-xs bg-gradient-to-r from-cyan-500 to-purple-500 border-0 px-1.5 py-0">
+                            <Badge className="font-mono text-[10px] text-electric-cyan border border-electric-cyan/30 rounded-full bg-transparent px-1.5 py-0">
                               Admin
                             </Badge>
                           )}
-                          <span className={`text-xs text-gray-400 flex-shrink-0 ${jetBrainsMono.className}`}>
+                          <span className="font-mono text-[10px] text-slate-custom flex-shrink-0">
                             {formatTime(message.timestamp)}
                           </span>
                         </div>
-                        <p className={`text-sm text-gray-200 break-words ${inter.className}`}>
+                        <p className="text-sm text-paper-white break-words font-satoshi">
                           {message.message}
                         </p>
                       </div>
@@ -350,7 +330,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-white/10">
+            <div className="p-4 border-t border-graphite">
               <div className="flex gap-2">
                 <Input
                   ref={inputRef}
@@ -358,21 +338,13 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Type a message..."
-                  className={`
-                    flex-1 bg-white/10 border-white/20 focus:border-cyan-400/50 
-                    text-white placeholder:text-gray-400 rounded-full px-4
-                    ${inter.className}
-                  `}
+                  className="flex-1 bg-graphite border-slate-custom focus:border-electric-cyan text-paper-white placeholder:text-steel-gray rounded-full px-4 font-satoshi"
                   maxLength={500}
                 />
                 <Button
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim()}
-                  className={`
-                    px-3 py-2 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500
-                    hover:from-cyan-400 hover:to-purple-400 disabled:opacity-50
-                    disabled:cursor-not-allowed transition-all duration-300
-                  `}
+                  className="px-3 py-2 rounded-full bg-electric-cyan hover:bg-electric-cyan/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 text-void-black"
                 >
                   <Send className="w-4 h-4" />
                 </Button>

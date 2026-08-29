@@ -103,7 +103,7 @@ export const Listener: React.FC<ListenerProps> = ({
   const getStatusColor = (user: ConnectedUser) => {
     if (user.isCreator) return 'bg-yellow-500';
     if (user.isListening) return 'bg-green-500';
-    return 'bg-gray-500';
+    return 'bg-steel-gray';
   };
 
   const getStatusText = (user: ConnectedUser) => {
@@ -144,8 +144,8 @@ export const Listener: React.FC<ListenerProps> = ({
         <CardContent>
           <div className="space-y-3">
             {listeners.length === 0 ? (
-              <div className="text-center py-6 text-gray-500">
-                <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <div className="text-center py-6 text-steel-gray">
+                <Users className="w-12 h-12 mx-auto mb-2 text-ghost-gray" />
                 <p>No listeners connected</p>
                 <p className="text-sm">Share the room link to invite friends!</p>
               </div>
@@ -153,7 +153,7 @@ export const Listener: React.FC<ListenerProps> = ({
               listeners.map((user, index) => (
                 <div 
                   key={user.userId} 
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center justify-between p-3 bg-graphite rounded-lg hover:bg-charcoal transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <div className={`relative w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium ${getStatusColor(user)}`}>
@@ -162,15 +162,15 @@ export const Listener: React.FC<ListenerProps> = ({
                       ) : (
                         <User className="w-5 h-5" />
                       )}
-                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-graphite rounded-full"></div>
                     </div>
 
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                      <p className="font-medium text-paper-white">
                         {getUserDisplayName(user)}
                       </p>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-steel-gray">
                           {getStatusText(user)}
                         </p>
                         {user.isListening && (
@@ -185,7 +185,7 @@ export const Listener: React.FC<ListenerProps> = ({
 
                   <div className="flex items-center gap-2">
                     {user.isListening && user.volume !== undefined && (
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-1 text-xs text-steel-gray">
                         <Volume2 className="w-3 h-3" />
                         <span>{Math.round(user.volume * 100)}%</span>
                       </div>
@@ -208,7 +208,7 @@ export const Listener: React.FC<ListenerProps> = ({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-gray-400 hover:text-red-500"
+                        className="text-steel-gray hover:text-red-500"
                         title="Kick user (Admin only)"
                       >
                         <User className="w-4 h-4" />
@@ -223,22 +223,22 @@ export const Listener: React.FC<ListenerProps> = ({
               <div className="border-t pt-3 mt-4">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <p className="text-2xl font-bold text-gray-300">
+                    <p className="text-2xl font-bold text-ghost-gray">
                       {listeners.length}
                     </p>
-                    <p className="text-xs text-gray-500">Total Users</p>
+                    <p className="text-xs text-steel-gray">Total Users</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-green-600">
                       {listeners.filter(u => u.isListening).length}
                     </p>
-                    <p className="text-xs text-gray-500">Listening</p>
+                    <p className="text-xs text-steel-gray">Listening</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-yellow-600">
                       {listeners.filter(u => u.isCreator).length}
                     </p>
-                    <p className="text-xs text-gray-500">Admins</p>
+                    <p className="text-xs text-steel-gray">Admins</p>
                   </div>
                 </div>
               </div>

@@ -265,10 +265,10 @@ const Slider: React.FC<SliderProps> = ({
             }}
             className="flex flex-grow"
           >
-            <div className="relative h-full flex-grow overflow-hidden rounded-full bg-gray-600">
+            <div className="relative h-full flex-grow overflow-hidden rounded-full bg-charcoal">
               <div
                 className={`absolute h-full rounded-full transition-colors duration-200 ${
-                  isMuted ? 'bg-red-500' : 'bg-gray-300'
+                  isMuted ? 'bg-red-500' : 'bg-ghost-gray'
                 }`}
                 style={{ width: `${getRangePercentage()}%` }}
               />
@@ -293,7 +293,7 @@ const Slider: React.FC<SliderProps> = ({
         </motion.div>
       </motion.div>
       <p className={`absolute text-xs font-medium tracking-wide transform -translate-y-6 transition-colors duration-200 hidden sm:block ${
-        isMuted ? 'text-red-400' : 'text-gray-400'
+        isMuted ? 'text-red-400' : 'text-steel-gray'
       }`}>
         {isMuted ? 'Muted' : Math.round(value)}
       </p>

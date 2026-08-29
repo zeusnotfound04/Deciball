@@ -19,7 +19,6 @@ import {
 import { useAudio } from '@/store/audioStore';
 import { useUserStore } from '@/store/userStore';
 import VolumeBar from '@/components/VolumeBar';
-import { inter, outfit } from '@/lib/font';
 import { useSocket } from '@/context/socket-context';
 
 interface AudioControllerProps {
@@ -755,8 +754,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   if (!currentSong) {
     return (
-      <div className="bg-[#1C1E1F] border-t border-[#424244] p-4">
-        <div className="text-center text-gray-500">No song playing</div>
+      <div className="bg-midnight-surface border-t border-graphite p-4">
+        <div className="text-center text-steel-gray font-satoshi">No song playing</div>
       </div>
     );
   }
@@ -784,18 +783,18 @@ const AudioController: React.FC<AudioControllerProps> = ({
   };
 
   return (
-    <div className="bg-gradient-to-r from-[#1C1E1F] via-[#1C1E1F] to-[#1C1E1F] border-t border-[#424244] rounded-xl p-3 sm:p-4 shadow-2xl">
+    <div className="bg-midnight-surface border-t border-graphite rounded-xl p-3 sm:p-4 shadow-2xl">
       <div className="max-w-6xl mx-auto">
         <div className="mb-3 sm:mb-4">
-          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 mb-1">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs text-steel-gray mb-1 font-mono">
             <span className="text-xs sm:text-sm">{formatTime(displayTime)}</span>
             <div 
               ref={progressBarRef}
               data-progress-bar
-              className={`flex-1 bg-gray-600 rounded-full relative group select-none ${
+              className={`flex-1 bg-graphite rounded-full relative group select-none ${
                 isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
               } ${
-                isSyncing ? 'ring-2 ring-blue-400 ring-opacity-70' : ''
+                isSyncing ? 'ring-2 ring-electric-cyan ring-opacity-70' : ''
               } ${
                 isDragging || isProgressActive ? 'ring-2 ring-white ring-opacity-30' : ''
               }`}
@@ -815,12 +814,12 @@ const AudioController: React.FC<AudioControllerProps> = ({
               }
             >
               <div 
-                className={`bg-gradient-to-r from-gray-300 to-white rounded-full relative ${
+                className={`bg-electric-cyan rounded-full relative ${
                   isDragging ? '' : ''
                 } ${
                   isSeeking ? '' : ''
                 } ${
-                  isSyncing ? 'bg-gradient-to-r from-blue-300 to-blue-100' : ''
+                  isSyncing ? 'bg-electric-cyan' : ''
                 } ${
                   isProgressActive ? 'shadow-lg' : ''
                 }`}
@@ -867,8 +866,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handlePlayPrev)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className} ${
-                isAdmin ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              className={`p-2 transition-colors rounded-full hover:bg-charcoal active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                isAdmin ? 'text-paper-white hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
               }`}
               title={isAdmin ? "Previous" : "Previous (Admin only)"}
               disabled={!isAdmin}
@@ -896,8 +895,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 }
               })}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className} ${
-                isAdmin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              className={`p-1 transition-colors rounded-full hover:bg-charcoal active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                isAdmin ? 'text-steel-gray hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
               }`}
               title={isAdmin ? "Back 10s" : "Back 10s (Admin only)"}
               disabled={!isAdmin}
@@ -910,7 +909,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handleTogglePlayPause)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95 ${outfit.className} font-medium text-black cursor-pointer`}
+              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[48px] min-h-[48px] active:scale-95 font-satoshi font-medium text-black cursor-pointer`}
               title={
                 isAdmin 
                   ? (isPlaying ? "Pause" : "Play")
@@ -946,8 +945,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 }
               })}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className} ${
-                isAdmin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              className={`p-1 transition-colors rounded-full hover:bg-charcoal active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                isAdmin ? 'text-steel-gray hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
               }`}
               title={isAdmin ? "Forward 10s" : "Forward 10s (Admin only)"}
               disabled={!isAdmin}
@@ -960,8 +959,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handlePlayNext)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${inter.className} ${
-                isAdmin ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              className={`p-2 transition-colors rounded-full hover:bg-charcoal active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                isAdmin ? 'text-paper-white hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
               }`}
               title={isAdmin ? "Next" : "Next (Admin only)"}
               disabled={!isAdmin}
@@ -975,22 +974,22 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <div className="volume-control-container relative">
               <button
                 onClick={toggleVolumeSlider}
-                className="p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="p-2 transition-colors rounded-full hover:bg-charcoal active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title={isMuted ? "Unmute" : `Volume ${Math.round(volume * 100)}%`}
                 style={{ touchAction: 'manipulation' }}
               >
                 {isMuted ? (
-                  <VolumeX className="w-5 h-5 text-gray-400" />
+                  <VolumeX className="w-5 h-5 text-steel-gray" />
                 ) : (
-                  <Volume2 className="w-5 h-5 text-gray-400" />
+                  <Volume2 className="w-5 h-5 text-steel-gray" />
                 )}
               </button>
 
               {/* Horizontal Volume Slider Popup for Mobile */}
               {showVolumeSlider && (
-                <div className="absolute bottom-full right-0 mb-2 bg-[#1C1E1F] backdrop-blur-sm rounded-lg border border-gray-600/50 px-8 py-5 shadow-xl z-50">
+                <div className="absolute bottom-full right-0 mb-2 bg-midnight-surface rounded-lg border border-slate-custom px-8 py-5 shadow-xl z-50">
                   <div className="flex items-center gap-3">
-                    <div className="text-xs text-gray-400 font-medium min-w-[2rem] max-lg:hidden">
+                    <div className="text-xs text-steel-gray font-medium font-mono min-w-[2rem] max-lg:hidden">
                       {Math.round(volume * 100)}%
                     </div>
                     <div className="w-24">
@@ -1013,8 +1012,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => setIsLiked(!isLiked)}
-              className={`p-1 rounded-full transition-colors ${inter.className} ${
-                isLiked ? 'text-red-500 hover:text-red-400' : 'text-gray-400 hover:text-white'
+              className={`p-1 rounded-full transition-colors ${
+                isLiked ? 'text-red-500 hover:text-red-400' : 'text-steel-gray hover:text-paper-white'
               }`}
               style={{ 
                 WebkitTapHighlightColor: 'transparent',
@@ -1030,8 +1029,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handlePlayPrev)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className} ${
-                isAdmin ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              className={`p-2 transition-colors rounded-full hover:bg-charcoal active:scale-95 ${
+                isAdmin ? 'text-paper-white hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
               }`}
               title={isAdmin ? "Previous (Ctrl + ←)" : "Previous (Admin only)"}
               disabled={!isAdmin}
@@ -1059,8 +1058,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 }
               })}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className} ${
-                isAdmin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              className={`p-1 transition-colors rounded-full hover:bg-charcoal active:scale-95 ${
+                isAdmin ? 'text-steel-gray hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
               }`}
               title={isAdmin ? "Back 10 seconds" : "Back 10 seconds (Admin only)"}
               disabled={!isAdmin}
@@ -1073,7 +1072,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handleTogglePlayPause)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95 ${outfit.className} font-medium text-black cursor-pointer`}
+              className={`p-1 rounded-full hover:scale-105 transition-transform shadow-lg flex items-center justify-center min-w-[56px] min-h-[56px] active:scale-95 font-satoshi font-medium text-black cursor-pointer`}
               title={
                 isAdmin 
                   ? (isPlaying ? "Pause (Space)" : "Play (Space)")
@@ -1109,8 +1108,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
                 }
               })}
               style={{ touchAction: 'manipulation' }}
-              className={`p-1 transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className} ${
-                isAdmin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              className={`p-1 transition-colors rounded-full hover:bg-charcoal active:scale-95 ${
+                isAdmin ? 'text-steel-gray hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
               }`}
               title={isAdmin ? "Forward 10 seconds" : "Forward 10 seconds (Admin only)"}
               disabled={!isAdmin}
@@ -1123,8 +1122,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <button
               onClick={handleClick(handlePlayNext)}
               style={{ touchAction: 'manipulation' }}
-              className={`p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 ${inter.className} ${
-                isAdmin ? 'text-gray-300 hover:text-white cursor-pointer' : 'text-gray-600 cursor-not-allowed opacity-50'
+              className={`p-2 transition-colors rounded-full hover:bg-charcoal active:scale-95 ${
+                isAdmin ? 'text-paper-white hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
               }`}
               title={isAdmin ? "Next (Ctrl + →)" : "Next (Admin only)"}
               disabled={!isAdmin}
@@ -1140,20 +1139,20 @@ const AudioController: React.FC<AudioControllerProps> = ({
             <div className="volume-control-container relative">
               <button
                 onClick={toggleVolumeSlider}
-                className="p-2 transition-colors rounded-full hover:bg-gray-700 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                className="p-2 transition-colors rounded-full hover:bg-charcoal active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center"
                 title={isMuted ? "Unmute" : `Volume ${Math.round(volume * 100)}%`}
                 style={{ touchAction: 'manipulation' }}
               >
                 {isMuted ? (
-                  <VolumeX className="w-5 h-5 text-gray-400" />
+                  <VolumeX className="w-5 h-5 text-steel-gray" />
                 ) : (
-                  <Volume2 className="w-5 h-5 text-gray-400" />
+                  <Volume2 className="w-5 h-5 text-steel-gray" />
                 )}
               </button>
 
               {/* Horizontal Volume Slider Popup for All Devices */}
               {showVolumeSlider && (
-                <div className="absolute bottom-full right-0 mb-2 bg-[#1C1E1F] backdrop-blur-md rounded-xl border border-gray-600/50 p-5 sm:p-6 shadow-2xl z-[60] min-w-[180px] sm:min-w-[220px] md:min-w-[240px] max-w-[90vw]"
+                <div className="absolute bottom-full right-0 mb-2 bg-midnight-surface rounded-xl border border-slate-custom p-5 sm:p-6 shadow-2xl z-[60] min-w-[180px] sm:min-w-[220px] md:min-w-[240px] max-w-[90vw]"
                      style={{
                        left: 'auto',
                        right: '0',
@@ -1251,8 +1250,8 @@ const AudioController: React.FC<AudioControllerProps> = ({
         .text-current svg path {
           stroke: currentColor !important;
         }
-        .text-gray-300 svg path,
-        .text-gray-400 svg path {
+        .text-paper-white svg path,
+        .text-steel-gray svg path {
           stroke: currentColor !important;
         }
         button:hover .text-current svg path {

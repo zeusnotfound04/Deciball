@@ -207,18 +207,18 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
           -ms-overflow-style: none;
         }
       `}</style>
-      <div className={`border-[#424244] backdrop-blur-sm rounded-2xl shadow-lg border border-gray-600/50 p-4 sm:p-6 w-full max-w-[39rem] ${className}`}>
+      <div className={`rounded-cards shadow-lg border border-graphite p-4 sm:p-6 w-full max-w-[39rem] ${className}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2 sm:gap-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
-          <h3 className="text-base sm:text-lg font-semibold text-gray-200">New Releases</h3>
+          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-electric-cyan" />
+          <h3 className="text-base sm:text-lg font-serif font-semibold text-ghost-gray">New Releases</h3>
         </div>
         <Button
           onClick={fetchNewReleases}
           disabled={loading}
           size="sm"
           variant="outline"
-          className="bg-transparent border-gray-500/30 hover:bg-gray-700/30 text-gray-300 w-fit self-end sm:self-auto"
+          className="bg-transparent border-graphite hover:bg-charcoal text-ghost-gray w-fit self-end sm:self-auto"
         >
           {loading ? (
             <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
@@ -229,30 +229,30 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
       </div>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 mb-3 sm:mb-4">
+        <div className="bg-graphite border border-red-500/30 rounded-cards p-3 mb-3 sm:mb-4">
           <p className="text-red-400 text-xs sm:text-sm">{error}</p>
           <Button
             onClick={fetchNewReleases}
             size="sm"
             variant="outline"
-            className="mt-2 bg-transparent border-red-500/30 hover:bg-red-900/20 text-red-400 text-xs"
+            className="mt-2 bg-transparent border-red-500/30 hover:bg-graphite text-red-400 text-xs"
           >
             Try Again
           </Button>
         </div>
       )}
 
-      <div className="bg-[#1C1E1F] border border-gray-500/30 rounded-xl p-3 sm:p-4 relative overflow-hidden">
+      <div className="bg-midnight-surface border border-graphite rounded-cards p-3 sm:p-4 relative overflow-hidden">
         {newReleases.length > 2 && (
-          <div className="absolute top-2 right-2 text-xs text-gray-400 opacity-60 z-10">
+          <div className="absolute top-2 right-2 text-xs text-steel-gray opacity-60 z-10">
             Scroll
           </div>
         )}
         {loading ? (
           <div className="flex items-center justify-center py-6 sm:py-8">
             <div className="text-center">
-              <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto mb-2 text-purple-400" />
-              <p className="text-xs sm:text-sm text-gray-400">Loading new releases...</p>
+              <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin mx-auto mb-2 text-electric-cyan" />
+              <p className="text-xs sm:text-sm text-steel-gray font-mono">Loading new releases...</p>
             </div>
           </div>
         ) : newReleases.length > 0 ? (
@@ -264,8 +264,8 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
             }}
           >
             {newReleases.map((track: SpotifyTrack) => (
-              <div key={track.id} className="flex flex-col items-center gap-1.5 sm:gap-2 group hover:bg-gray-700/20 rounded-lg p-1.5 sm:p-2 transition-colors min-w-[120px] sm:min-w-[150px] max-w-[120px] sm:max-w-[150px] flex-shrink-0">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden flex-shrink-0">
+              <div key={track.id} className="flex flex-col items-center gap-1.5 sm:gap-2 group hover:bg-charcoal/40 rounded-album-art p-1.5 sm:p-2 transition-colors min-w-[120px] sm:min-w-[150px] max-w-[120px] sm:max-w-[150px] flex-shrink-0">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-album-art overflow-hidden flex-shrink-0">
                   {track.album?.images?.[0]?.url ? (
                     <img 
                       src={track.album.images[0].url} 
@@ -273,17 +273,17 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full bg-[#1C1E1F] border-[#424244] flex items-center justify-center">
-                      <Music className="w-4 h-4 sm:w-6 sm:h-6 text-gray-400" />
+                    <div className="w-full h-full bg-midnight-surface border-graphite flex items-center justify-center">
+                      <Music className="w-4 h-4 sm:w-6 sm:h-6 text-steel-gray" />
                     </div>
                   )}
                 </div>
                 
                 <div className="flex flex-col items-center text-center min-w-0 w-full">
-                  <p className="font-medium text-white truncate w-full text-xs leading-tight" title={track.name}>
+                  <p className="font-medium text-paper-white truncate w-full text-xs leading-tight" title={track.name}>
                     {track.name}
                   </p>
-                  <p className="text-xs text-gray-300 truncate w-full opacity-75" title={getArtistNames(track.artists)}>
+                  <p className="text-xs font-mono text-ghost-gray truncate w-full opacity-75" title={getArtistNames(track.artists)}>
                     {getArtistNames(track.artists)}
                   </p>
                 </div>
@@ -292,7 +292,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
                   onClick={() => addToQueue(track)}
                   disabled={!isAdmin || addingTrack === track.id}
                   size="sm"
-                  className="bg-[#1C1E1F] border-[#424244] hover:bg-gray-700 text-white opacity-0 group-hover:opacity-100 transition-opacity w-full h-6 sm:h-7 text-xs"
+                  className="bg-graphite border-graphite hover:bg-charcoal text-paper-white opacity-0 group-hover:opacity-100 transition-opacity w-full h-6 sm:h-7 text-xs"
                   title={isAdmin ? "Add to queue" : "Only admins can add songs"}
                 >
                   {addingTrack === track.id ? (
@@ -306,16 +306,16 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
           </div>
         ) : !error ? (
           <div className="text-center py-6 sm:py-8">
-            <Music className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-gray-500" />
-            <p className="text-sm sm:text-base text-gray-400 mb-2">No new releases available</p>
-            <p className="text-xs sm:text-sm text-gray-500">
+            <Music className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 text-steel-gray" />
+            <p className="text-sm sm:text-base text-ghost-gray mb-2">No new releases available</p>
+            <p className="text-xs sm:text-sm text-steel-gray">
               Try refreshing to get the latest releases
             </p>
           </div>
         ) : null}
       </div>
       
-      <div className="mt-2 sm:mt-3 text-xs text-gray-500">
+      <div className="mt-2 sm:mt-3 text-xs text-steel-gray font-mono">
         <p>Latest album releases</p>
       </div>
     </div>

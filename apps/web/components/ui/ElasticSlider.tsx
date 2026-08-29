@@ -183,9 +183,9 @@ const Slider: React.FC<SliderProps> = ({
             }}
             className="flex flex-grow"
           >
-            <div className="relative h-full flex-grow overflow-hidden rounded-full bg-gray-400">
+            <div className="relative h-full flex-grow overflow-hidden rounded-full bg-charcoal">
               <div
-                className="absolute h-full bg-gray-500 rounded-full"
+                className="absolute h-full bg-steel-gray rounded-full"
                 style={{ width: `${getRangePercentage()}%` }}
               />
             </div>
@@ -206,7 +206,7 @@ const Slider: React.FC<SliderProps> = ({
           {rightIcon}
         </motion.div>
       </motion.div>
-      <p className="absolute text-gray-400 transform -translate-y-4 text-xs font-medium tracking-wide">
+      <p className="absolute text-steel-gray transform -translate-y-4 text-xs font-medium tracking-wide">
         {Math.round(value)}
       </p>
     </>
