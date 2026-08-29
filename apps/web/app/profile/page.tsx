@@ -2,10 +2,12 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Edit3, Save, X, Camera, User, AtSign, Mail, Calendar, Shield, CheckCircle2, AlertCircle, Upload } from "lucide-react"
+import { Edit3, Save, X, User, AtSign, Mail, Calendar, Shield, CheckCircle2, AlertCircle, Upload } from "lucide-react"
 import DarkGradientBackground from "@/components/Background"
 import { UploadButton } from "@/lib/uploadthing"
 import "../uploadthing.css"
+import { Loader2 } from "lucide-react"
+import Loader from "@/components/ui/Loader"
 
 interface ProfileData {
   name: string
@@ -61,15 +63,14 @@ export default function ProfileSection() {
       setEditForm(initialProfile)
     }
   }, [session])
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
-    
     if (!editForm.name.trim()) {
       newErrors.name = "Name is required"
     } else if (editForm.name.trim().length < 2) {
       newErrors.name = "Name must be at least 2 characters"
     }
-    
     if (!editForm.username.trim()) {
       newErrors.username = "Username is required"
     } else if (editForm.username.trim().length < 3) {
@@ -77,7 +78,6 @@ export default function ProfileSection() {
     } else if (!/^[a-zA-Z0-9_]+$/.test(editForm.username.trim())) {
       newErrors.username = "Username can only contain letters, numbers, and underscores"
     }
-    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -95,37 +95,24 @@ export default function ProfileSection() {
     }
 
     setIsLoading(true)
-    
     try {
       const response = await fetch('/api/profile', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editForm.name.trim(),
           username: editForm.username.trim(),
           pfpUrl: editForm.pfpUrl,
         }),
       })
-
       const data = await response.json()
 
       if (response.ok) {
-        const updatedProfile = {
-          ...profile,
-          name: data.name,
-          username: data.username,
-          pfpUrl: data.pfpUrl || ""
-        }
+        const updatedProfile = { ...profile, name: data.name, username: data.username, pfpUrl: data.pfpUrl || "" }
         setProfile(updatedProfile)
         setIsEditing(false)
         showNotification('success', 'Profile updated successfully!')
-        
-        // Force session refresh to get updated data
         await update()
-        
-        // Additional fallback: refresh the page data
         setTimeout(async () => {
           const refreshedSession = await update()
           if (refreshedSession?.user) {
@@ -160,41 +147,23 @@ export default function ProfileSection() {
   const handleImageUpload = async (url: string) => {
     setIsUploadingImage(true)
     try {
-      // Update the form with the new image URL
       setEditForm({ ...editForm, pfpUrl: url })
-      
-      // Auto-save the profile image to database
       try {
         const saveResponse = await fetch('/api/profile', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: editForm.name.trim(),
             username: editForm.username.trim(),
             pfpUrl: url,
           }),
         })
-
         const saveData = await saveResponse.json()
-
         if (saveResponse.ok) {
-          // Update the profile state with saved data
-          const updatedProfile = {
-            ...profile,
-            name: saveData.name,
-            username: saveData.username,
-            pfpUrl: saveData.pfpUrl || ""
-          }
+          const updatedProfile = { ...profile, name: saveData.name, username: saveData.username, pfpUrl: saveData.pfpUrl || "" }
           setProfile(updatedProfile)
-          
-          // Force session refresh
           await update()
-          
           showNotification('success', 'Profile image uploaded successfully!')
-          
-          // Additional fallback to refresh session data
           setTimeout(async () => {
             const refreshedSession = await update()
             if (refreshedSession?.user) {
@@ -226,31 +195,16 @@ export default function ProfileSection() {
 
   if (status === "loading") {
     return (
-      <DarkGradientBackground>
-        <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
-          <div className="w-full max-w-md relative z-10">
-            <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl shadow-2xl p-8 text-center">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                className="w-8 h-8 border-2 border-white border-t-transparent rounded-full mx-auto mb-4"
-              />
-              <p className="text-gray-300">Loading profile...</p>
-            </div>
-          </div>
-        </div>
-      </DarkGradientBackground>
+      <Loader fullScreen label="Loading profile" />
     )
   }
 
   if (status === "unauthenticated") {
     return (
       <DarkGradientBackground>
-        <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
-          <div className="w-full max-w-md relative z-10">
-            <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl shadow-2xl p-8 text-center">
-              <p className="text-gray-300">Please sign in to view your profile.</p>
-            </div>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="bg-midnight-surface border border-graphite rounded-cards p-8 text-center">
+            <p className="font-satoshi text-[17px] text-steel-gray">Please sign in to view your profile.</p>
           </div>
         </div>
       </DarkGradientBackground>
@@ -261,515 +215,299 @@ export default function ProfileSection() {
     <AnimatePresence>
       {notification.show && (
         <motion.div
-          initial={{ opacity: 0, y: -50, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -50, scale: 0.9 }}
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
           className="fixed top-4 right-4 z-50 max-w-md"
         >
-          <motion.div
-            className={`px-6 py-4 rounded-2xl backdrop-blur-xl shadow-2xl border-2 flex items-center space-x-3 ${
-              notification.type === 'success' 
-                ? 'bg-green-500/20 border-green-500/30 text-green-300' 
-                : 'bg-red-500/20 border-red-500/30 text-red-300'
+          <div
+            className={`px-5 py-3 rounded-lg border flex items-center gap-3 ${
+              notification.type === 'success'
+                ? 'bg-midnight-surface border-electric-cyan/30 text-electric-cyan'
+                : 'bg-midnight-surface border-red-400/30 text-red-400'
             }`}
-            whileHover={{ scale: 1.02 }}
-            transition={{ duration: 0.2 }}
           >
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-              {notification.type === 'success' ? (
-                <CheckCircle2 className="w-5 h-5" />
-              ) : (
-                <AlertCircle className="w-5 h-5" />
-              )}
-            </motion.div>
-            <p className="font-medium">{notification.message}</p>
-            <motion.button
+            {notification.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            )}
+            <p className="font-mono text-sm">{notification.message}</p>
+            <button
               onClick={() => setNotification({ ...notification, show: false })}
               className="ml-auto text-current hover:opacity-70 transition-opacity"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
             >
-              <X className="w-4 h-4" />
-            </motion.button>
-          </motion.div>
+              <X className="w-3 h-3" />
+            </button>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
   )
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.8,
-        ease: [0.22, 1, 0.36, 1] as const,
-        staggerChildren: 0.08,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { 
-        duration: 0.6, 
-        ease: [0.22, 1, 0.36, 1] as const,
-      },
-    },
-  }
-
-  const floatingAnimation = {
-    y: [-8, 8, -8],
-    opacity: [0.3, 0.6, 0.3],
-    transition: {
-      duration: 8,
-      repeat: Number.POSITIVE_INFINITY,
-      ease: "easeInOut" as const,
-    },
-  }
-
-  const pulseAnimation = {
-    scale: [1, 1.02, 1],
-    transition: {
-      duration: 4,
-      repeat: Number.POSITIVE_INFINITY,
-      ease: "easeInOut" as const,
-    },
-  }
-
   return (
     <>
       <NotificationToast />
       <DarkGradientBackground>
-      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6">
-      <div className="absolute inset-0">
-        <motion.div
-          className="absolute top-1/4 left-1/4 w-64 h-64 bg-slate-800/5 rounded-full blur-3xl"
-          animate={floatingAnimation}
-        />
-        <motion.div
-          className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-gray-700/5 rounded-full blur-3xl"
-          animate={floatingAnimation}
-          transition={{ delay: 3 }}
-        />
-        <motion.div
-          className="absolute top-3/4 left-1/3 w-32 h-32 bg-slate-600/5 rounded-full blur-3xl"
-          animate={floatingAnimation}
-          transition={{ delay: 6 }}
-        />
-      </div>
-
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="w-full max-w-md relative z-10"
-      >
-        <motion.div
-          animate={pulseAnimation}
-          className={`${
-            isEditing 
-              ? 'bg-white/5 backdrop-blur-2xl border border-white/10' 
-              : 'bg-gray-900/40 backdrop-blur-xl border border-gray-800/50'
-          } rounded-2xl shadow-2xl p-8 relative overflow-hidden transition-all duration-500 ${
-            isLoading ? 'pointer-events-none' : ''
-          }`}
-        >
-          <AnimatePresence>
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-2xl flex items-center justify-center z-50"
-              >
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                  className="w-8 h-8 border-2 border-white border-t-transparent rounded-full"
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          <div className={`absolute inset-0 rounded-2xl ${
-            isEditing 
-              ? 'bg-[#1C1E1F] backdrop-blur-xl' 
-              : 'bg-[#1C1E1F] backdrop-blur-xl '
-          } transition-all duration-500`} />
-          
-          {isEditing && (
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/3 via-transparent to-white/3 opacity-50" />
-          )}
-          
-          <div className="text-center space-y-8 relative">
-            <motion.div variants={itemVariants} className="relative">
-              <motion.div
-                whileHover={{ 
-                  scale: 1.03,
-                  transition: { duration: 0.3, ease: "easeOut" }
-                }}
-                className="relative group mx-auto w-fit"
-              >
-                <motion.div
-                  className="absolute -inset-1 bg-gradient-to-r from-gray-600/20 to-gray-700/20 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                />
-                <div className={`relative w-28 h-28 rounded-full ${
-                  isEditing 
-                    ? 'border border-white/20 shadow-xl bg-white/5' 
-                    : 'border border-gray-700/30 shadow-2xl bg-gray-800/50'
-                } overflow-hidden transition-all duration-500`}>
-                  <img 
-                    src={editForm.pfpUrl || profile.pfpUrl || "/placeholder.svg?height=120&width=120"} 
-                    alt={profile.name}
-                    className="w-full h-full object-cover"
-                  />
-                  {!(editForm.pfpUrl || profile.pfpUrl) && (
-                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center text-white text-2xl font-bold">
-                      {profile.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </div>
-                  )}
-                  {isEditing && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="absolute inset-0 bg-black/60 hover:bg-black/70 transition-colors duration-300 rounded-full flex items-center justify-center profile-upload-button"
-                    >
-                      <UploadButton
-                        endpoint="profileImageUploader"
-                        onClientUploadComplete={(res) => {
-                          if (res?.[0]?.url) {
-                            handleImageUpload(res[0].url);
-                          }
-                        }}
-                        onUploadError={(error: Error) => {
-                          console.error("Upload error:", error);
-                          showNotification('error', `Upload failed: ${error.message}`);
-                          setIsUploadingImage(false);
-                        }}
-                        onUploadBegin={() => {
-                          setIsUploadingImage(true);
-                        }}
-                        appearance={{
-                          button: "w-full h-full bg-transparent border-none rounded-full flex items-center justify-center cursor-pointer p-0 m-0 min-h-0",
-                          allowedContent: "hidden",
-                          container: "w-full h-full flex items-center justify-center",
-                        }}
-                        content={{
-                          button: ({ ready, isUploading }) => {
-                            if (isUploading || isUploadingImage) {
-                              return (
-                                <div className="flex flex-col items-center justify-center space-y-1 w-full h-full">
-                                  <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                                    className="w-6 h-6 border-2 border-white border-t-transparent rounded-full"
-                                  />
-                                  <span className="text-xs text-white/80">Uploading...</span>
-                                </div>
-                              )
-                            }
-                            
-                            if (ready) {
-                              return (
-                                <motion.div 
-                                  whileHover={{ scale: 1.1 }} 
-                                  whileTap={{ scale: 0.9 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="flex flex-col items-center justify-center space-y-1 w-full h-full"
-                                >
-                                  <Upload className="w-6 h-6 text-white" />
-                                  <span className="text-xs text-white/80">Change</span>
-                                </motion.div>
-                              )
-                            }
-                            
-                            return (
-                              <div className="flex items-center justify-center w-full h-full">
-                                <span className="text-xs text-white/60">Ready...</span>
-                              </div>
-                            )
-                          }
-                        }}
-                      />
-                    </motion.div>
-                  )}
-                </div>
-              </motion.div>
-            </motion.div>
-
-            <AnimatePresence mode="wait">
-              {isEditing ? (
-                <motion.div
-                  key="editing"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  className="space-y-6"
-                >
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="w-full max-w-md"
+          >
+            <div
+              className={`bg-midnight-surface border border-graphite rounded-cards p-8 relative ${
+                isLoading ? 'pointer-events-none' : ''
+              }`}
+            >
+              {/* Loading overlay */}
+              <AnimatePresence>
+                {isLoading && (
                   <motion.div
-                    className="text-left space-y-2"
-                    whileHover={{ 
-                      scale: 1.01,
-                      transition: { duration: 0.2 }
-                    }}
-                  >
-                    <label className="text-gray-300 text-sm flex items-center gap-2 mb-2">
-                      <User className="w-4 h-4 opacity-70" />
-                      Display Name
-                    </label>
-                    <input
-                      value={editForm.name}
-                      onChange={(e) => {
-                        setEditForm({ ...editForm, name: e.target.value })
-                        if (errors.name) setErrors({ ...errors, name: '' })
-                      }}
-                      className={`w-full bg-white/5 backdrop-blur-sm border ${
-                        errors.name ? 'border-red-500/50' : 'border-white/10'
-                      } text-white focus:border-white/20 focus:outline-none rounded-lg px-4 py-3 transition-all duration-300 focus:bg-white/10 placeholder-gray-400`}
-                      placeholder="Enter your display name"
-                    />
-                    {errors.name && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-red-400 text-xs flex items-center gap-1"
-                      >
-                        <AlertCircle className="w-3 h-3" />
-                        {errors.name}
-                      </motion.p>
-                    )}
-                  </motion.div>
-                  <motion.div
-                    className="text-left space-y-2"
-                    whileHover={{ 
-                      scale: 1.01,
-                      transition: { duration: 0.2 }
-                    }}
-                  >
-                    <label className="text-gray-300 text-sm flex items-center gap-2 mb-2">
-                      <AtSign className="w-4 h-4 opacity-70" />
-                      Username
-                    </label>
-                    <input
-                      value={editForm.username}
-                      onChange={(e) => {
-                        setEditForm({ ...editForm, username: e.target.value })
-                        if (errors.username) setErrors({ ...errors, username: '' })
-                      }}
-                      className={`w-full bg-white/5 backdrop-blur-sm border ${
-                        errors.username ? 'border-red-500/50' : 'border-white/10'
-                      } text-white focus:border-white/20 focus:outline-none rounded-lg px-4 py-3 transition-all duration-300 focus:bg-white/10 placeholder-gray-400`}
-                      placeholder="Enter your username"
-                    />
-                    {errors.username && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-red-400 text-xs flex items-center gap-1"
-                      >
-                        <AlertCircle className="w-3 h-3" />
-                        {errors.username}
-                      </motion.p>
-                    )}
-                  </motion.div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="viewing"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  className="space-y-6"
-                >
-                  <div className="text-center space-y-3">
-                    <motion.h1
-                      className="text-3xl font-bold text-white tracking-tight"
-                      whileHover={{ 
-                        scale: 1.02,
-                        transition: { duration: 0.2 }
-                      }}
-                    >
-                      {profile.name}
-                    </motion.h1>
-                    <motion.p
-                      className="text-gray-400 text-lg"
-                      whileHover={{ 
-                        scale: 1.02,
-                        color: "#9CA3AF",
-                        transition: { duration: 0.2 }
-                      }}
-                    >
-                      @{profile.username}
-                    </motion.p>
-                  </div>
-
-                  <motion.div 
-                    className="space-y-4 pt-4 border-t border-white/10"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.2 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-void-black/50 rounded-cards flex items-center justify-center z-50"
                   >
-                    {profile.email && (
-                      <motion.div 
-                        className="flex items-center gap-3 text-gray-300 hover:text-white transition-colors duration-300"
-                        whileHover={{ x: 5 }}
-                      >
-                        <Mail className="w-4 h-4 opacity-70" />
-                        <span className="text-sm">{profile.email}</span>
-                      </motion.div>
-                    )}
-                    
-                    <motion.div 
-                      className="flex items-center gap-3 text-gray-300"
-                      whileHover={{ x: 5 }}
-                    >
-                      <Calendar className="w-4 h-4 opacity-70" />
-                      <span className="text-sm">
-                        Member since {new Date(profile.createdAt || '').toLocaleDateString('en-US', { 
-                          month: 'long', 
-                          year: 'numeric' 
-                        })}
-                      </span>
-                    </motion.div>
-
-                    <motion.div 
-                      className="flex items-center gap-3 text-gray-300"
-                      whileHover={{ x: 5 }}
-                    >
-                      <Shield className="w-4 h-4 opacity-70" />
-                      <span className="text-sm">Verified Account</span>
-                    </motion.div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <motion.div variants={itemVariants}>
-              <AnimatePresence mode="wait">
-                {isEditing ? (
-                  <motion.div
-                    key="edit-actions"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                    className="flex gap-4 justify-center"
-                  >
-                    <motion.button
-                      onClick={handleSave}
-                      disabled={isLoading || isUploadingImage}
-                      whileHover={{ 
-                        scale: 1.02,
-                        transition: { duration: 0.2 }
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      className="flex-1 bg-white/10 backdrop-blur-sm hover:bg-white/15 text-white border border-white/20 rounded-lg px-6 py-3 transition-all duration-300 relative overflow-hidden group disabled:opacity-50"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="relative flex items-center justify-center">
-                        {isLoading || isUploadingImage ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                            className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                          />
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4 mr-2" />
-                            Save
-                          </>
-                        )}
-                      </div>
-                    </motion.button>
-                    <motion.button
-                      onClick={handleCancel}
-                      disabled={isLoading || isUploadingImage}
-                      whileHover={{ 
-                        scale: 1.02,
-                        transition: { duration: 0.2 }
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      className="flex-1 border border-white/20 text-gray-300 hover:bg-white/5 bg-transparent backdrop-blur-sm rounded-lg px-6 py-3 transition-all duration-300 disabled:opacity-50"
-                    >
-                      <X className="w-4 h-4 mr-2 inline" />
-                      Cancel
-                    </motion.button>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="edit-button"
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -15 }}
-                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    <motion.button
-                      onClick={handleEdit}
-                      whileHover={{ 
-                        scale: 1.02,
-                        transition: { duration: 0.2 }
-                      }}
-                      whileTap={{ scale: 0.98 }}
-                      className="border border-gray-600/30 text-gray-300 hover:bg-gray-800/30 bg-transparent px-8 py-3 rounded-lg transition-all duration-300 relative overflow-hidden group"
-                    >
-                      <div className="absolute inset-0 bg-gray-800/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="relative flex items-center">
-                        <Edit3 className="w-4 h-4 mr-2" />
-                        Edit Profile
-                      </div>
-                    </motion.button>
+                    <Loader2 className="w-6 h-6 animate-spin text-electric-cyan" />
                   </motion.div>
                 )}
               </AnimatePresence>
-            </motion.div>
-          </div>
-        </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="text-center mt-8"
-        >
-          <motion.div
-            className="text-2xl font-bold text-white mb-2 tracking-tight"
-            whileHover={{ 
-              scale: 1.05,
-              transition: { duration: 0.2 }
-            }}
-          >
-            Deciball
+              <div className="text-center space-y-8">
+                {/* Avatar */}
+                <div className="relative mx-auto w-fit">
+                  <div className={`relative w-24 h-24 rounded-full overflow-hidden ${
+                    isEditing ? 'ring-2 ring-electric-cyan/30' : 'border border-graphite'
+                  }`}>
+                    <img
+                      src={editForm.pfpUrl || profile.pfpUrl || "/placeholder.svg?height=120&width=120"}
+                      alt={profile.name}
+                      className="w-full h-full object-cover"
+                    />
+                    {!(editForm.pfpUrl || profile.pfpUrl) && (
+                      <div className="absolute inset-0 bg-graphite flex items-center justify-center text-paper-white text-xl font-serif italic">
+                        {profile.name.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                    )}
+                    {isEditing && (
+                      <div className="absolute inset-0 bg-void-black/60 flex items-center justify-center profile-upload-button">
+                        <UploadButton
+                          endpoint="profileImageUploader"
+                          onClientUploadComplete={(res) => {
+                            if (res?.[0]?.url) {
+                              handleImageUpload(res[0].url);
+                            }
+                          }}
+                          onUploadError={(error: Error) => {
+                            console.error("Upload error:", error);
+                            showNotification('error', `Upload failed: ${error.message}`);
+                            setIsUploadingImage(false);
+                          }}
+                          onUploadBegin={() => {
+                            setIsUploadingImage(true);
+                          }}
+                          appearance={{
+                            button: "w-full h-full bg-transparent border-none rounded-full flex items-center justify-center cursor-pointer p-0 m-0 min-h-0",
+                            allowedContent: "hidden",
+                            container: "w-full h-full flex items-center justify-center",
+                          }}
+                          content={{
+                            button: ({ ready, isUploading }) => {
+                              if (isUploading || isUploadingImage) {
+                                return (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <Loader2 className="w-5 h-5 animate-spin text-paper-white" />
+                                    <span className="font-mono text-[10px] text-ghost-gray">Uploading...</span>
+                                  </div>
+                                )
+                              }
+                              if (ready) {
+                                return (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <Upload className="w-5 h-5 text-paper-white" />
+                                    <span className="font-mono text-[10px] text-ghost-gray">Change</span>
+                                  </div>
+                                )
+                              }
+                              return (
+                                <span className="font-mono text-[10px] text-steel-gray">Ready...</span>
+                              )
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Content */}
+                <AnimatePresence mode="wait">
+                  {isEditing ? (
+                    <motion.div
+                      key="editing"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="space-y-5"
+                    >
+                      {/* Name field */}
+                      <div className="text-left space-y-2">
+                        <label className="font-mono text-[10px] tracking-[0.02em] uppercase text-steel-gray flex items-center gap-2">
+                          <User className="w-3 h-3" />
+                          Display Name
+                        </label>
+                        <input
+                          value={editForm.name}
+                          onChange={(e) => {
+                            setEditForm({ ...editForm, name: e.target.value })
+                            if (errors.name) setErrors({ ...errors, name: '' })
+                          }}
+                          className={`w-full bg-graphite border ${
+                            errors.name ? 'border-red-400/50' : 'border-graphite'
+                          } text-paper-white font-satoshi text-[17px] focus:border-slate-custom focus:outline-none rounded-lg px-4 py-3 transition-colors placeholder:text-steel-gray`}
+                          placeholder="Enter your display name"
+                        />
+                        {errors.name && (
+                          <p className="font-mono text-[10px] text-red-400 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {errors.name}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Username field */}
+                      <div className="text-left space-y-2">
+                        <label className="font-mono text-[10px] tracking-[0.02em] uppercase text-steel-gray flex items-center gap-2">
+                          <AtSign className="w-3 h-3" />
+                          Username
+                        </label>
+                        <input
+                          value={editForm.username}
+                          onChange={(e) => {
+                            setEditForm({ ...editForm, username: e.target.value })
+                            if (errors.username) setErrors({ ...errors, username: '' })
+                          }}
+                          className={`w-full bg-graphite border ${
+                            errors.username ? 'border-red-400/50' : 'border-graphite'
+                          } text-paper-white font-satoshi text-[17px] focus:border-slate-custom focus:outline-none rounded-lg px-4 py-3 transition-colors placeholder:text-steel-gray`}
+                          placeholder="Enter your username"
+                        />
+                        {errors.username && (
+                          <p className="font-mono text-[10px] text-red-400 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            {errors.username}
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="viewing"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="space-y-6"
+                    >
+                      <div className="text-center space-y-2">
+                        <h1 className="font-serif italic text-[32px] leading-[1.1] text-paper-white">
+                          {profile.name}
+                        </h1>
+                        <p className="font-mono text-sm text-steel-gray">
+                          @{profile.username}
+                        </p>
+                      </div>
+
+                      <div className="space-y-3 pt-4 border-t border-graphite">
+                        {profile.email && (
+                          <div className="flex items-center gap-3 text-steel-gray">
+                            <Mail className="w-4 h-4" />
+                            <span className="font-mono text-xs">{profile.email}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-3 text-steel-gray">
+                          <Calendar className="w-4 h-4" />
+                          <span className="font-mono text-xs">
+                            Member since {new Date(profile.createdAt || '').toLocaleDateString('en-US', {
+                              month: 'long',
+                              year: 'numeric'
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-steel-gray">
+                          <Shield className="w-4 h-4" />
+                          <span className="font-mono text-xs">Verified Account</span>
+                          <CheckCircle2 className="w-3 h-3 text-electric-cyan" />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Actions */}
+                <AnimatePresence mode="wait">
+                  {isEditing ? (
+                    <motion.div
+                      key="edit-actions"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex gap-3"
+                    >
+                      <button
+                        onClick={handleSave}
+                        disabled={isLoading || isUploadingImage}
+                        className="flex-1 font-mono text-sm bg-graphite text-paper-white border border-graphite rounded-full py-3 hover:bg-charcoal disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        {isLoading || isUploadingImage ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            Save
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleCancel}
+                        disabled={isLoading || isUploadingImage}
+                        className="flex-1 font-mono text-sm text-steel-gray border border-graphite rounded-full py-3 hover:border-slate-custom hover:text-paper-white disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="edit-button"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <button
+                        onClick={handleEdit}
+                        className="font-mono text-sm text-steel-gray border border-graphite rounded-full px-8 py-3 hover:border-slate-custom hover:text-paper-white transition-colors flex items-center gap-2 mx-auto"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        Edit Profile
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+
+            {/* Brand footer */}
+            <div className="text-center mt-8">
+              <p className="font-serif italic text-xl text-paper-white mb-1">Deciball</p>
+              <p className="font-mono text-[10px] tracking-[0.02em] text-steel-gray">
+                Feel the Beat, Share the Vibe
+              </p>
+            </div>
           </motion.div>
-          <motion.div
-            className="text-gray-500 text-sm tracking-wide"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 0.6 }}
-          >
-            Feel the Beat, Share the Vibe
-          </motion.div>
-        </motion.div>
-      </motion.div>
-    </div>
-    </DarkGradientBackground>
+        </div>
+      </DarkGradientBackground>
     </>
   )
 }

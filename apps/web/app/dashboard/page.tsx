@@ -6,10 +6,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { motion } from "framer-motion"
-import { Button } from "@/app/components/ui/button"
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/app/components/ui/form"
 import { Input } from "@/app/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card"
 import { Loader2, Music, Users, Headphones } from "lucide-react"
 import DarkGradientBackground from "@/components/Background"
 import axios from "axios"
@@ -26,7 +24,6 @@ export default function Page() {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [isCreating, setIsCreating] = useState(false)
-  
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -38,13 +35,13 @@ export default function Page() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsCreating(true)
-      
+
       const response = await axios.post("/api/spaces", values)
       const spaceId = response.data.space.id;
 
       toast.success("Space created successfully!")
       router.push(`/space/${spaceId}`)
-      
+
     } catch (error: any) {
       console.error("Form submission error", error);
       const errorMessage = error.response?.data?.message || "Failed to create space. Please try again.";
@@ -54,14 +51,13 @@ export default function Page() {
     }
   }
 
-
-  if (!session || !session.user) {  
+  if (!session || !session.user) {
     return (
       <DarkGradientBackground>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-white mb-4">Please Sign In</h1>
-            <p className="text-zinc-400">You need to be signed in to create a space.</p>
+            <h1 className="font-serif italic text-[32px] text-paper-white mb-4">Please Sign In</h1>
+            <p className="font-satoshi text-[17px] text-steel-gray">You need to be signed in to create a space.</p>
           </div>
         </div>
       </DarkGradientBackground>
@@ -71,73 +67,55 @@ export default function Page() {
   return (
     <DarkGradientBackground>
       <div className="min-h-screen py-8">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="text-center mb-12">
-          <motion.h1 
-            initial={{ opacity: 0, y: -20 }}
+        <div className="mx-auto px-4 sm:px-6 max-w-page">
+          {/* Header */}
+          <div className="text-center mb-16">
+            <motion.h1
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="font-serif italic text-[48px] sm:text-[64px] leading-[1] tracking-[-0.04em] text-paper-white mb-4"
+            >
+              Create Your Music Space
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="font-satoshi text-[17px] text-steel-gray"
+            >
+              Set up a collaborative music space where you can listen together with friends
+            </motion.p>
+          </div>
+
+          {/* Feature cards */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent mb-4"
+            transition={{ delay: 0.2 }}
+            className="grid md:grid-cols-3 gap-4 mb-16"
           >
-            Create Your Music Space
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: -10 }}
+            {[
+              { icon: Music, label: "Shared Playlists", desc: "Create collaborative playlists with your friends in real-time" },
+              { icon: Users, label: "Live Chat", desc: "Chat with friends while discovering new music together" },
+              { icon: Headphones, label: "Synchronized Listening", desc: "Listen to music in perfect sync with all participants" },
+            ].map(({ icon: Icon, label, desc }) => (
+              <div key={label} className="bg-midnight-surface border border-graphite rounded-cards p-6 text-center">
+                <Icon className="w-10 h-10 text-electric-cyan mx-auto mb-4" />
+                <h3 className="font-serif italic text-xl text-paper-white mb-2">{label}</h3>
+                <p className="font-satoshi text-sm text-steel-gray">{desc}</p>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Create space form */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-zinc-400 text-lg"
+            transition={{ delay: 0.3 }}
+            className="max-w-2xl mx-auto"
           >
-            Set up a collaborative music space where you can listen together with friends
-          </motion.p>
-        </div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="grid md:grid-cols-3 gap-6 mb-12"
-        >
-          <Card className="bg-zinc-900/80 border-zinc-800 text-center">
-            <CardHeader>
-              <Music className="w-12 h-12 text-cyan-400 mx-auto mb-2" />
-              <CardTitle className="text-white">Shared Playlists</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-zinc-400 text-sm">Create collaborative playlists with your friends in real-time</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-900/80 border-zinc-800 text-center">
-            <CardHeader>
-              <Users className="w-12 h-12 text-teal-400 mx-auto mb-2" />
-              <CardTitle className="text-white">Live Chat</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-zinc-400 text-sm">Chat with friends while discovering new music together</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-zinc-900/80 border-zinc-800 text-center">
-            <CardHeader>
-              <Headphones className="w-12 h-12 text-purple-400 mx-auto mb-2" />
-              <CardTitle className="text-white">Synchronized Listening</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-zinc-400 text-sm">Listen to music in perfect sync with all participants</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="max-w-2xl mx-auto"
-        >
-          <Card className="bg-zinc-900/80 border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-white text-center text-2xl">Name Your Space</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <div className="bg-midnight-surface border border-graphite rounded-cards p-8">
+              <h2 className="font-serif italic text-[32px] text-paper-white text-center mb-6">Name Your Space</h2>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
@@ -145,56 +123,55 @@ export default function Page() {
                     name="spaceName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-zinc-300 text-lg">Space Name</FormLabel>
+                        <FormLabel className="font-mono text-xs tracking-[0.02em] uppercase text-steel-gray">
+                          Space Name
+                        </FormLabel>
                         <FormControl>
-                          <Input 
+                          <Input
                             placeholder="e.g., Chill Vibes, Study Music, Weekend Party"
-                            className="bg-zinc-800/50 text-zinc-200 border-zinc-700 h-12 text-lg focus:ring-2 focus:ring-cyan-400/50 focus:border-transparent"
-                            {...field} 
+                            className="bg-graphite text-paper-white border-graphite h-12 text-[17px] font-satoshi rounded-lg focus:ring-1 focus:ring-electric-cyan/30 focus:border-slate-custom placeholder:text-steel-gray"
+                            {...field}
                           />
                         </FormControl>
-                        <FormDescription className="text-zinc-400">
+                        <FormDescription className="font-satoshi text-sm text-steel-gray">
                           Choose a name that represents the vibe of your music space
                         </FormDescription>
-                        <FormMessage className="text-red-400" />
+                        <FormMessage className="font-mono text-xs text-red-400" />
                       </FormItem>
                     )}
                   />
-                  
-                  <Button 
-                    type="submit" 
+
+                  <button
+                    type="submit"
                     disabled={isCreating}
-                    className="w-full bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white h-12 text-lg font-medium transition-all duration-300 shadow-lg shadow-cyan-900/30"
+                    className="w-full font-mono text-sm bg-graphite text-paper-white h-12 rounded-full hover:bg-charcoal disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     {isCreating ? (
                       <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                         Creating Space...
                       </>
                     ) : (
                       <>
-                        <Music className="w-5 h-5 mr-2" />
+                        <Music className="w-4 h-4" />
                         Create Space
                       </>
                     )}
-                  </Button>
+                  </button>
                 </form>
               </Form>
-            </CardContent>
-          </Card>
-        </motion.div>
+            </div>
+          </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="text-center mt-8"
-        >
-          <p className="text-zinc-500 text-sm">
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="text-center mt-8 font-mono text-xs text-steel-gray"
+          >
             Once created, you can invite friends by sharing the space link
-          </p>
-        </motion.div>
-      </div>
+          </motion.p>
+        </div>
       </div>
     </DarkGradientBackground>
   )
