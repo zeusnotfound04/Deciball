@@ -50,7 +50,6 @@ const AudioController: React.FC<AudioControllerProps> = ({
   const { isAdmin } = useUserStore();
   const { socket, sendMessage } = useSocket();
   const playerRef = useRef<any>(null);
-  console.log("IS Playing :::>>", isPlaying)
 
   // Enhanced progress bar interaction state with seek protection
   const [isDragging, setIsDragging] = useState(false);

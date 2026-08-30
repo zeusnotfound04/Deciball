@@ -211,20 +211,39 @@ export class RoomManager {
         
         try {
             // 1. Extract source information
-            const { source, extractedId } = await this.extractSourceInfo(url);
+            const { source: urlSource, extractedId: urlExtractedId } = await this.extractSourceInfo(url);
             const normalizedQuery = this.normalizeQuery(url, trackData);
-            
-            // 2. Check cache first (fastest path) - include Spotify ID if available
             const spotifyId = trackData?.spotifyId;
-            console.log(`[RoomManager] 🔍 Checking cache for: ${normalizedQuery} ${spotifyId ? `(Spotify ID: ${spotifyId})` : ''}`);
+
+            // If we have full trackData from Spotify (client already searched), skip the
+            // broken SpotifyHandler and go straight to YouTube search for the playable video.
+            const hasFullSpotifyData = spotifyId && trackData?.title && trackData?.artist;
+            const source = hasFullSpotifyData ? 'Youtube' : urlSource;
+            const extractedId = hasFullSpotifyData ? undefined : (spotifyId || urlExtractedId);
+
+            console.log(`[RoomManager] 🔍 Checking cache for: ${normalizedQuery} ${spotifyId ? `(Spotify ID: ${spotifyId})` : ''} [source: ${source}]`);
             const cachedSong = await this.musicCache.searchCache(normalizedQuery, source, spotifyId);
-            
+
+            // Helper: override YouTube metadata with Spotify metadata when available
+            const applySpotifyMetadata = (song: any) => {
+                if (!hasFullSpotifyData) return song;
+                return {
+                    ...song,
+                    title: trackData.title,
+                    artist: trackData.artist,
+                    album: trackData.album || song.album,
+                    smallImg: trackData.smallImg || song.smallImg,
+                    bigImg: trackData.bigImg || song.bigImg,
+                    duration: trackData.duration ? Math.floor(trackData.duration / 1000) : song.duration,
+                };
+            };
+
             if (cachedSong && !(cachedSong as any).failed) {
-                console.log(`[RoomManager] ⚡ Cache HIT: "${cachedSong.title}" (${Date.now() - processingStart}ms)`);
-                return await this.addSongToQueue(spaceId, cachedSong, userId, autoPlay, true);
+                console.log(`[RoomManager] ⚡ Cache HIT: "${cachedSong.title}" → overriding with Spotify title: "${trackData?.title || cachedSong.title}" (${Date.now() - processingStart}ms)`);
+                return await this.addSongToQueue(spaceId, applySpotifyMetadata(cachedSong), userId, autoPlay, true);
             }
-            
-            // 3. Use worker to fetch details (parallel processing)
+
+            // 3. Use worker to fetch details — YouTube search when we have Spotify metadata
             const songData = {
                 source,
                 query: normalizedQuery,
@@ -232,12 +251,12 @@ export class RoomManager {
                 url,
                 trackData
             };
-            
-            const songDetails = await this.workerPool.processSong(songData, 'high'); // High priority for real-time requests
-            
+
+            const songDetails = await this.workerPool.processSong(songData, 'high');
+
             if (songDetails && !(songDetails as any).failed) {
                 await this.musicCache.cacheSong(songDetails, normalizedQuery, spotifyId);
-                return await this.addSongToQueue(spaceId, songDetails, userId, autoPlay, false);
+                return await this.addSongToQueue(spaceId, applySpotifyMetadata(songDetails), userId, autoPlay, false);
             } else {
                 throw new Error((songDetails as any)?.error || 'Failed to fetch song details');
             }
@@ -2877,7 +2896,6 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
 
     async storeUserInfo(userId: string, userInfo: { username?: string; email?: string; name?: string, pfpUrl?: string }): Promise<void> {
         try {
-            console.log(`[DEBUG storeUserInfo] userId=${userId.slice(0,8)} pfpUrl=${userInfo.pfpUrl?.slice(0,60) || 'NONE'}`);
             await this.redisClient.set(
                 `user-info-${userId}`,
                 JSON.stringify(userInfo),
@@ -2899,13 +2917,9 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
     async getUserInfo(userId: string): Promise<{ username?: string; email?: string; name?: string, pfpUrl?: string } | null> {
         try {
             const userInfo = await this.redisClient.get(`user-info-${userId}`);
-            console.log(`[DEBUG getUserInfo] userId=${userId.slice(0,8)} raw=${userInfo?.slice(0,200)}`);
             if (userInfo) {
-                const parsed = JSON.parse(userInfo);
-                console.log(`[DEBUG getUserInfo] parsed pfpUrl=${parsed.pfpUrl?.slice(0,60) || 'MISSING'}`);
-                return parsed;
+                return JSON.parse(userInfo);
             }
-            console.log(`[DEBUG getUserInfo] NO DATA IN REDIS for ${userId.slice(0,8)}`);
         } catch (error) {
             console.error(`Error getting user info for ${userId}:`, error);
         }

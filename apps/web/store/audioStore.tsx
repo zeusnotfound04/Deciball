@@ -1339,10 +1339,15 @@ interface AudioState {
         
         
         const songData = event.detail.song;
-        
-        const artistes : string[] = songData.artists.map((artist: Artist) => artist.name);
-        console.log("Artistes" , artistes)
-        
+        if (!songData) return;
+
+        // Server sends `artist` as a string, not `artists` as an array
+        const artistes: string[] = Array.isArray(songData.artists)
+          ? songData.artists.map((a: any) => a.name || a)
+          : songData.artist
+            ? songData.artist.split(', ')
+            : ['Unknown Artist'];
+
         if (songData) {
 
           
