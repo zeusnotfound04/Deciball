@@ -31,7 +31,7 @@ import { RecommendationPanel } from './RecommendationPanel';
 import SpaceEndedModal from './SpaceEndedModal';
 import MusicSpaceLayout from './MusicSpaceLayout';
 import Loader from '@/components/ui/Loader';
-import PixelBlast from '@/components/ui/PixelBlast';
+import StablePixelBlast from '@/components/ui/StablePixelBlast';
 
 interface MusicSpaceProps {
   spaceId: string;
@@ -757,7 +757,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                   {showPlayer && (
                     <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl flex flex-col overflow-hidden">
                       <div className="absolute inset-0 z-0 opacity-[0.18] rounded-cards overflow-hidden pointer-events-none">
-                        <PixelBlast variant="circle" pixelSize={3} color="#19d0e8" speed={0.4} patternDensity={0.5} edgeFade={0.3} enableRipples={true} rippleSpeed={0.2} rippleIntensityScale={0.5} />
+                        <StablePixelBlast variant="circle" pixelSize={3} color="#19d0e8" speed={0.4} patternDensity={0.5} edgeFade={0.3} enableRipples={true} rippleSpeed={0.2} rippleIntensityScale={0.5} />
                       </div>
                       <Player
                         spaceId={spaceId}
@@ -777,7 +777,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                   {showQueue && (
                     <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[60vh] sm:h-[65vh] md:h-[70vh] lg:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col overflow-hidden">
                       <div className="absolute inset-0 z-0 opacity-[0.15] rounded-cards overflow-hidden pointer-events-none">
-                        <PixelBlast variant="square" pixelSize={3} color="#19d0e8" speed={0.3} patternDensity={0.45} edgeFade={0.3} enableRipples={true} rippleSpeed={0.15} rippleIntensityScale={0.4} />
+                        <StablePixelBlast variant="square" pixelSize={3} color="#19d0e8" speed={0.3} patternDensity={0.45} edgeFade={0.3} enableRipples={true} rippleSpeed={0.15} rippleIntensityScale={0.4} />
                       </div>
                       <QueueManager
                         spaceId={spaceId}
