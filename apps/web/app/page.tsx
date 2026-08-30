@@ -8,9 +8,9 @@ import { Loader2, Play } from "lucide-react";
 import Loader from "@/components/ui/Loader";
 import AnimatedButton from "@/components/ui/AnimatedButton";
 import SignInDialog from "@/components/ui/SignInDialog";
-import FuzzyText from "@/components/ui/FuzzyText";
-import ShinyText from "@/components/ui/ShinnyText";
-import AudioWaves from "@/components/ui/AudioWaves";
+import StableFuzzyText from "@/components/ui/StableFuzzyText";
+import StableShinyText from "@/components/ui/StableShinyText";
+import StableAudioWaves from "@/components/ui/StableAudioWaves";
 import AlbumGrid from "@/components/ui/AlbumGrid";
 import { useUserSpaces, useCreateSpace, usePrefetchUserSpaces } from "@/app/hooks/useSpaces";
 import { SpacesGridSkeleton } from "@/app/components/ui/SpaceSkeleton";
@@ -110,7 +110,7 @@ export default function Page() {
         <AlbumGrid />
         {/* Layer 2: Audio waveform overlay on top */}
         <div className="absolute inset-0">
-          <AudioWaves color="#ffffff" barCount={64} speed={0.8} opacity={0.10} />
+          <StableAudioWaves color="#ffffff" barCount={64} speed={0.8} opacity={0.10} />
         </div>
       </div>
 
@@ -141,7 +141,7 @@ export default function Page() {
                 transition={{ duration: 0.6, delay: 0.2 }}
                 className="mb-6"
               >
-                <FuzzyText
+                <StableFuzzyText
                   fontSize="clamp(1rem, 3vw, 1.25rem)"
                   fontWeight={600}
                   color="#ffffff"
@@ -153,7 +153,7 @@ export default function Page() {
                   className="font-mono tracking-[0.08em] uppercase"
                 >
                   Sync the Beat, Share the Vibe
-                </FuzzyText>
+                </StableFuzzyText>
               </motion.div>
 
               {/* Brand wordmark */}
@@ -164,7 +164,7 @@ export default function Page() {
                 transition={{ duration: 0.6, delay: 0.4 }}
                 className="mb-10 sm:mb-14"
               >
-                <ShinyText
+                <StableShinyText
                   text="Deciball"
                   speed={2}
                   color="#7f7f7f"

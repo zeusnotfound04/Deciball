@@ -22,7 +22,7 @@ import { LuArrowBigUpDash } from "react-icons/lu";
 import { Link, Plus, Loader2, MessageCircle, Trash2 } from 'lucide-react';
 import { Chat } from './Chat';
 import { PlayListIcon } from '@/components/icons';
-import PixelBlast from '@/components/ui/PixelBlast';
+import StablePixelBlast from '@/components/ui/StablePixelBlast';
 import axios from 'axios';
 
 // Drag zone identifiers
@@ -133,7 +133,7 @@ const PersonalizedEmptyMessage = ({ userName, onSuggestionClick, suggestions }: 
       className="h-full flex flex-col min-h-[200px] relative overflow-hidden rounded-xl"
     >
       <div className="absolute inset-0 opacity-20 pointer-events-none">
-        <PixelBlast
+        <StablePixelBlast
           variant="circle"
           pixelSize={2}
           color="#19d0e8"

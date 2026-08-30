@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, memo } from "react";
 import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
 import { PlayIcon, PreviousIcon, NextIcon } from "@/components/icons";
@@ -33,7 +33,7 @@ const ALBUMS = [
 ];
 
 // Mini player card
-function MiniPlayer({ album, progress }: { album: typeof ALBUMS[0]; progress: number }) {
+const MiniPlayer = memo(function MiniPlayer({ album, progress }: { album: typeof ALBUMS[0]; progress: number }) {
   const [imgError, setImgError] = useState(false);
 
   return (
@@ -88,12 +88,12 @@ function MiniPlayer({ album, progress }: { album: typeof ALBUMS[0]; progress: nu
       </div>
     </div>
   );
-}
+});
 
 const NUM_COLUMNS = 8;
 const CARDS_PER_COLUMN = 6;
 
-export default function AlbumGrid({ className = "" }: { className?: string }) {
+function AlbumGridInner({ className = "" }: { className?: string }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -173,3 +173,6 @@ export default function AlbumGrid({ className = "" }: { className?: string }) {
     </div>
   );
 }
+
+const AlbumGrid = memo(AlbumGridInner, () => true);
+export default AlbumGrid;

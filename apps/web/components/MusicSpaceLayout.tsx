@@ -6,7 +6,7 @@ import ListenerSidebar from '@/app/components/ListenerSidebar';
 import { SidebarProvider } from '@/app/components/ui/sidebar';
 import { Button } from '@/app/components/ui/button';
 import { Menu } from 'lucide-react';
-import Silk from '@/components/ui/SlickBackground';
+import StableSilk from '@/components/ui/StableSilk';
 import { DiscordPresence } from './DiscordPresence';
 import { ElectronDetector } from './ElectronDetector';
 
@@ -76,7 +76,7 @@ export default function MusicSpaceLayout({
     <div className="relative h-screen w-screen text-white overflow-hidden bg-void-black">
       {/* Ambient silk background */}
       <div className="absolute inset-0 z-0 opacity-60">
-        <Silk speed={1.5} scale={1} color="#3f3f3f" noiseIntensity={1} />
+        <StableSilk speed={1.5} scale={1} color="#3f3f3f" noiseIntensity={1} />
       </div>
       <div className="relative z-10 h-full w-full">
         <DiscordPresence />
