@@ -97,22 +97,30 @@ const PlayingAnimation = () => {
   );
 };
 
-// Suggested songs for empty state
-const SUGGESTIONS = [
-  { img: "https://upload.wikimedia.org/wikipedia/en/c/c1/The_Weeknd_-_After_Hours.png", title: "After Hours", artist: "The Weeknd" },
-  { img: "https://m.media-amazon.com/images/I/61MWIe1BzwL._SL1000_.jpg", title: "DAMN.", artist: "Kendrick Lamar" },
-  { img: "https://upload.wikimedia.org/wikipedia/en/2/23/Travis_Scott_-_Utopia.png", title: "Utopia", artist: "Travis Scott" },
-  { img: "https://upload.wikimedia.org/wikipedia/en/a/a0/Blonde_-_Frank_Ocean.jpeg", title: "Blonde", artist: "Frank Ocean" },
-  { img: "https://upload.wikimedia.org/wikipedia/en/2/2b/Rockstar_%28soundtrack%29.jpg", title: "Rockstar", artist: "Soundtrack" },
-  { img: "https://f4.bcbits.com/img/a3924108681_16.jpg", title: "न", artist: "Seedhe Maut" },
-  { img: "https://i.scdn.co/image/ab67616d0000b2736cec8bf8302ee175e429c9c1", title: "Tadipaar", artist: "MC STAN" },
-  { img: "https://c.saavncdn.com/020/Guru-Hindi-2006-20190516131307-500x500.jpg", title: "Tere Bina", artist: "A.R. Rahman" },
-  { img: "https://cdn-images.dzcdn.net/images/cover/8c6578a2099561992fb7544e6826f767/1900x1900-000000-80-0-0.jpg", title: "I Wonder", artist: "Kanye West" },
-  { img: "https://upload.wikimedia.org/wikipedia/en/4/41/17_XXXTENTACION_Cover.png", title: "17", artist: "XXXTENTACION" },
+// Suggestion type from API
+interface SuggestionTrack {
+  title: string;
+  artist: string;
+  img: string;
+  smallImg: string;
+  spotifyId: string;
+  spotifyUrl: string;
+  album: string;
+  duration_ms: number;
+  source: 'spotify' | 'youtube' | 'fallback';
+}
+
+// Static fallback in case API fails
+const FALLBACK_SUGGESTIONS: SuggestionTrack[] = [
+  { title: "After Hours", artist: "The Weeknd", img: "", smallImg: "", spotifyId: "", spotifyUrl: "", album: "", duration_ms: 0, source: "fallback" },
+  { title: "DAMN.", artist: "Kendrick Lamar", img: "", smallImg: "", spotifyId: "", spotifyUrl: "", album: "", duration_ms: 0, source: "fallback" },
+  { title: "Utopia", artist: "Travis Scott", img: "", smallImg: "", spotifyId: "", spotifyUrl: "", album: "", duration_ms: 0, source: "fallback" },
+  { title: "Tere Bina", artist: "A.R. Rahman", img: "", smallImg: "", spotifyId: "", spotifyUrl: "", album: "", duration_ms: 0, source: "fallback" },
+  { title: "I Wonder", artist: "Kanye West", img: "", smallImg: "", spotifyId: "", spotifyUrl: "", album: "", duration_ms: 0, source: "fallback" },
 ];
 
 // Personalized Empty Queue Message Component
-const PersonalizedEmptyMessage = ({ userName, onSuggestionClick }: { userName?: string; onSuggestionClick?: (song: typeof SUGGESTIONS[0]) => void }) => {
+const PersonalizedEmptyMessage = ({ userName, onSuggestionClick, suggestions }: { userName?: string; onSuggestionClick?: (song: SuggestionTrack) => void; suggestions: SuggestionTrack[] }) => {
   const displayName = userName || "Music Lover";
   const message = `What's in your mind, ${displayName}?`;
 
@@ -161,7 +169,7 @@ const PersonalizedEmptyMessage = ({ userName, onSuggestionClick }: { userName?: 
           Popular right now
         </p>
         <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
-          {SUGGESTIONS.map((song, i) => (
+          {suggestions.map((song, i) => (
             <motion.div
               key={i}
               className="flex-shrink-0 w-[100px] group cursor-pointer"
@@ -492,7 +500,20 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const [currentPlaying, setCurrentPlaying] = useState<QueueItem | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [showChatOverlay, setShowChatOverlay] = useState(false);
-  
+  const [suggestions, setSuggestions] = useState<SuggestionTrack[]>(FALLBACK_SUGGESTIONS);
+
+  // Fetch real suggestion data from Spotify/YouTube on mount
+  useEffect(() => {
+    fetch('/api/suggestions')
+      .then(res => res.json())
+      .then(data => {
+        if (data.suggestions?.length > 0) {
+          setSuggestions(data.suggestions);
+        }
+      })
+      .catch(() => {}); // silently fall back to static data
+  }, []);
+
   // Prevent body scroll when chat overlay is open
   useEffect(() => {
     if (showChatOverlay) {
@@ -1296,6 +1317,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               {sortedQueue.length === 0 ? (
                 <PersonalizedEmptyMessage
                   userName={user?.name || user?.username}
+                  suggestions={suggestions}
                   onSuggestionClick={(song) => {
                     sendMessage('add-to-queue', {
                       spaceId,
@@ -1305,15 +1327,18 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                         title: song.title,
                         artist: song.artist,
                         artistes: {
-                          all: [{ name: song.artist }],
-                          primary: [{ name: song.artist, id: 'suggestion', role: 'primary_artist', image: [], type: 'artist', url: '' }],
+                          all: song.artist.split(', ').map(name => ({ name })),
+                          primary: song.artist.split(', ').map(name => ({ name, id: song.spotifyId || 'suggestion', role: 'primary_artist', image: [], type: 'artist', url: '' })),
                         },
-                        smallImg: song.img,
+                        smallImg: song.smallImg || song.img,
                         bigImg: song.img,
-                        source: 'Spotify',
-                        duration: 0,
+                        spotifyId: song.spotifyId,
+                        spotifyUrl: song.spotifyUrl,
+                        album: song.album,
+                        duration: song.duration_ms,
+                        source: song.source === 'youtube' ? 'Youtube' : 'Spotify',
                       },
-                      url: `https://www.youtube.com/results?search_query=${encodeURIComponent(song.title + ' ' + song.artist)}`,
+                      url: song.spotifyUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(song.title + ' ' + song.artist)}`,
                     });
                   }}
                 />
