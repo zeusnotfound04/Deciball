@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "flush-spaces": "tsx scripts/flush-spaces.ts",
-    "flush-spaces:confirm": "tsx scripts/flush-spaces.ts --confirm"
+    "flush-spaces:confirm": "tsx scripts/flush-spaces.ts --confirm",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.842.0",
@@ -81,6 +83,8 @@
   },
   "devDependencies": {
     "@deciball/typescript-config": "workspace:*",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20",
     "@types/react": "^19.0.10",
@@ -91,10 +95,12 @@
     "eslint": "^8",
     "eslint-config-next": "15.0.4",
     "https-localhost": "^4.7.1",
+    "jsdom": "^30.0.1",
     "next-https": "^1.1.16",
     "postcss": "^8.5.2",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.5",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

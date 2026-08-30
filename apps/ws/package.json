@@ -15,7 +15,9 @@
     "flush-cache:force": "npx ts-node scripts/flush-cache.ts --force",
     "flush-cache:all": "npx ts-node scripts/flush-cache.ts --all",
     "flush-cache:shell": "bash scripts/flush-cache.sh",
-    "cache-manager": "npx ts-node scripts/cache-manager.ts"
+    "cache-manager": "npx ts-node scripts/cache-manager.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +40,7 @@
     "@types/ws": "^8.5.12",
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.11"
   }
 }
