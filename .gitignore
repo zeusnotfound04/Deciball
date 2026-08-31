@@ -35,6 +35,8 @@ out/
 *~
 .DS_Store
 
+
+.claude
 # Testing
 coverage/
 *.lcov
