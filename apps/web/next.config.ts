@@ -1,4 +1,5 @@
 const nextConfig = {
+  output: 'standalone',
   images: {
     domains: [
       'i.ytimg.com', 
