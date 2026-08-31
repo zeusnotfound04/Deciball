@@ -1,7 +1,8 @@
 FROM node:20-alpine AS base
 
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat python3 make g++
+ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=1
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.7.1 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
