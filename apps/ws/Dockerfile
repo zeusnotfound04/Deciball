@@ -1,7 +1,8 @@
 FROM node:20-alpine AS base
 
 FROM base AS deps
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apk add --no-cache libc6-compat python3 make g++ openssl
+ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=1
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.7.1 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -9,9 +10,11 @@ COPY apps/ws/package.json ./apps/ws/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/database/package.json ./packages/database/
+COPY packages/database/prisma ./packages/database/prisma
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
+RUN apk add --no-cache openssl
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.7.1 --activate
 COPY --from=deps /app/ ./
@@ -20,6 +23,7 @@ RUN pnpm --filter @deciball/database run postinstall
 RUN pnpm --filter ws build
 
 FROM base AS runner
+RUN apk add --no-cache openssl
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 wsuser

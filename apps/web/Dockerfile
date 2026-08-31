@@ -1,7 +1,7 @@
 FROM node:20-alpine AS base
 
 FROM base AS deps
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apk add --no-cache libc6-compat python3 make g++ openssl
 ENV YOUTUBE_DL_SKIP_PYTHON_CHECK=1
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.7.1 --activate
@@ -10,9 +10,11 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/database/package.json ./packages/database/
+COPY packages/database/prisma ./packages/database/prisma
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
+RUN apk add --no-cache openssl
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.7.1 --activate
 COPY --from=deps /app/ ./
@@ -23,6 +25,7 @@ ENV NODE_ENV=production
 RUN pnpm --filter web build
 
 FROM base AS runner
+RUN apk add --no-cache openssl
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -33,6 +36,7 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/packages/database/prisma ./packages/database/prisma
+COPY --from=builder /app/packages/database/generated ./packages/database/generated
 USER nextjs
 EXPOSE 4000
 CMD ["node", "apps/web/server.js"]
