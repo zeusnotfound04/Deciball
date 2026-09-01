@@ -18,7 +18,7 @@ import {
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
 import { useIsMobile } from '@/app/hooks/use-mobile';
-import { useAudio } from '@/store/audioStore';
+import { useAudioStore } from '@/store/audioStore';
 import { QueueManager } from './QueueManager';
 import { Player } from './Player';
 import SearchSongPopup from '@/app/components/Search';
@@ -40,7 +40,8 @@ interface MusicSpaceProps {
 export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   const { data: session } = useSession();
   const { user, setUser, isAdmin, setIsAdmin } = useUserStore(); // Get isAdmin from store
-  const { setVolume,  setCurrentSpaceId } = useAudio();
+  const setVolume = useAudioStore(state => state.setVolume);
+  const setCurrentSpaceId = useAudioStore(state => state.setCurrentSpaceId);
   const { sendMessage, socket, loading, connectionError, user: socketUser } = useSocket();
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -347,11 +348,19 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
             break;
             
           case 'user-update':
-            setConnectedUsers(data.userCount || data.connectedUsers || 0);
+            setConnectedUsers(prev => {
+              const next = data.userCount || data.connectedUsers || 0;
+              return prev === next ? prev : next;
+            });
             if (data.userDetails) {
-              setUserDetails(data.userDetails);
+              setUserDetails(prev => {
+                const incoming = JSON.stringify(data.userDetails.map((u: any) => u.userId).sort());
+                const current = JSON.stringify(prev.map((u: any) => u.userId).sort());
+                if (incoming === current) return prev;
+                return data.userDetails;
+              });
             }
-            
+
             break;
             
           case 'user-joined':

@@ -381,4 +381,4 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
   );
 };
 
-export default ListenerSidebar;
+export default React.memo(ListenerSidebar);
