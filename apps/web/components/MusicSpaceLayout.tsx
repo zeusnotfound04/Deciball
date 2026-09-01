@@ -127,19 +127,18 @@ export default function MusicSpaceLayout({
           >
             {/* Mobile menu button */}
             {showSidebar && isMobile && (
-              <div className="lg:hidden sticky top-0 z-40 bg-midnight-surface border-b border-graphite flex-shrink-0">
-                <div className="hidden lg:flex items-center justify-between h-12 px-4">
+              <div className="sticky top-0 z-40 bg-midnight-surface/90 backdrop-blur-sm border-b border-graphite/50 flex-shrink-0">
+                <div className="flex items-center justify-between h-12 px-4">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-paper-white hover:bg-charcoal"
+                    className="text-paper-white hover:bg-charcoal p-2"
                     onClick={() => setSidebarOpen(true)}
                   >
                     <Menu className="h-5 w-5" />
-                    <span className="sr-only">Open sidebar</span>
                   </Button>
-                  <div className="text-sm font-mono text-steel-gray">Music Space</div>
-                  <div className="w-10"></div> {/* Spacer for centering */}
+                  <span className="font-mono text-xs text-steel-gray">Listeners</span>
+                  <div className="w-9" />
                 </div>
               </div>
             )}

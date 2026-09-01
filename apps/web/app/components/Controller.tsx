@@ -139,7 +139,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
           const shouldIgnoreSync = ignoreSync || 
                                  isSeeking || 
                                  isDragging || 
-                                 timeSinceUserSeek < 8000; // Ignore syncs for 8 seconds after user seek
+                                 timeSinceUserSeek < 3000; // Ignore syncs for 3 seconds after user seek
           
           if (shouldIgnoreSync) {
             console.log('[Sync] Ignoring sync - recent user interaction:', {
@@ -168,7 +168,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
           const timeDiff = Math.abs(expectedTime - progress);
           
           // Only sync if drift is significant and we're not in a user-controlled state
-          if (timeDiff > 8) { // Increased threshold to reduce sync conflicts
+          if (timeDiff > 2) { // Sync when drift exceeds 2 seconds
             console.log('[Sync] Correcting time drift:', { 
               expected: expectedTime, 
               current: progress, 

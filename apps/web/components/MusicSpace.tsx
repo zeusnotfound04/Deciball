@@ -757,14 +757,13 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
       >
-        <div className="flex-1 flex justify-center w-full min-h-0 lg:min-h-[calc(100vh-120px)] overflow-y-auto md:overflow-hidden">
-          <div className="w-full h-full max-w-none mx-auto flex-1 sm:h-auto">
-            <div className="relative w-full min-h-0 flex-1 rounded-none sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-2 xl:p-6 2xl:p-8 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 sm:gap-2 md:gap-3 lg:gap-1 xl:gap-5 2xl:gap-8 md:min-h-0 sm:flex sm:flex-col sm:h-auto md:place-items-center md:justify-items-center">
+        <div className="flex-1 flex justify-center w-full min-h-0 overflow-y-auto md:overflow-hidden">
+          <div className="w-full h-full max-w-none mx-auto flex-1">
+            <div className="relative w-full min-h-0 flex-1 p-2 sm:p-3 md:p-4 xl:p-6 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 md:gap-3 xl:gap-5 md:min-h-0 md:h-[calc(100vh-80px)]">
               {/* Left Column - Player */}
-              <div className="flex flex-col gap-1 sm:gap-2 md:gap-4 order-1 w-full max-w-full min-w-0 flex-shrink-0 sm:h-[60vh] md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
-                <div className="w-full max-w-full flex-1 h-full block">
+              <div className="w-full min-w-0 md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
                   {showPlayer && (
-                    <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[50vh] sm:h-[45vh] md:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl flex flex-col overflow-hidden">
+                    <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 xl:p-5 w-full h-[40vh] sm:h-[42vh] md:h-full flex flex-col overflow-hidden">
                       <div className="absolute inset-0 z-0 opacity-[0.18] rounded-cards overflow-hidden pointer-events-none">
                         <StablePixelBlast variant="circle" pixelSize={3} color="#19d0e8" speed={0.4} patternDensity={0.5} edgeFade={0.3} enableRipples={true} rippleSpeed={0.2} rippleIntensityScale={0.5} />
                       </div>
@@ -777,14 +776,12 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                       />
                     </div>
                   )}
-                </div>
               </div>
 
               {/* Right Column - QueueManager */}
-              <div className="w-full max-w-full order-2 min-w-0 flex-shrink-0 md:h-full md:min-h-0">
-                <div className="h-full w-full max-w-full block">
+              <div className="w-full min-w-0 md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
                   {showQueue && (
-                    <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 lg:p-2 xl:p-5 w-full max-w-full min-w-0 h-[60vh] sm:h-[65vh] md:h-[70vh] lg:h-full lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl min-h-0 flex flex-col overflow-hidden">
+                    <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 xl:p-5 w-full h-[45vh] sm:h-[50vh] md:h-full min-h-0 flex flex-col overflow-hidden">
                       <div className="absolute inset-0 z-0 opacity-[0.15] rounded-cards overflow-hidden pointer-events-none">
                         <StablePixelBlast variant="square" pixelSize={3} color="#19d0e8" speed={0.3} patternDensity={0.45} edgeFade={0.3} enableRipples={true} rippleSpeed={0.15} rippleIntensityScale={0.4} />
                       </div>
@@ -795,7 +792,6 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                       />
                     </div>
                   )}
-                </div>
               </div>
             </div>
           </div>

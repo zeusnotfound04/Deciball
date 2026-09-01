@@ -671,9 +671,8 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           
           if (data.song) {
             const isSameSong = audioCurrentSong?.id === data.song.id;
-            const { isPlaying } = useAudioStore.getState();
-            
-            if (isSameSong && isPlaying) {
+
+            if (isSameSong) {
               const { pendingSync } = useAudioStore.getState();
               if (pendingSync) {
                 const { handleRoomSync } = useAudioStore.getState();
