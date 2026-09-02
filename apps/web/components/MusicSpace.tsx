@@ -555,7 +555,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
     >
       <div className="flex-1 h-full w-full flex flex-col overflow-hidden md:overflow-hidden">
         {/* Header Section */}
-        <div className="flex items-center justify-center p-2 sm:p-3 md:p-4 w-full overflow-hidden flex-shrink-0">
+        <div className="flex items-center justify-center p-1 sm:p-2 md:p-3 w-full overflow-hidden flex-shrink-0">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 md:gap-6 bg-midnight-surface/80 border border-graphite/50 rounded-cards px-3 sm:px-4 md:px-8 py-3 sm:py-3 md:py-3 w-full max-w-[98%] sm:max-w-[95%] md:max-w-[96%] lg:max-w-6xl">
           
           {/* Mobile Layout - Header with profile picture and room name */}
@@ -759,7 +759,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
       >
         <div className="flex-1 w-full min-h-0 overflow-y-auto md:overflow-hidden">
           <div className="w-full h-full">
-            <div className="w-full h-full p-2 sm:p-3 md:p-4 xl:p-6 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 md:gap-3 xl:gap-5 md:items-start">
+            <div className="w-full h-full p-2 sm:p-2 md:p-3 xl:p-4 pb-6 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 md:gap-3 xl:gap-5 md:items-start">
               {/* Left Column - Player */}
               <div className="w-full min-w-0 md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
                   {showPlayer && (
