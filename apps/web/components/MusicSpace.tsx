@@ -56,16 +56,22 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   // Listen for chat messages at MusicSpace level so they persist across tab switches
   useEffect(() => {
     const handleChatMessage = (event: CustomEvent) => {
-      const { userId, username, message, timestamp, userImage, isAdmin } = event.detail;
+      const d = event.detail;
       const msg: ChatMessage = {
-        id: `${userId}-${timestamp}`,
-        userId, username, message, timestamp, userImage, isAdmin
+        id: d.id || `${d.userId}-${d.timestamp}`,
+        userId: d.userId,
+        username: d.username,
+        message: d.message,
+        timestamp: d.timestamp,
+        userImage: d.userImage,
+        isAdmin: d.isAdmin,
+        type: d.type || 'user',
       };
       setChatMessages(prev => {
         if (prev.some(m => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
-      if (rightPanelTab !== 'chat' && userId !== user?.id) {
+      if (rightPanelTab !== 'chat' && d.userId !== user?.id && d.type !== 'system') {
         setUnreadChat(prev => prev + 1);
       }
     };
