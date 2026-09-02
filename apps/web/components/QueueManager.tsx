@@ -19,8 +19,7 @@ import { Input } from '@/app/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
 import { PiArrowFatLineUpFill } from "react-icons/pi";
 import { LuArrowBigUpDash } from "react-icons/lu";
-import { Link, Plus, Loader2, MessageCircle, Trash2 } from 'lucide-react';
-import { Chat } from './Chat';
+import { Link, Plus, Loader2, Trash2 } from 'lucide-react';
 import { PlayListIcon } from '@/components/icons';
 import StablePixelBlast from '@/components/ui/StablePixelBlast';
 import axios from 'axios';
@@ -499,7 +498,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [currentPlaying, setCurrentPlaying] = useState<QueueItem | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
-  const [showChatOverlay, setShowChatOverlay] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestionTrack[]>(FALLBACK_SUGGESTIONS);
 
   // Fetch real suggestion data from Spotify/YouTube on mount
@@ -511,42 +509,9 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           setSuggestions(data.suggestions);
         }
       })
-      .catch(() => {}); // silently fall back to static data
+      .catch(() => {});
   }, []);
 
-  // Prevent body scroll when chat overlay is open
-  useEffect(() => {
-    if (showChatOverlay) {
-      // Store current scroll position
-      const scrollY = window.scrollY;
-      
-      // Lock scroll
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-    } else {
-      // Restore scroll position
-      const scrollY = document.body.style.top;
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0') * -1);
-      }
-    }
-    
-    return () => {
-      // Cleanup on unmount
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-    };
-  }, [showChatOverlay]);
-  
   // State for Clear Queue confirmation
   const [showClearQueueDialog, setShowClearQueueDialog] = useState(false);
   
@@ -1020,7 +985,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
       `}</style>
       <div className={`h-full w-full max-w-full flex flex-col min-h-0 relative ${className}`}>
       <motion.div 
-        className={`flex flex-col h-full min-h-0 p-2 sm:p-3 ${showChatOverlay ? 'pointer-events-none' : ''}`}
+        className="flex flex-col h-full min-h-0 p-2 sm:p-3"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -1337,52 +1302,6 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
         </div>
       </motion.div>
 
-      {/* Floating Chat FAB */}
-      <motion.button
-        onClick={() => setShowChatOverlay(true)}
-        className="absolute bottom-4 right-4 z-20 w-12 h-12 bg-electric-cyan text-void-black rounded-full flex items-center justify-center hover:bg-sky-signal transition-colors shadow-lg"
-        whileTap={{ scale: 0.9 }}
-      >
-        <MessageCircle className="w-5 h-5" />
-      </motion.button>
-
-      {/* Chat Overlay */}
-      {showChatOverlay && (
-        <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center"
-          style={{ 
-            overflow: 'hidden',
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0
-          }}
-        >
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-void-black/50"
-            onClick={() => setShowChatOverlay(false)}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-          
-          {/* Chat Container */}
-          <div 
-            className="relative w-full max-w-md h-full max-h-[90vh] mx-4"
-            style={{ 
-              position: 'relative',
-              zIndex: 10000
-            }}
-          >
-            <Chat 
-              spaceId={spaceId} 
-              className="w-full h-full"
-              isOverlay={true}
-              onClose={() => setShowChatOverlay(false)}
-            />
-          </div>
-        </div>
-      )}
     </div>
     </>
   );

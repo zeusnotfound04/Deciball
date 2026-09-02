@@ -32,6 +32,8 @@ import SpaceEndedModal from './SpaceEndedModal';
 import MusicSpaceLayout from './MusicSpaceLayout';
 import Loader from '@/components/ui/Loader';
 import StablePixelBlast from '@/components/ui/StablePixelBlast';
+import { Chat } from './Chat';
+import { MessageCircle, ListMusic } from 'lucide-react';
 
 interface MusicSpaceProps {
   spaceId: string;
@@ -48,6 +50,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   
   const [connectedUsers, setConnectedUsers] = useState(0);
   const [roomName, setRoomName] = useState('');
+  const [rightPanelTab, setRightPanelTab] = useState<'queue' | 'chat'>('queue');
   const [showSearch, setShowSearch] = useState(false);
   const [showQueue, setShowQueue] = useState(true);
   const [showPlayer, setShowPlayer] = useState(true);
@@ -778,20 +781,55 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                   )}
               </div>
 
-              {/* Right Column - QueueManager */}
-              <div className="w-full min-w-0 md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
-                  {showQueue && (
-                    <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 xl:p-5 w-full h-[45vh] sm:h-[50vh] md:h-full min-h-0 flex flex-col overflow-hidden">
-                      <div className="absolute inset-0 z-0 opacity-[0.15] rounded-cards overflow-hidden pointer-events-none">
-                        <StablePixelBlast variant="square" pixelSize={3} color="#19d0e8" speed={0.3} patternDensity={0.45} edgeFade={0.3} enableRipples={true} rippleSpeed={0.15} rippleIntensityScale={0.4} />
-                      </div>
+              {/* Right Column - Queue/Chat with tabs */}
+              <div className="w-full min-w-0 md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl flex flex-col">
+                  {/* Tab switcher */}
+                  <div className="flex items-center gap-1 mb-2 bg-midnight-surface/60 rounded-full p-1 w-fit">
+                    <button
+                      onClick={() => setRightPanelTab('queue')}
+                      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-satoshi text-xs font-medium transition-colors ${
+                        rightPanelTab === 'queue'
+                          ? 'bg-paper-white/10 text-paper-white'
+                          : 'text-steel-gray hover:text-ghost-gray'
+                      }`}
+                    >
+                      <ListMusic className="w-3.5 h-3.5" />
+                      Queue
+                    </button>
+                    <button
+                      onClick={() => setRightPanelTab('chat')}
+                      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-satoshi text-xs font-medium transition-colors ${
+                        rightPanelTab === 'chat'
+                          ? 'bg-paper-white/10 text-paper-white'
+                          : 'text-steel-gray hover:text-ghost-gray'
+                      }`}
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Chat
+                    </button>
+                  </div>
+
+                  {/* Panel content */}
+                  <div className="relative bg-midnight-surface/80 rounded-cards border border-graphite/50 p-2 sm:p-3 md:p-4 xl:p-5 w-full h-[45vh] sm:h-[50vh] md:flex-1 min-h-0 flex flex-col overflow-hidden">
+                    <div className="absolute inset-0 z-0 opacity-[0.15] rounded-cards overflow-hidden pointer-events-none">
+                      <StablePixelBlast variant="square" pixelSize={3} color="#19d0e8" speed={0.3} patternDensity={0.45} edgeFade={0.3} enableRipples={true} rippleSpeed={0.15} rippleIntensityScale={0.4} />
+                    </div>
+
+                    {rightPanelTab === 'queue' ? (
                       <QueueManager
                         spaceId={spaceId}
                         isAdmin={isAdmin}
                         className="relative z-10 w-full h-full flex-1 min-h-0"
                       />
-                    </div>
-                  )}
+                    ) : (
+                      <div className="relative z-10 w-full h-full flex-1 min-h-0">
+                        <Chat
+                          spaceId={spaceId}
+                          className="w-full h-full"
+                        />
+                      </div>
+                    )}
+                  </div>
               </div>
             </div>
           </div>
