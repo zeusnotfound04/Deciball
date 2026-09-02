@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   const hostPfp = searchParams.get('hostPfp') || '';
 
   const baseUrl = process.env.NEXTAUTH_URL || 'https://deciball.zeusnotfound.codes';
+  const initial = hostName.charAt(0).toUpperCase();
 
   return new ImageResponse(
     (
@@ -20,9 +21,9 @@ export async function GET(request: NextRequest) {
           display: 'flex',
           position: 'relative',
           overflow: 'hidden',
+          backgroundColor: '#000000',
         }}
       >
-        {/* Background template image */}
         <img
           src={`${baseUrl}/og.png`}
           width={1200}
@@ -30,81 +31,76 @@ export async function GET(request: NextRequest) {
           style={{ position: 'absolute', top: 0, left: 0, width: '1200px', height: '630px' }}
         />
 
-        {/* Host PFP — positioned inside the circle on the template */}
-        {hostPfp && (
-          <img
-            src={hostPfp}
-            width={140}
-            height={140}
-            style={{
-              position: 'absolute',
-              left: '118px',
-              top: '195px',
-              width: '140px',
-              height: '140px',
-              borderRadius: '50%',
-              objectFit: 'cover',
-            }}
-          />
-        )}
-
-        {/* Host name — below the circle */}
+        {/* Host PFP or fallback initial */}
         <div
           style={{
             position: 'absolute',
-            left: '80px',
-            top: '355px',
-            width: '220px',
+            left: '105px',
+            top: '190px',
+            width: '155px',
+            height: '155px',
+            borderRadius: '50%',
+            overflow: 'hidden',
             display: 'flex',
-            justifyContent: 'center',
             alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: hostPfp ? 'transparent' : '#282828',
           }}
         >
-          <span
-            style={{
-              color: '#c0c0c0',
-              fontSize: '16px',
-              fontFamily: 'sans-serif',
-              textAlign: 'center',
-            }}
-          >
+          {hostPfp ? (
+            <img
+              src={hostPfp}
+              width={155}
+              height={155}
+              style={{ width: '155px', height: '155px', objectFit: 'cover' }}
+            />
+          ) : (
+            <span style={{ color: '#ffffff', fontSize: '56px', fontFamily: 'sans-serif', fontWeight: 700 }}>
+              {initial}
+            </span>
+          )}
+        </div>
+
+        {/* Host name */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '70px',
+            top: '360px',
+            width: '230px',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <span style={{ color: '#c0c0c0', fontSize: '16px', fontFamily: 'sans-serif' }}>
             {hostName}
           </span>
         </div>
 
-        {/* Space name — above "Listen along" */}
+        {/* Space name + subtitle */}
         <div
           style={{
             position: 'absolute',
-            left: '370px',
-            top: '180px',
-            width: '750px',
+            left: '380px',
+            top: '170px',
+            width: '740px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '4px',
+            gap: '6px',
           }}
         >
           <span
             style={{
               color: '#ffffff',
-              fontSize: '42px',
+              fontSize: spaceName.length > 20 ? '36px' : '46px',
               fontFamily: 'serif',
               fontStyle: 'italic',
-              lineHeight: 1.1,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
+              lineHeight: 1.15,
             }}
           >
             {spaceName}
           </span>
-          <span
-            style={{
-              color: '#7f7f7f',
-              fontSize: '14px',
-              fontFamily: 'sans-serif',
-              marginTop: '4px',
-            }}
-          >
+          <span style={{ color: '#7f7f7f', fontSize: '15px', fontFamily: 'sans-serif', marginTop: '6px' }}>
             Join {hostName} on Deciball
           </span>
         </div>
