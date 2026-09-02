@@ -90,7 +90,7 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', messages: e
           </div>
         ) : (
           <div className="space-y-2.5">
-            {messages.map((msg) => {
+            {messages.map((msg, idx) => {
               if (msg.type === 'system') {
                 return (
                   <div key={msg.id} className="flex justify-center py-1.5">
@@ -102,31 +102,41 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', messages: e
               }
 
               const isMe = msg.userId === user?.id;
+              const prevMsg = messages[idx - 1];
+              const isSameUserAsPrev = prevMsg && prevMsg.type !== 'system' && prevMsg.userId === msg.userId;
+              const showHeader = !isSameUserAsPrev;
+
               return (
-                <div key={msg.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
-                  <Avatar className="w-7 h-7 flex-shrink-0 mt-0.5">
-                    {msg.userImage && msg.userImage.length > 0 && (
-                      <AvatarImage src={msg.userImage} alt={msg.username} referrerPolicy="no-referrer" className="object-cover" />
-                    )}
-                    <AvatarFallback className="text-[10px] font-bold bg-charcoal text-ghost-gray font-mono">
-                      {msg.username?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                <div key={msg.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : ''} ${isSameUserAsPrev ? 'mt-0.5' : 'mt-2.5'}`}>
+                  {showHeader ? (
+                    <Avatar className="w-7 h-7 flex-shrink-0 mt-0.5">
+                      {msg.userImage && msg.userImage.length > 0 && (
+                        <AvatarImage src={msg.userImage} alt={msg.username} referrerPolicy="no-referrer" className="object-cover" />
+                      )}
+                      <AvatarFallback className="text-[10px] font-bold bg-charcoal text-ghost-gray font-mono">
+                        {msg.username?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div className="w-7 flex-shrink-0" />
+                  )}
 
                   <div className={`max-w-[80%] min-w-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                    <div className={`flex items-center gap-1.5 mb-0.5 ${isMe ? 'flex-row-reverse' : ''}`}>
-                      <span className="font-satoshi text-[11px] font-medium text-ghost-gray">
-                        {isMe ? 'You' : msg.username}
-                      </span>
-                      {msg.isAdmin && (
-                        <span className="font-mono text-[8px] text-electric-cyan border border-electric-cyan/20 rounded-full px-1.5 leading-[14px]">
-                          Host
+                    {showHeader && (
+                      <div className={`flex items-center gap-1.5 mb-0.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+                        <span className="font-satoshi text-[11px] font-medium text-ghost-gray">
+                          {isMe ? 'You' : msg.username}
                         </span>
-                      )}
-                      <span className="font-mono text-[9px] text-steel-gray/30">
-                        {formatTime(msg.timestamp)}
-                      </span>
-                    </div>
+                        {msg.isAdmin && (
+                          <span className="font-mono text-[8px] text-electric-cyan border border-electric-cyan/20 rounded-full px-1.5 leading-[14px]">
+                            Host
+                          </span>
+                        )}
+                        <span className="font-mono text-[9px] text-steel-gray/30">
+                          {formatTime(msg.timestamp)}
+                        </span>
+                      </div>
+                    )}
                     <p className={`text-[13px] font-satoshi leading-[1.4] break-words whitespace-pre-wrap px-3 py-2 rounded-2xl ${
                       isMe
                         ? 'bg-paper-white/10 text-paper-white rounded-tr-sm'
