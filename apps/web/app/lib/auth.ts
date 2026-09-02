@@ -173,13 +173,20 @@ export const authOptions: NextAuthOptions = {
             
             return true;
           } else {
+            const baseUsername = user.name?.toLowerCase().replace(/\s+/g, '') || user.email!.split('@')[0];
+            let username = baseUsername;
+            const existingUsername = await prisma.user.findUnique({ where: { username } });
+            if (existingUsername) {
+              username = `${baseUsername}${Math.floor(Math.random() * 9999)}`;
+            }
+
             const newUser = await prisma.user.create({
               data: {
                 email: user.email!,
                 name: user.name,
                 image: profileImageUrl,
                 pfpUrl: profileImageUrl,
-                username: user.name?.toLowerCase().replace(/\s+/g, '') || null,
+                username,
                 provider: Provider.Google,
               },
             });
