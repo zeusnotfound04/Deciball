@@ -61,7 +61,10 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
         id: `${userId}-${timestamp}`,
         userId, username, message, timestamp, userImage, isAdmin
       };
-      setChatMessages(prev => [...prev, msg]);
+      setChatMessages(prev => {
+        if (prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
       if (rightPanelTab !== 'chat' && userId !== user?.id) {
         setUnreadChat(prev => prev + 1);
       }

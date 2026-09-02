@@ -15,6 +15,7 @@ export interface ChatMessage {
   timestamp: number;
   userImage?: string;
   isAdmin?: boolean;
+  type?: 'user' | 'system';
 }
 
 interface ChatProps {
@@ -83,6 +84,16 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', messages: e
         ) : (
           <div className="space-y-3">
             {messages.map((msg) => {
+              if (msg.type === 'system') {
+                return (
+                  <div key={msg.id} className="flex justify-center py-1">
+                    <span className="font-mono text-[10px] text-steel-gray/50 bg-paper-white/[0.03] px-3 py-1 rounded-full">
+                      {msg.message}
+                    </span>
+                  </div>
+                );
+              }
+
               const isMe = msg.userId === user?.id;
               return (
                 <div key={msg.id} className={`flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>

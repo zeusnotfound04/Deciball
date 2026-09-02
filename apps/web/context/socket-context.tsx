@@ -293,6 +293,13 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                   detail: message.data
                 }));
                 break;
+              case "chat-history":
+                if (message.data.messages) {
+                  message.data.messages.forEach((msg: any) => {
+                    window.dispatchEvent(new CustomEvent('chat-message', { detail: msg }));
+                  });
+                }
+                break;
               case "current-queue":
                 window.dispatchEvent(new CustomEvent('queue-update', {
                   detail: message.data

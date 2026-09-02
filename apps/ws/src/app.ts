@@ -455,6 +455,33 @@ async function  processUserAction(type: string , data : Data ) {
             }
             break;
 
+        case "kick-listener":
+            try {
+                if (data.spaceId && data.userId) {
+                    const kickedUserInfo = await RoomManager.getInstance().getUserInfo(data.userId);
+                    const kickedName = kickedUserInfo?.name || kickedUserInfo?.username || `User ${data.userId.slice(0, 6)}`;
+
+                    // Send kicked notification to the user being kicked
+                    const kickedUser = RoomManager.getInstance().users.get(data.userId);
+                    if (kickedUser) {
+                        kickedUser.ws.forEach((ws: WebSocket) => {
+                            if (ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({
+                                    type: "space-ended",
+                                    data: { spaceId: data.spaceId, reason: "kicked", message: "You have been removed from the space by the admin." }
+                                }));
+                            }
+                        });
+                    }
+
+                    await RoomManager.getInstance().leaveRoom(data.spaceId, data.userId);
+                    await RoomManager.getInstance().broadcastSystemMessage(data.spaceId, `${kickedName} was removed by the admin`);
+                }
+            } catch (error) {
+                console.error("Error processing kick:", error);
+            }
+            break;
+
         // case "get-system-stats":
         //     // New system statistics endpoint
         //     try {

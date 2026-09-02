@@ -972,13 +972,30 @@ export class RoomManager {
           });
           
           await this.sendRoomInfoToUser(spaceId, userId);
-          
-          // Send current playing song first before other updates
+
           await this.sendCurrentPlayingSongToUser(spaceId, userId);
-          
+
           await this.broadcastUserUpdate(spaceId);
-          
+
           await this.sendCurrentQueueToUser(spaceId, userId);
+
+          // Send chat history to the new joiner
+          const chatHistory = await this.getChatHistory(spaceId);
+          if (chatHistory.length > 0) {
+            const joiner = this.users.get(userId);
+            if (joiner) {
+              joiner.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'chat-history', data: { messages: chatHistory } }));
+                }
+              });
+            }
+          }
+
+          // Announce join
+          const userInfo = await this.getUserInfo(userId);
+          const joinName = userInfo?.name || userInfo?.username || `User ${userId.slice(0, 6)}`;
+          await this.broadcastSystemMessage(spaceId, `${joinName} joined the space`);
           
         } else {
           throw new Error("Failed to add user to space");
@@ -1644,64 +1661,95 @@ export class RoomManager {
         }
     }
 
-    // Chat message broadcasting
+    // Chat: broadcast and persist
     async broadcastChatMessage(
-        spaceId: string, 
-        userId: string, 
-        message: string, 
-        username: string, 
-        userImage?: string, 
+        spaceId: string,
+        userId: string,
+        message: string,
+        username: string,
+        userImage?: string,
         timestamp?: number
     ) {
         try {
             const space = this.spaces.get(spaceId);
-            if (!space) {
-                
-                return;
-            }
+            if (!space) return;
 
-            // Get user info to determine if they're admin
-            const user = this.users.get(userId);
             const isAdmin = space.creatorId === userId;
-
-            // Sanitize message (basic protection)
-            const sanitizedMessage = message.trim().substring(0, 500); // Max 500 chars
-            
-            if (!sanitizedMessage) {
-                
-                return;
-            }
+            const sanitizedMessage = message.trim().substring(0, 500);
+            if (!sanitizedMessage) return;
 
             const chatData = {
-                id: `${Date.now()}-${userId}-${Math.random()}`,
+                id: `${Date.now()}-${userId}-${Math.random().toString(36).slice(2)}`,
                 userId,
                 username: username || 'Unknown User',
                 message: sanitizedMessage,
                 timestamp: timestamp || Date.now(),
                 userImage: userImage || '',
                 isAdmin,
-                spaceId
+                spaceId,
+                type: 'user' as const,
             };
 
-            console.log(`[Chat] Broadcasting message from ${username} (${userId}) in space ${spaceId}: "${sanitizedMessage.substring(0, 50)}${sanitizedMessage.length > 50 ? '...' : ''}"`);
-
-            // Broadcast to all users in the space
-            space.users.forEach((spaceUser) => {
-                spaceUser.ws.forEach((ws: WebSocket) => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            type: "chat-message",
-                            data: chatData
-                        }));
-                    }
-                });
-            });
-
-            
-
+            await this.saveChatMessage(spaceId, chatData);
+            this.broadcastToSpace(spaceId, 'chat-message', chatData);
         } catch (error) {
             console.error(`[Chat] Error broadcasting chat message:`, error);
         }
+    }
+
+    // Chat: broadcast a system announcement (join/kick/leave)
+    async broadcastSystemMessage(spaceId: string, message: string) {
+        const chatData = {
+            id: `sys-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            userId: 'system',
+            username: 'System',
+            message,
+            timestamp: Date.now(),
+            userImage: '',
+            isAdmin: false,
+            spaceId,
+            type: 'system' as const,
+        };
+
+        await this.saveChatMessage(spaceId, chatData);
+        this.broadcastToSpace(spaceId, 'chat-message', chatData);
+    }
+
+    // Chat: save message to Redis (last 100 messages per space)
+    private async saveChatMessage(spaceId: string, chatData: any) {
+        try {
+            const key = `chat:${spaceId}`;
+            await this.redisClient.rPush(key, JSON.stringify(chatData));
+            await this.redisClient.lTrim(key, -100, -1);
+            await this.redisClient.expire(key, 86400);
+        } catch (error) {
+            console.error(`[Chat] Error saving to Redis:`, error);
+        }
+    }
+
+    // Chat: load history from Redis
+    async getChatHistory(spaceId: string): Promise<any[]> {
+        try {
+            const key = `chat:${spaceId}`;
+            const raw = await this.redisClient.lRange(key, 0, -1);
+            return raw.map(r => JSON.parse(r));
+        } catch (error) {
+            console.error(`[Chat] Error loading history:`, error);
+            return [];
+        }
+    }
+
+    // Helper: broadcast any message type to all users in a space
+    private broadcastToSpace(spaceId: string, type: string, data: any) {
+        const space = this.spaces.get(spaceId);
+        if (!space) return;
+        space.users.forEach((spaceUser) => {
+            spaceUser.ws.forEach((ws: WebSocket) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type, data }));
+                }
+            });
+        });
     }
     destroySpace(spaceId: string) {
         try {
@@ -1767,7 +1815,10 @@ export class RoomManager {
                     console.error(`Error clearing Redis data for space ${spaceId}:`, error);
                 }
             } else {
-                // Regular user leaving, just broadcast user update
+                // Regular user leaving
+                const leavingUserInfo = await this.getUserInfo(userId);
+                const leaveName = leavingUserInfo?.name || leavingUserInfo?.username || `User ${userId.slice(0, 6)}`;
+                await this.broadcastSystemMessage(spaceId, `${leaveName} left the space`);
                 await this.broadcastUserUpdate(spaceId);
             }
 
