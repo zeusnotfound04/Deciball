@@ -31,13 +31,24 @@ export async function GET(request: NextRequest) {
   let pfpBase64 = '';
   if (hostPfp) {
     try {
-      const pfpRes = await fetch(hostPfp, { headers: { 'User-Agent': 'Deciball-OG/1.0' } });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const pfpRes = await fetch(hostPfp, {
+        signal: controller.signal,
+        headers: { 'User-Agent': 'Deciball-OG/1.0' },
+        redirect: 'follow',
+      });
+      clearTimeout(timeout);
       if (pfpRes.ok) {
         const pfpBuffer = Buffer.from(await pfpRes.arrayBuffer());
         const contentType = pfpRes.headers.get('content-type') || 'image/jpeg';
         pfpBase64 = `data:${contentType};base64,${pfpBuffer.toString('base64')}`;
+      } else {
+        console.error(`[OG] Failed to fetch pfp: ${pfpRes.status} ${pfpRes.statusText} for ${hostPfp}`);
       }
-    } catch {}
+    } catch (err: any) {
+      console.error(`[OG] Error fetching pfp: ${err.message} for ${hostPfp}`);
+    }
   }
 
   const fonts: any[] = [];
