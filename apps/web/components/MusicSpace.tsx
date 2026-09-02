@@ -226,7 +226,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
         email: session.user.email || '',
         name: (session.user as any).name || session.user.username || '',
         username: session.user.username || '',
-        imageUrl: (session.user as any).image || '',
+        imageUrl: session.user.pfpUrl || (session.user as any).image || '',
         role: userRole,
         token: (session.user as any).token || '',
         isBookmarked: '',
