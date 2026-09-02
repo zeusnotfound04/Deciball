@@ -32,7 +32,7 @@ import SpaceEndedModal from './SpaceEndedModal';
 import MusicSpaceLayout from './MusicSpaceLayout';
 import Loader from '@/components/ui/Loader';
 import StablePixelBlast from '@/components/ui/StablePixelBlast';
-import { Chat } from './Chat';
+import { Chat, ChatMessage } from './Chat';
 import { MessageCircle, ListMusic } from 'lucide-react';
 
 interface MusicSpaceProps {
@@ -51,6 +51,25 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   const [connectedUsers, setConnectedUsers] = useState(0);
   const [roomName, setRoomName] = useState('');
   const [rightPanelTab, setRightPanelTab] = useState<'queue' | 'chat'>('queue');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [unreadChat, setUnreadChat] = useState(0);
+  // Listen for chat messages at MusicSpace level so they persist across tab switches
+  useEffect(() => {
+    const handleChatMessage = (event: CustomEvent) => {
+      const { userId, username, message, timestamp, userImage, isAdmin } = event.detail;
+      const msg: ChatMessage = {
+        id: `${userId}-${timestamp}`,
+        userId, username, message, timestamp, userImage, isAdmin
+      };
+      setChatMessages(prev => [...prev, msg]);
+      if (rightPanelTab !== 'chat' && userId !== user?.id) {
+        setUnreadChat(prev => prev + 1);
+      }
+    };
+    window.addEventListener('chat-message', handleChatMessage as EventListener);
+    return () => window.removeEventListener('chat-message', handleChatMessage as EventListener);
+  }, [rightPanelTab, user?.id]);
+
   const [showSearch, setShowSearch] = useState(false);
   const [showQueue, setShowQueue] = useState(true);
   const [showPlayer, setShowPlayer] = useState(true);
@@ -797,8 +816,8 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                       Queue
                     </button>
                     <button
-                      onClick={() => setRightPanelTab('chat')}
-                      className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-satoshi text-xs font-medium transition-colors ${
+                      onClick={() => { setRightPanelTab('chat'); setUnreadChat(0); }}
+                      className={`relative flex items-center gap-1.5 px-4 py-1.5 rounded-full font-satoshi text-xs font-medium transition-colors ${
                         rightPanelTab === 'chat'
                           ? 'bg-paper-white/10 text-paper-white'
                           : 'text-steel-gray hover:text-ghost-gray'
@@ -806,6 +825,11 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
                       Chat
+                      {unreadChat > 0 && rightPanelTab !== 'chat' && (
+                        <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-paper-white text-[9px] font-mono font-bold rounded-full flex items-center justify-center px-1">
+                          {unreadChat > 99 ? '99+' : unreadChat}
+                        </span>
+                      )}
                     </button>
                   </div>
 
@@ -826,7 +850,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                         <Chat
                           spaceId={spaceId}
                           className="w-full h-full"
-                          isOverlay={true}
+                          messages={chatMessages}
                         />
                       </div>
                     )}
