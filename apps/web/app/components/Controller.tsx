@@ -133,55 +133,19 @@ const AudioController: React.FC<AudioControllerProps> = ({
       const message = JSON.parse(event.data);
       
       switch (message.type) {
-        case 'playback-sync':
-          // Enhanced ignore logic for recent user seek operations
-          const timeSinceUserSeek = Date.now() - lastUserSeekTime;
-          const shouldIgnoreSync = ignoreSync || 
-                                 isSeeking || 
-                                 isDragging || 
-                                 timeSinceUserSeek < 3000; // Ignore syncs for 3 seconds after user seek
-          
-          if (shouldIgnoreSync) {
-            console.log('[Sync] Ignoring sync - recent user interaction:', {
-              ignoreSync,
-              isSeeking,
-              isDragging,
-              timeSinceUserSeek,
-              lastUserSeekTime
-            });
-            return;
-          }
-          
-          const { currentTime, isPlaying: serverPlaying } = message.data;
-          
-          // If we recently seeked, use our seek value instead of server time
-          let expectedTime = currentTime;
-          if (userSeekValue !== null && timeSinceUserSeek < 10000) {
-            expectedTime = userSeekValue + (timeSinceUserSeek / 1000);
-            console.log('[Sync] Using user seek value for sync calculation:', {
-              userSeekValue,
-              timeSinceUserSeek,
-              calculatedTime: expectedTime
-            });
-          }
-          
-          const timeDiff = Math.abs(expectedTime - progress);
-          
-          // Only sync if drift is significant and we're not in a user-controlled state
-          if (timeDiff > 2) { // Sync when drift exceeds 2 seconds
-            console.log('[Sync] Correcting time drift:', { 
-              expected: expectedTime, 
-              current: progress, 
-              diff: timeDiff,
-              serverTime: currentTime,
-              userSeekValue
-            });
-            
+        case 'playback-heartbeat': {
+          if (isSeeking || isDragging || isSyncing) return;
+
+          const { currentTime: serverTime, isPlaying: serverPlaying } = message.data;
+          const timeDiff = Math.abs(serverTime - progress);
+
+          if (timeDiff > 2) {
             setIsSyncing(true);
-            seek(expectedTime);
-            setTimeout(() => setIsSyncing(false), 500);
+            seek(serverTime);
+            setTimeout(() => setIsSyncing(false), 300);
           }
           break;
+        }
 
         case 'playback-play':
           if (!isPlaying && !isSeeking && !isDragging) {
@@ -235,66 +199,11 @@ const AudioController: React.FC<AudioControllerProps> = ({
           }
           break;
 
-        case 'request-current-timestamp':
-          // Admin is being asked for their current timestamp to sync a new joiner
-          if (isAdmin && message.data.spaceId === spaceId) {
-            
-            
-            // Get our current exact playback position
-            const currentPlaybackTime = progress; // This is our real current time
-            const isCurrentlyPlaying = isPlaying;
-            
-            // Send response back to server with our exact timestamp
-            if (sendMessage) {
-              sendMessage("admin-timestamp-response", {
-                spaceId: message.data.spaceId,
-                requestId: message.data.requestId,
-                currentTime: currentPlaybackTime,
-                isPlaying: isCurrentlyPlaying,
-                userId: userId,
-                respondedAt: Date.now()
-              });
-              
-              console.log('[AdminSync] Sent timestamp response:', {
-                currentTime: currentPlaybackTime,
-                isPlaying: isCurrentlyPlaying,
-                requestId: message.data.requestId
-              });
-            }
-          }
-          break;
-
-        case 'admin-timestamp-sync':
-          // New joiner receiving exact timestamp from admin
-          if (message.data.isInitialSync && message.data.syncSource === 'admin-realtime') {
-            
-            
-            const { currentTime: adminTime, isPlaying: adminIsPlaying } = message.data;
-            
-            // Apply the admin's exact timestamp
-            setSeekingProgress(adminTime);
-            seek(adminTime);
-            
-            // Sync playing state if different
-            if (adminIsPlaying !== isPlaying) {
-              
-              if (customTogglePlayPause) {
-                customTogglePlayPause();
-              } else {
-                togglePlayPause();
-              }
-            }
-            
-            setTimeout(() => {
-              setSeekingProgress(null);
-            }, 1000);
-          }
-          break;
       }
     } catch (error) {
       console.error('[Controller] Error parsing WebSocket message:', error);
     }
-  }, [ignoreSync, isSeeking, isDragging, progress, isPlaying, seek, togglePlayPause, lastUserSeekTime, userSeekValue, isAdmin, spaceId, userId, sendMessage, customTogglePlayPause]);
+  }, [isSeeking, isDragging, isSyncing, progress, isPlaying, seek, togglePlayPause, lastUserSeekTime, customTogglePlayPause]);
 
   useEffect(() => {
     if (!socket) return;

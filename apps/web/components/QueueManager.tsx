@@ -668,52 +668,11 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
           break;
         case 'current-song-update':
           setCurrentPlaying(data.song || null);
-          
+
           if (data.song) {
             const isSameSong = audioCurrentSong?.id === data.song.id;
-
-            if (isSameSong) {
-              const { pendingSync } = useAudioStore.getState();
-              if (pendingSync) {
-                const { handleRoomSync } = useAudioStore.getState();
-                const youtubeVideoId = extractYouTubeVideoId(data.song.youtubeUrl || data.song.url);
-                const existingAudioSong = {
-                  id: data.song.id,
-                  name: data.song.title,
-                  url: cleanUrl(data.song.youtubeUrl || data.song.url),
-                  artistes: {
-                    primary: [{
-                      id: 'youtube',
-                      name: data.song.artist || (data.song.type === 'Youtube' ? ' YouTube' : 'Unknown Artist'),
-                      role: 'primary_artist',
-                      image: [] as any,
-                      type: 'artist' as const,
-                      url: ''
-                    }]
-                  },
-                  image: [
-                    { quality: 'high', url: cleanUrl(data.song.bigImg || data.song.smallImg || '') },
-                    { quality: 'medium', url: cleanUrl(data.song.smallImg || data.song.bigImg || '') }
-                  ],
-                  addedBy: data.song.addedByUser?.username || (data.song.type === 'Youtube' ? 'YouTube User' : 'Anonymous'),
-                  downloadUrl: youtubeVideoId ? 
-                    [{ quality: 'auto', url: youtubeVideoId }] : 
-                    [{ quality: 'auto', url: cleanUrl(data.song.url) }],
-                  addedByUser: data.song.addedByUser,
-                  voteCount: data.song.voteCount || 0,
-                  isVoted: false,
-                  source: data.song.type === 'Youtube' ? 'youtube' as const : undefined,
-                  video: true
-                };
-                setTimeout(() => {
-                  handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, existingAudioSong, true);
-                }, 500);
-              }
-              break;
-            }
-            
             const youtubeVideoId = extractYouTubeVideoId(data.song.youtubeUrl || data.song.url);
-            
+
             const audioSong: any = {
               id: data.song.id,
               name: data.song.title,
@@ -721,7 +680,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               artistes: {
                 primary: [{
                   id: 'youtube',
-                  name: data.song.artist || (data.song.type === 'Youtube' ? '📺 YouTube' : 'Unknown Artist'),
+                  name: data.song.artist || (data.song.type === 'Youtube' ? 'YouTube' : 'Unknown Artist'),
                   role: 'primary_artist',
                   image: [] as any,
                   type: 'artist' as const,
@@ -732,9 +691,9 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
                 { quality: 'high', url: cleanUrl(data.song.bigImg || data.song.smallImg || '') },
                 { quality: 'medium', url: cleanUrl(data.song.smallImg || data.song.bigImg || '') }
               ],
-              addedBy: data.song.addedByUser?.username || (data.song.type === 'Youtube' ? 'YouTube User' : 'Anonymous'),
-              downloadUrl: youtubeVideoId ? 
-                [{ quality: 'auto', url: youtubeVideoId }] : 
+              addedBy: data.song.addedByUser?.username || 'Unknown',
+              downloadUrl: youtubeVideoId ?
+                [{ quality: 'auto', url: youtubeVideoId }] :
                 [{ quality: 'auto', url: cleanUrl(data.song.url) }],
               addedByUser: data.song.addedByUser,
               voteCount: data.song.voteCount || 0,
@@ -742,24 +701,36 @@ export const QueueManager: React.FC<QueueManagerProps> = ({ spaceId, isAdmin = f
               source: data.song.type === 'Youtube' ? 'youtube' as const : undefined,
               video: true
             };
-            
+
+            if (isSameSong) {
+              // Same song — just sync position if server sent playbackState
+              if (data.playbackState) {
+                const { handleRoomSync } = useAudioStore.getState();
+                handleRoomSync(data.playbackState.currentTime || 0, data.playbackState.isPlaying, audioSong, false);
+              }
+              break;
+            }
+
+            // New song — load and play
             play(audioSong);
-            
-            setTimeout(() => {
-              const { pendingSync, youtubePlayer } = useAudioStore.getState();
-              if (pendingSync) {
+
+            // If server sent playback position (e.g. on join), seek after player loads
+            if (data.playbackState && data.playbackState.currentTime > 0) {
+              const seekTarget = data.playbackState.currentTime;
+              const shouldPlay = data.playbackState.isPlaying;
+              setTimeout(() => {
+                const { youtubePlayer, handleRoomSync } = useAudioStore.getState();
                 if (youtubePlayer && youtubePlayer.seekTo) {
-                  youtubePlayer.seekTo(pendingSync.timestamp, true);
-                  if (pendingSync.isPlaying) {
+                  youtubePlayer.seekTo(seekTarget, true);
+                  if (shouldPlay) {
                     youtubePlayer.playVideo();
                   } else {
                     youtubePlayer.pauseVideo();
                   }
-                  const { handleRoomSync } = useAudioStore.getState();
-                  handleRoomSync(pendingSync.timestamp, pendingSync.isPlaying, audioSong, true);
                 }
-              }
-            }, 1500);
+                handleRoomSync(seekTarget, shouldPlay, audioSong, false);
+              }, 1500);
+            }
           }
           break;
         case 'song-added':

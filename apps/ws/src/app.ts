@@ -384,16 +384,6 @@ async function  processUserAction(type: string , data : Data ) {
             }
             break;
 
-        // Get current timestamp for sync
-        case "get-timestamp":
-            const user = RoomManager.getInstance().users.get(data.userId);
-            if (user) {
-                const space = RoomManager.getInstance().spaces.get(data.spaceId);
-                if (space?.playbackState.currentSong) {
-                    await RoomManager.getInstance().sendCurrentTimestampToUser(data.spaceId, data.userId);
-                }
-            }
-            break;
         case "get-current-song":
             const currentSongUser = RoomManager.getInstance().users.get(data.userId);
             if (currentSongUser) {
@@ -439,27 +429,6 @@ async function  processUserAction(type: string , data : Data ) {
                 }
             } catch (error) {
                 console.error("Error processing latency report:", error);
-            }
-            break;
-
-        case "admin-timestamp-response":
-            try {
-                if (typeof data.currentTime === 'number' && data.requestId) {
-                    await RoomManager.getInstance().handleAdminTimestampResponse(
-                        data.requestId,
-                        data.currentTime,
-                        data.isPlaying || false,
-                        data.userId
-                    );
-                } else {
-                    console.error("Invalid admin timestamp response data:", { 
-                        currentTime: data.currentTime, 
-                        requestId: data.requestId,
-                        userId: data.userId
-                    });
-                }
-            } catch (error) {
-                console.error("Error processing admin timestamp response:", error);
             }
             break;
 

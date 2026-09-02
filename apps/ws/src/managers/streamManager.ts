@@ -100,7 +100,7 @@ export class RoomManager {
     public subscriber : RedisClientType;
     public wsToSpace : Map<WebSocket, string>
     private timestampIntervals: Map<string, NodeJS.Timeout> = new Map();
-    private readonly TIMESTAMP_BROADCAST_INTERVAL = 5000; // 5 seconds for smooth sync
+    private readonly HEARTBEAT_INTERVAL = 20000; // 20-second heartbeat for drift correction only
 
     
     private constructor() {
@@ -980,8 +980,6 @@ export class RoomManager {
           
           await this.sendCurrentQueueToUser(spaceId, userId);
           
-          // Sync playback state after song is loaded
-          await this.syncNewUserToPlayback(spaceId, userId);
         } else {
           throw new Error("Failed to add user to space");
         }
@@ -1150,7 +1148,7 @@ export class RoomManager {
 
         await this.broadcastImageUpdate(spaceId);
 
-        this.startTimestampBroadcast(spaceId);
+        this.startHeartbeat(spaceId);
 
         // Broadcast updated queue
         await this.broadcastRedisQueueUpdate(spaceId);
@@ -1285,71 +1283,51 @@ export class RoomManager {
             console.error(`Space with ID ${spaceId} not found.`);
         }
     }
-    private startTimestampBroadcast(spaceId: string) {
-        
-        this.stopTimestampBroadcast(spaceId);
-        
+    private startHeartbeat(spaceId: string) {
+        this.stopHeartbeat(spaceId);
         const interval = setInterval(async () => {
-            await this.broadcastCurrentTimestamp(spaceId);
-        }, this.TIMESTAMP_BROADCAST_INTERVAL);
-        
+            await this.broadcastHeartbeat(spaceId);
+        }, this.HEARTBEAT_INTERVAL);
         this.timestampIntervals.set(spaceId, interval);
-        
     }
 
-    private stopTimestampBroadcast(spaceId: string) {
+    private stopHeartbeat(spaceId: string) {
         const interval = this.timestampIntervals.get(spaceId);
         if (interval) {
-            
             clearInterval(interval);
             this.timestampIntervals.delete(spaceId);
         }
     }
 
-    private async broadcastCurrentTimestamp(spaceId: string) {
+    private async broadcastHeartbeat(spaceId: string) {
         const space = this.spaces.get(spaceId);
-        if (!space || !space.playbackState.currentSong) {
-            
-            return;
-        }
+        if (!space || !space.playbackState.currentSong) return;
 
         const now = Date.now();
         const { playbackState } = space;
-        
+
         let currentTime = 0;
-        
         if (playbackState.startedAt > 0) {
             if (playbackState.isPlaying) {
                 currentTime = (now - playbackState.startedAt) / 1000;
-            } else {
-                if (playbackState.pausedAt) {
-                    currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
-                } else {
-                    currentTime = 0;
-                }
+            } else if (playbackState.pausedAt) {
+                currentTime = (playbackState.pausedAt - playbackState.startedAt) / 1000;
             }
         }
 
-        const timestampData: TimestampBroadcast = {
+        const heartbeatData = {
             currentTime: Math.max(0, currentTime),
             isPlaying: playbackState.isPlaying,
-            timestamp: now,
+            serverTimestamp: now,
             songId: playbackState.currentSong?.id,
-            totalDuration: playbackState.currentSong?.duration
         };
-
-        console.log(`[Timestamp] 5-second sync broadcast to ${space.users.size} users:`, {
-            currentTime: timestampData.currentTime,
-            isPlaying: timestampData.isPlaying,
-            songId: timestampData.songId
-        });
 
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
-                        type: "playback-sync",
-                        data: timestampData
+                        type: "playback-heartbeat",
+                        data: heartbeatData
                     }));
                 }
             });
@@ -1407,53 +1385,38 @@ export class RoomManager {
         if (!space) return;
 
         const now = Date.now();
-        
+
         if (space.playbackState.pausedAt && space.playbackState.startedAt) {
             const pauseDuration = now - space.playbackState.pausedAt;
             space.playbackState.startedAt += pauseDuration;
         } else if (!space.playbackState.startedAt) {
             space.playbackState.startedAt = now;
         }
-        
+
         space.playbackState.isPlaying = true;
         space.playbackState.pausedAt = null;
         space.playbackState.lastUpdated = now;
 
-        space.users.forEach((user) => {
-            user.ws.forEach((ws: WebSocket) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: "playback-resumed",
-                        data: { spaceId, userId, timestamp: now }
-                    }));
-                }
-            });
-        });
+        const currentTime = (now - space.playbackState.startedAt) / 1000;
 
-        // Notify Discord bots about playback resume
-        this.broadcastToDiscordBots(spaceId, {
-            type: "space-playback-resumed",
-            data: { spaceId, isPlaying: true }
-        });
-
-        this.startTimestampBroadcast(spaceId);
-
-        // Send immediate play command for instant response
+        // Single play message to all users
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
                         type: "playback-play",
-                        data: { 
-                            spaceId, 
-                            userId, 
-                            timestamp: now,
-                            currentTime: (now - space.playbackState.startedAt) / 1000
-                        }
+                        data: { spaceId, userId, currentTime, serverTimestamp: now }
                     }));
                 }
             });
         });
+
+        this.broadcastToDiscordBots(spaceId, {
+            type: "space-playback-resumed",
+            data: { spaceId, isPlaying: true }
+        });
+
+        this.startHeartbeat(spaceId);
     }
 
     async handlePlaybackPause(spaceId: string, userId: string) {
@@ -1461,80 +1424,61 @@ export class RoomManager {
         if (!space) return;
 
         const now = Date.now();
-        
+
         space.playbackState.isPlaying = false;
         space.playbackState.pausedAt = now;
         space.playbackState.lastUpdated = now;
 
-        // Send immediate pause command
+        const currentTime = (now - space.playbackState.startedAt) / 1000;
+
+        // Single pause message to all users
         space.users.forEach((user) => {
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
                         type: "playback-pause",
-                        data: { 
-                            spaceId, 
-                            userId, 
-                            timestamp: now,
-                            currentTime: (space.playbackState.pausedAt! - space.playbackState.startedAt) / 1000
-                        }
+                        data: { spaceId, userId, currentTime, serverTimestamp: now }
                     }));
                 }
             });
         });
 
-        // Notify Discord bots about playback pause
         this.broadcastToDiscordBots(spaceId, {
             type: "space-playback-paused",
             data: { spaceId, isPlaying: false }
         });
 
-        this.stopTimestampBroadcast(spaceId);
+        this.stopHeartbeat(spaceId);
     }
 
-    async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {        
+    async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {
         const space = this.spaces.get(spaceId);
         if (!space) return;
 
         const now = Date.now();
-        
-        
-        
-        // Temporarily stop broadcasts during seek - extended period
-        this.stopTimestampBroadcast(spaceId);
-        
+
         space.playbackState.startedAt = now - (seekTime * 1000);
-        space.playbackState.pausedAt = null;
-        space.playbackState.isPlaying = true;
         space.playbackState.lastUpdated = now;
 
-        
+        // Preserve current play/pause state — seek does NOT force play
+        if (!space.playbackState.isPlaying) {
+            space.playbackState.pausedAt = now;
+        } else {
+            space.playbackState.pausedAt = null;
+        }
 
-        // Send immediate seek command to all users except the one who initiated it
+        // Relay seek to all users except initiator
         space.users.forEach((user) => {
-            // Skip the user who initiated the seek to prevent conflicts
             if (user.userId === userId) return;
-            
             user.ws.forEach((ws: WebSocket) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({
                         type: "playback-seek",
-                        data: { 
-                            seekTime: seekTime,
-                            spaceId: spaceId,
-                            triggeredBy: userId,
-                            timestamp: now
-                        }
+                        data: { seekTime, spaceId, triggeredBy: userId, serverTimestamp: now }
                     }));
                 }
             });
         });
-
-        // Resume broadcasts after seek stabilizes - increased delay for better stability
-        setTimeout(() => {
-            
-            this.startTimestampBroadcast(spaceId);
-        }, 8000); // Increased to 8 seconds to allow client-side seek to complete
     }
 
     async syncNewUserToPlayback(spaceId: string, userId: string) {
@@ -1761,7 +1705,7 @@ export class RoomManager {
     }
     destroySpace(spaceId: string) {
         try {
-            this.stopTimestampBroadcast(spaceId);
+            this.stopHeartbeat(spaceId);
             
             this.spaces.delete(spaceId);
             
@@ -1787,7 +1731,7 @@ export class RoomManager {
             space.users.delete(userId);
 
             if (space.users.size === 0) {
-                this.stopTimestampBroadcast(spaceId);
+                this.stopHeartbeat(spaceId);
                 this.destroySpace(spaceId);
             } else if (isAdmin) {
                 // Admin is leaving but there are still users in the space
@@ -1810,7 +1754,7 @@ export class RoomManager {
                 });
                 
                 // Clean up the space since admin left
-                this.stopTimestampBroadcast(spaceId);
+                this.stopHeartbeat(spaceId);
                 this.destroySpace(spaceId);
                 
                 // Clear Redis data for this space
@@ -1861,7 +1805,7 @@ export class RoomManager {
                 space.users.delete(disconnectedUserId);
                 
                 if (space.users.size === 0) {
-                    this.stopTimestampBroadcast(spaceId);
+                    this.stopHeartbeat(spaceId);
                 } else {
                     // If admin left and there are still users, broadcast admin leave event
                     if (wasAdmin) {
@@ -1884,7 +1828,7 @@ export class RoomManager {
                         });
                         
                         // Clean up the space since admin left
-                        this.stopTimestampBroadcast(spaceId);
+                        this.stopHeartbeat(spaceId);
                         this.destroySpace(spaceId);
                         
                         // Clear Redis data for this space
@@ -2637,7 +2581,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
 
         await this.broadcastImageUpdate(spaceId);
 
-        this.startTimestampBroadcast(spaceId);
+        this.startHeartbeat(spaceId);
         } catch(err ) {
             console.error("Error playing the song",err)
         }
@@ -2759,7 +2703,7 @@ async getSongById(spaceId: string, songId: string): Promise<QueueSong | null> {
 
         await this.broadcastImageUpdate(spaceId);
 
-        this.startTimestampBroadcast(spaceId);
+        this.startHeartbeat(spaceId);
     }
 
     async broadcastRedisQueueUpdate(spaceId: string): Promise<void> {

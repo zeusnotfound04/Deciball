@@ -263,55 +263,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 }));
                 break;
               case "space-joined":
-                
-                if (message.data.playbackState) {
-                  
-                  
-                  if (message.data.playbackState.currentSong) {
-                    
-                    
-                    const currentSong = message.data.playbackState.currentSong;
-                    const formattedSong = {
-                      id: currentSong.id,
-                      name: currentSong.title || currentSong.name,
-                      artistes: {
-                        primary: [{
-                          id: 'unknown',
-                          name: currentSong.artist || 'Youtube',
-                          role: 'primary_artist',
-                          image: [],
-                          type: 'artist',
-                          url: ''
-                        }]
-                      },
-                      image: [
-                        { quality: 'high', url: currentSong.bigImg || currentSong.smallImg || '' },
-                        { quality: 'medium', url: currentSong.smallImg || currentSong.bigImg || '' }
-                      ],
-                      downloadUrl: [{
-                        quality: 'auto',
-                        url: currentSong.youtubeId || currentSong.url || ''
-                      }],
-                      url: currentSong.url || '',
-                      addedBy: currentSong.addedByUser?.username || 'Unknown',
-                      voteCount: currentSong.voteCount || 0,
-                      isVoted: false,
-                      source: currentSong.type === 'Youtube' ? 'youtube' : 'spotify'
-                    };
-                    
-                    window.dispatchEvent(new CustomEvent('room-sync-playback', {
-                      detail: {
-                        currentTime: message.data.playbackState.shouldStartAt || 0,
-                        isPlaying: message.data.playbackState.isPlaying || false,
-                        currentSong: formattedSong
-                      }
-                    }));
-                  } else {
-                    
-                  }
-                } else {
-                  
-                }
+                // Just acknowledge — playback data comes via current-song-update
                 break;
               case "playback-paused":
                 
@@ -332,7 +284,11 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
                 }));
                 break;
               case "playback-state-update":
-              case "playback-sync":
+                window.dispatchEvent(new CustomEvent('playback-state-update', {
+                  detail: message.data
+                }));
+                break;
+              case "playback-heartbeat":
                 window.dispatchEvent(new CustomEvent('playback-state-update', {
                   detail: message.data
                 }));
