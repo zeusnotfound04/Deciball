@@ -132,18 +132,18 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', messages: e
                             Host
                           </span>
                         )}
-                        <span className="font-mono text-[9px] text-steel-gray/30">
-                          {formatTime(msg.timestamp)}
-                        </span>
                       </div>
                     )}
-                    <p className={`text-[13px] font-satoshi leading-[1.4] break-words whitespace-pre-wrap px-3 py-2 rounded-2xl ${
+                    <div className={`text-[13px] font-satoshi leading-[1.4] break-words whitespace-pre-wrap px-3 pt-2 pb-1 rounded-2xl ${
                       isMe
                         ? 'bg-paper-white/10 text-paper-white rounded-tr-sm'
                         : 'bg-paper-white/[0.04] text-ghost-gray rounded-tl-sm'
                     }`}>
-                      {msg.message}
-                    </p>
+                      <span>{msg.message}</span>
+                      <span className="float-right font-mono text-[9px] text-steel-gray/30 ml-3 mt-1 leading-none">
+                        {formatTime(msg.timestamp)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
