@@ -160,13 +160,21 @@ export const authOptions: NextAuthOptions = {
               });
               
             }
+            let updatedUsername = existingUser.username;
+            if (!updatedUsername) {
+              const base = user.name?.toLowerCase().replace(/\s+/g, '') || user.email!.split('@')[0];
+              updatedUsername = base;
+              const taken = await prisma.user.findUnique({ where: { username: updatedUsername } });
+              if (taken) updatedUsername = `${base}${Math.floor(Math.random() * 9999)}`;
+            }
+
             await prisma.user.update({
               where: { id: existingUser.id },
               data: {
                 name: user.name || existingUser.name,
                 image: profileImageUrl,
                 pfpUrl: profileImageUrl,
-                username: existingUser.username || user.name?.toLowerCase().replace(/\s+/g, '') || null,
+                username: updatedUsername,
                 provider: Provider.Google,
               },
             });
