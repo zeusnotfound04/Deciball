@@ -28,6 +28,18 @@ export async function GET(request: NextRequest) {
     ogImageBase64 = `data:image/png;base64,${ogFile.toString('base64')}`;
   } catch {}
 
+  let pfpBase64 = '';
+  if (hostPfp) {
+    try {
+      const pfpRes = await fetch(hostPfp, { headers: { 'User-Agent': 'Deciball-OG/1.0' } });
+      if (pfpRes.ok) {
+        const pfpBuffer = Buffer.from(await pfpRes.arrayBuffer());
+        const contentType = pfpRes.headers.get('content-type') || 'image/jpeg';
+        pfpBase64 = `data:${contentType};base64,${pfpBuffer.toString('base64')}`;
+      }
+    } catch {}
+  }
+
   const fonts: any[] = [];
   if (satoshiBlack) fonts.push({ name: 'Satoshi Black', data: satoshiBlack, weight: 900, style: 'normal' });
   if (satoshiBold) fonts.push({ name: 'Satoshi Bold', data: satoshiBold, weight: 700, style: 'normal' });
@@ -116,9 +128,9 @@ export async function GET(request: NextRequest) {
                 backgroundColor: '#282828',
               }}
             >
-              {hostPfp ? (
+              {pfpBase64 ? (
                 <img
-                  src={hostPfp}
+                  src={pfpBase64}
                   width={103}
                   height={103}
                   style={{ width: '103px', height: '103px', objectFit: 'cover' }}
