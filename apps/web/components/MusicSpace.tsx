@@ -757,9 +757,9 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
       >
-        <div className="flex-1 flex justify-center w-full min-h-0 overflow-y-auto md:overflow-hidden">
-          <div className="w-full h-full max-w-none mx-auto flex-1">
-            <div className="relative w-full min-h-0 flex-1 p-2 sm:p-3 md:p-4 xl:p-6 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 md:gap-3 xl:gap-5 md:min-h-0 md:h-[calc(100vh-80px)]">
+        <div className="flex-1 w-full min-h-0 overflow-y-auto md:overflow-hidden">
+          <div className="w-full h-full">
+            <div className="w-full h-full p-2 sm:p-3 md:p-4 xl:p-6 flex flex-col md:grid md:grid-cols-[1fr,1fr] 2xl:grid-cols-[1.2fr,0.8fr] gap-2 md:gap-3 xl:gap-5 md:items-start">
               {/* Left Column - Player */}
               <div className="w-full min-w-0 md:h-full md:min-h-0 lg:max-w-xl xl:max-w-2xl 2xl:max-w-3xl">
                   {showPlayer && (
