@@ -155,32 +155,26 @@ export const Chat: React.FC<ChatProps> = ({ spaceId, className = '', isOverlay =
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="relative flex items-center justify-between p-6 border-b border-graphite"
+          className="relative flex items-center justify-between px-4 py-3 border-b border-graphite"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-electric-cyan flex items-center justify-center">
-              <Users className="w-4 h-4 text-void-black" />
-            </div>
-            <div>
-              <h3 className="font-serif font-bold text-xl text-electric-cyan">
-                Room Chat
-              </h3>
-              <p className="text-sm text-steel-gray font-satoshi">
-                Connect with your room
-              </p>
-            </div>
-            <Badge className="bg-graphite text-electric-cyan border border-slate-custom px-3 py-1 font-mono text-[10px]">
+          <div className="flex items-center gap-2">
+            <h3 className="font-satoshi font-bold text-sm text-paper-white">
+              Chat
+            </h3>
+            <span className="font-mono text-[10px] text-steel-gray">
               {messages.length}
-            </Badge>
+            </span>
           </div>
-          <Button
-            onClick={toggleChat}
-            variant="ghost"
-            size="sm"
-            className="p-2 h-auto text-steel-gray hover:text-paper-white hover:bg-charcoal rounded-xl transition-all duration-300"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          {onClose && (
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="sm"
+              className="p-1.5 h-auto text-steel-gray hover:text-paper-white hover:bg-charcoal rounded-lg"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
         </motion.div>
 
         {/* Messages Area */}

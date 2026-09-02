@@ -826,6 +826,7 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
                         <Chat
                           spaceId={spaceId}
                           className="w-full h-full"
+                          isOverlay={true}
                         />
                       </div>
                     )}
