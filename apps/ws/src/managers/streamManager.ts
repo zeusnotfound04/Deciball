@@ -1400,6 +1400,7 @@ export class RoomManager {
     async handlePlaybackPlay(spaceId: string, userId: string) {
         const space = this.spaces.get(spaceId);
         if (!space) return;
+        if (space.creatorId !== userId) return; // Only admin can control playback
 
         const now = Date.now();
 
@@ -1439,6 +1440,7 @@ export class RoomManager {
     async handlePlaybackPause(spaceId: string, userId: string) {
         const space = this.spaces.get(spaceId);
         if (!space) return;
+        if (space.creatorId !== userId) return; // Only admin can control playback
 
         const now = Date.now();
 
@@ -1471,6 +1473,7 @@ export class RoomManager {
     async handlePlaybackSeek(spaceId: string, userId: string, seekTime: number) {
         const space = this.spaces.get(spaceId);
         if (!space) return;
+        if (space.creatorId !== userId) return; // Only admin can seek
 
         const now = Date.now();
 

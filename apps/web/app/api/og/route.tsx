@@ -9,18 +9,28 @@ async function loadFont(url: string): Promise<ArrayBuffer> {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
   const spaceName = searchParams.get('spaceName') || 'Music Space';
   const hostName = searchParams.get('hostName') || 'Someone';
   const hostPfp = searchParams.get('hostPfp') || '';
 
-  const baseUrl = process.env.NEXTAUTH_URL || 'https://deciball.zeusnotfound.codes';
+  const baseUrl = origin || process.env.NEXTAUTH_URL || 'https://deciball.zeusnotfound.codes';
   const initial = hostName.charAt(0).toUpperCase();
 
-  const [satoshiBlack, satoshiBold] = await Promise.all([
-    loadFont(`${baseUrl}/fonts/og/Satoshi-Black.otf`),
-    loadFont(`${baseUrl}/fonts/og/Satoshi-Bold.otf`),
-  ]);
+  let satoshiBlack: ArrayBuffer | null = null;
+  let satoshiBold: ArrayBuffer | null = null;
+  try {
+    [satoshiBlack, satoshiBold] = await Promise.all([
+      loadFont(`${baseUrl}/fonts/og/Satoshi-Black.otf`),
+      loadFont(`${baseUrl}/fonts/og/Satoshi-Bold.otf`),
+    ]);
+  } catch {
+    // Fonts failed to load — will use fallback
+  }
+
+  const fonts = [];
+  if (satoshiBlack) fonts.push({ name: 'Satoshi Black', data: satoshiBlack, weight: 900 as const, style: 'normal' as const });
+  if (satoshiBold) fonts.push({ name: 'Satoshi Bold', data: satoshiBold, weight: 700 as const, style: 'normal' as const });
 
   return new ImageResponse(
     (
@@ -41,13 +51,13 @@ export async function GET(request: NextRequest) {
           style={{ position: 'absolute', top: 0, left: 0, width: '1200px', height: '630px' }}
         />
 
-        {/* Space name — just above "Listen along" */}
+        {/* Space name — shifted left */}
         <div
           style={{
             position: 'absolute',
-            left: '205px',
+            left: '180px',
             top: '250px',
-            width: '500px',
+            width: '520px',
             display: 'flex',
           }}
         >
@@ -55,7 +65,8 @@ export async function GET(request: NextRequest) {
             style={{
               color: '#ffffff',
               fontSize: spaceName.length > 20 ? '36px' : '46px',
-              fontFamily: 'Satoshi Black',
+              fontFamily: satoshiBlack ? 'Satoshi Black' : 'sans-serif',
+              fontWeight: 900,
               lineHeight: 1.1,
               letterSpacing: '-0.03em',
             }}
@@ -64,7 +75,7 @@ export async function GET(request: NextRequest) {
           </span>
         </div>
 
-        {/* PFP — top right corner */}
+        {/* PFP — top right */}
         <div
           style={{
             position: 'absolute',
@@ -96,8 +107,7 @@ export async function GET(request: NextRequest) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: hostPfp ? '#111' : '#282828',
-                border: '2px solid rgba(255, 255, 255, 0.06)',
+                backgroundColor: '#282828',
               }}
             >
               {hostPfp ? (
@@ -108,14 +118,14 @@ export async function GET(request: NextRequest) {
                   style={{ width: '103px', height: '103px', objectFit: 'cover' }}
                 />
               ) : (
-                <span style={{ color: '#ffffff', fontSize: '38px', fontFamily: 'Satoshi Black' }}>
+                <span style={{ color: '#ffffff', fontSize: '38px', fontFamily: satoshiBlack ? 'Satoshi Black' : 'sans-serif', fontWeight: 900 }}>
                   {initial}
                 </span>
               )}
             </div>
           </div>
 
-          <span style={{ color: '#c0c0c0', fontSize: '14px', fontFamily: 'Satoshi Bold', letterSpacing: '0.01em' }}>
+          <span style={{ color: '#c0c0c0', fontSize: '14px', fontFamily: satoshiBold ? 'Satoshi Bold' : 'sans-serif', fontWeight: 700, letterSpacing: '0.01em' }}>
             {hostName}
           </span>
         </div>
@@ -124,10 +134,7 @@ export async function GET(request: NextRequest) {
     {
       width: 1200,
       height: 630,
-      fonts: [
-        { name: 'Satoshi Black', data: satoshiBlack, weight: 900, style: 'normal' },
-        { name: 'Satoshi Bold', data: satoshiBold, weight: 700, style: 'normal' },
-      ],
+      ...(fonts.length > 0 ? { fonts } : {}),
     }
   );
 }

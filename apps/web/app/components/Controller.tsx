@@ -144,6 +144,15 @@ const AudioController: React.FC<AudioControllerProps> = ({
             seek(serverTime);
             setTimeout(() => setIsSyncing(false), 300);
           }
+
+          // Re-sync play/pause state if listener drifted (e.g. paused locally)
+          if (serverPlaying !== isPlaying) {
+            if (customTogglePlayPause) {
+              customTogglePlayPause();
+            } else {
+              togglePlayPause();
+            }
+          }
           break;
         }
 
