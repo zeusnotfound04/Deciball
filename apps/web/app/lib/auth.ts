@@ -128,7 +128,7 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account, profile }) {
       try {
         
-        if (account?.provider === 'Google' || account?.provider === 'Spotify' ) {
+        if (account?.provider === 'google' || account?.provider === 'Google' || account?.provider === 'spotify' || account?.provider === 'Spotify') {
           const googleProfile = profile as GoogleProfile;
           const profileImageUrl = googleProfile.picture || user.image || null;
           
@@ -141,7 +141,7 @@ export const authOptions: NextAuthOptions = {
           
           if (existingUser) {
             const existingGoogleAccount = existingUser.accounts.find(
-              acc => acc.provider === 'Google'
+              acc => acc.provider === 'google' || acc.provider === 'Google'
             );
             if (!existingGoogleAccount) {
               await prisma.account.create({
