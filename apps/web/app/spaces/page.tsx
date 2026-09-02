@@ -133,6 +133,7 @@ export default function SpacesPage() {
                   type="text"
                   placeholder="Enter your space name..."
                   value={spaceName}
+                  maxLength={30}
                   onChange={(e) => setSpaceName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateSpace()}
                   className="w-full bg-midnight-surface border border-graphite rounded-cards px-6 py-4 font-mono text-sm text-paper-white placeholder:text-steel-gray focus:outline-none focus:border-slate-custom transition-colors"
