@@ -111,25 +111,6 @@ services:
     networks:
       - deciball-network
 
-  # Discord Bot (Optional - uncomment to run)
-  # discord-bot:
-  #   container_name: deciball-discord-bot
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/discord-bot/Dockerfile.dev
-  #   restart: unless-stopped
-  #   env_file:
-  #     - ./apps/discord-bot/.env
-  #   environment:
-  #     - NODE_ENV=development
-  #   volumes:
-  #     - ./apps/discord-bot:/app/apps/discord-bot
-  #     - ./packages:/app/packages
-  #     - /app/node_modules
-  #     - /app/apps/discord-bot/node_modules
-  #     - /app/apps/discord-bot/dist
-  #   networks:
-  #     - deciball-network
 
 volumes:
   postgres-data:

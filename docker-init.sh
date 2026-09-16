@@ -80,7 +80,6 @@ case $choice in
         echo "  2. Or start services individually:"
         echo "     - pnpm web:dev"
         echo "     - pnpm ws:dev"
-        echo "     - pnpm discord-bot:dev"
         echo ""
         ;;
     2)

@@ -63,12 +63,6 @@ docker-compose logs -f redis
 - **Port**: 8080
 - **WebSocket URL**: ws://localhost:8080
 
-### Discord Bot (Optional)
-- **Container**: `deciball-discord-bot`
-- **Status**: Commented out by default
-- **Enable**: Uncomment the `discord-bot` service in docker-compose.yml
-
----
 
 ## 🔧 Common Commands
 
@@ -194,7 +188,6 @@ docker-compose -f docker-compose.prod.yml build
 # Build specific service
 docker build -f apps/web/Dockerfile -t deciball-web:latest .
 docker build -f apps/ws/Dockerfile -t deciball-ws:latest .
-docker build -f apps/discord-bot/Dockerfile -t deciball-bot:latest .
 ```
 
 ---
@@ -271,8 +264,6 @@ pnpm web:dev
 # Terminal 2: WebSocket server
 pnpm ws:dev
 
-# Terminal 3: Discord bot (optional)
-pnpm discord-bot:dev
 ```
 
 ### Or run everything in Docker

@@ -20,7 +20,6 @@ echo ""
 # Clean old node_modules
 echo "🧹 Cleaning old node_modules directories..."
 rm -rf node_modules
-rm -rf apps/discord-bot/node_modules
 rm -rf apps/web/node_modules
 rm -rf apps/ws/node_modules
 rm -rf packages/*/node_modules
@@ -32,7 +31,6 @@ rm -f yarn.lock
 rm -rf apps/*/package-lock.json
 rm -rf apps/*/yarn.lock
 
-# Keep pnpm-lock.yaml in discord-bot for reference but it won't be used
 echo ""
 echo "📦 Installing dependencies with pnpm..."
 pnpm install
@@ -42,13 +40,11 @@ echo "✨ Setup complete!"
 echo ""
 echo "🎯 Next steps:"
 echo "   1. Set up .env files in each app:"
-echo "      - apps/discord-bot/.env"
 echo "      - apps/web/.env"
 echo "      - apps/ws/.env"
 echo ""
 echo "   2. Run development mode:"
 echo "      pnpm dev              # All apps"
-echo "      pnpm discord-bot:dev  # Discord bot only"
 echo "      pnpm web:dev          # Web app only"
 echo "      pnpm ws:dev           # WebSocket server only"
 echo ""
