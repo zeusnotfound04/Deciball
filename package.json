@@ -5,7 +5,7 @@
   "description": "Deciball - Music collaboration platform monorepo",
   "packageManager": "pnpm@10.7.1",
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.9.0",
     "pnpm": ">=8.0.0"
   },
   "scripts": {
@@ -14,10 +14,8 @@
     "lint": "turbo run lint",
     "clean": "turbo run clean",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
-    "discord-bot:dev": "turbo run dev --filter=discord-bot",
     "web:dev": "turbo run dev --filter=web",
     "ws:dev": "turbo run dev --filter=ws",
-    "discord-bot:build": "turbo run build --filter=discord-bot",
     "web:build": "turbo run build --filter=web",
     "ws:build": "turbo run build --filter=ws"
   },
@@ -35,6 +33,13 @@
     "overrides": {
       "@prisma/client": "5.19.1",
       "prisma": "5.19.1"
+    },
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "@react-three/fiber>react-dom": "19",
+        "next-auth>next": "16",
+        "@react-three/fiber>react": "19"
+      }
     }
   }
 }
