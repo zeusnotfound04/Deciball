@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   animate,
   motion,
@@ -73,9 +73,11 @@ const Slider: React.FC<SliderProps> = ({
   const overflow = useMotionValue(0);
   const scale = useMotionValue(1);
 
-  useEffect(() => {
+  const [seenDefaultValue, setSeenDefaultValue] = useState(defaultValue);
+  if (defaultValue !== seenDefaultValue) {
+    setSeenDefaultValue(defaultValue);
     setValue(defaultValue);
-  }, [defaultValue]);
+  }
 
   useMotionValueEvent(clientX, "change", (latest: number) => {
     if (sliderRef.current) {

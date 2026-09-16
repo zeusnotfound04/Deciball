@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { 
@@ -39,6 +40,20 @@ interface MusicSpaceProps {
   spaceId: string;
 }
 
+type SpaceInfoResponse =
+  | { success: true; spaceName: string; hostId: string }
+  | { success: false; message?: string };
+
+async function fetchSpaceInfo(spaceId: string): Promise<SpaceInfoResponse> {
+  const response = await fetch(`/api/spaces?spaceId=${spaceId}`);
+  const data = await response.json();
+  if (!data.success) {
+    console.error('Failed to fetch space info:', data.message);
+    return { success: false, message: data.message };
+  }
+  return { success: true, spaceName: data.spaceName, hostId: data.hostId };
+}
+
 export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   const { data: session } = useSession();
   const { user, setUser, isAdmin, setIsAdmin } = useUserStore(); // Get isAdmin from store
@@ -49,7 +64,6 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   const isMobile = useIsMobile();
   
   const [connectedUsers, setConnectedUsers] = useState(0);
-  const [roomName, setRoomName] = useState('');
   const [rightPanelTab, setRightPanelTab] = useState<'queue' | 'chat'>('queue');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [unreadChat, setUnreadChat] = useState(0);
@@ -83,7 +97,24 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
   const [showQueue, setShowQueue] = useState(true);
   const [showPlayer, setShowPlayer] = useState(true);
   const [userDetails, setUserDetails] = useState<any[]>([]);
-  const [spaceInfo, setSpaceInfo] = useState<{ spaceName: string; hostId: string } | null>(null);
+  const { data: spaceResponse } = useQuery({
+    queryKey: ['space', spaceId],
+    queryFn: () => fetchSpaceInfo(spaceId),
+    enabled: Boolean(spaceId),
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
+  });
+  const spaceInfo = useMemo(
+    () => (spaceResponse?.success ? { spaceName: spaceResponse.spaceName, hostId: spaceResponse.hostId } : null),
+    [spaceResponse]
+  );
+  // Seed from the HTTP fetch; the socket's `room-info` message may overwrite it later.
+  const [roomName, setRoomName] = useState('');
+  const [seededFrom, setSeededFrom] = useState<typeof spaceResponse>(undefined);
+  if (spaceResponse && spaceResponse !== seededFrom) {
+    setSeededFrom(spaceResponse);
+    setRoomName(spaceResponse.success ? spaceResponse.spaceName : 'Unknown Space');
+  }
   const [shareClicked, setShareClicked] = useState(false);
   
   // Space ended modal state
@@ -161,48 +192,12 @@ export const MusicSpace: React.FC<MusicSpaceProps> = ({ spaceId }) => {
     }
   };
 
-  // Memoized fetch function with immediate admin check
-  const fetchSpaceInfo = useCallback(async () => {
-    if (!spaceId) return;
-    
-    try {
-      const response = await fetch(`/api/spaces?spaceId=${spaceId}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        const spaceData = {
-          spaceName: data.spaceName,
-          hostId: data.hostId
-        };
-        
-        setSpaceInfo(spaceData);
-        setRoomName(data.spaceName);
-        
-        // Immediate admin check as soon as we have hostId - this is the fastest path
-        if (session?.user?.id && data.hostId) {
-          const userIsAdmin = session.user.id === data.hostId;
-          setIsAdmin(userIsAdmin);
-        }
-      } else {
-        console.error('Failed to fetch space info:', data.message);
-        setRoomName("Unknown Space");
-      }
-    } catch (error) {
-      console.error('Error fetching space info:', error);
-      setRoomName("Unknown Space");
-    }
-  }, [spaceId, session?.user?.id, setIsAdmin]);
-
   // Optimized initialization effect with parallel execution
   useEffect(() => {
     if (spaceId) {
-      
       setCurrentSpaceId(spaceId);
-      
-      // Start fetching space info immediately without waiting
-      fetchSpaceInfo();
     }
-  }, [spaceId, setCurrentSpaceId, fetchSpaceInfo]);
+  }, [spaceId, setCurrentSpaceId]);
 
   // Early admin detection effect - runs as soon as we have session data
   useEffect(() => {

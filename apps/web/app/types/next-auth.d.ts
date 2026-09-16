@@ -7,7 +7,7 @@ declare module "next-auth" {
             id: string;
             username : string ;
             email: string;
-            name?: String;
+            name?: string;
             pfpUrl?: string | null;
         };
     }

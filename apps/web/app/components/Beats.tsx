@@ -33,10 +33,6 @@ export default function BeatsSection() {
     }
   }, [controls, inView])
 
-  useEffect(() => {
-    fetchBeats()
-  }, [])
-
   const fetchBeats = async () => {
     setTimeout(() => {
       setBeats([
@@ -68,6 +64,10 @@ export default function BeatsSection() {
       setLoading(false)
     }, 1500)
   }
+
+  useEffect(() => {
+    fetchBeats()
+  }, [])
 
   const togglePlay = (id: string) => {
     setPlaying((current) => (current === id ? null : id))

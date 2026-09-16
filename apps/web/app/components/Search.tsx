@@ -291,20 +291,6 @@ export default function SearchSongPopup({
   }, []);
   
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (query) {
-        handleSearch();
-      } else {
-        setHasSearched(false);
-        setResults([]);
-        setError(null);
-      }
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  useEffect(() => {
     if (open && inputRef.current) {
       setTimeout(() => {
         inputRef.current?.focus();
@@ -312,7 +298,10 @@ export default function SearchSongPopup({
     }
   }, [open]);
 
-  useEffect(() => {
+  // Reset dialog state on close (adjust-state-during-render pattern, no effect round-trip)
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setQuery('');
       setResults([]);
@@ -324,7 +313,7 @@ export default function SearchSongPopup({
       setBatchProgress(null);
       setBatchResults(null);
     }
-  }, [open]);
+  }
 
   // Add event listeners for batch processing
   useEffect(() => {
@@ -415,6 +404,20 @@ export default function SearchSongPopup({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (query) {
+        handleSearch();
+      } else {
+        setHasSearched(false);
+        setResults([]);
+        setError(null);
+      }
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const convertTrackFormat = (spotifyTrack: Track): any => {
     return {

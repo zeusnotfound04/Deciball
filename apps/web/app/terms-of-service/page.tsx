@@ -34,7 +34,7 @@ export default function TermsOfService() {
               <section>
                 <h2 className="text-2xl font-bold mb-4 font-serif italic text-paper-white">1. Acceptance of Terms</h2>
                 <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed">
-                  By accessing and using Deciball ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+                  By accessing and using Deciball (&ldquo;the Service&rdquo;), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
                 </p>
               </section>
 
@@ -78,13 +78,13 @@ export default function TermsOfService() {
                   <div>
                     <h3 className="text-lg font-semibold font-serif italic text-paper-white mb-2">4.1 Spotify Integration</h3>
                     <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed">
-                      Our service integrates with Spotify to provide music streaming functionality. Your use of Spotify through our platform is subject to Spotify's Terms of Service and requires a valid Spotify account.
+                      Our service integrates with Spotify to provide music streaming functionality. Your use of Spotify through our platform is subject to Spotify&apos;s Terms of Service and requires a valid Spotify account.
                     </p>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold font-serif italic text-paper-white mb-2">4.2 YouTube Integration</h3>
                     <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed">
-                      We integrate with YouTube for additional music content. Your use of YouTube content is subject to YouTube's Terms of Service.
+                      We integrate with YouTube for additional music content. Your use of YouTube content is subject to YouTube&apos;s Terms of Service.
                     </p>
                   </div>
                   <div>
@@ -183,7 +183,7 @@ export default function TermsOfService() {
                   <div>
                     <h3 className="text-lg font-semibold font-serif italic text-paper-white mb-2">10.1 Service Disclaimer</h3>
                     <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed">
-                      The service is provided "as is" without warranties of any kind. We do not warrant that the service will be uninterrupted, error-free, or secure.
+                      The service is provided &ldquo;as is&rdquo; without warranties of any kind. We do not warrant that the service will be uninterrupted, error-free, or secure.
                     </p>
                   </div>
                   <div>

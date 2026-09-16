@@ -186,10 +186,8 @@ export default function PixelCard({
   const animationRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(
     null
   );
-  const timePreviousRef = useRef(performance.now());
-  const reducedMotion = useRef(
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  ).current;
+  const timePreviousRef = useRef(0);
+  const reducedMotionRef = useRef(false);
 
   const variantCfg: VariantConfig = VARIANTS[variant] || VARIANTS.default;
   const finalGap = gap ?? variantCfg.gap;
@@ -220,7 +218,7 @@ export default function PixelCard({
         const dx = x - width / 2;
         const dy = y - height / 2;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const delay = reducedMotion ? 0 : distance;
+        const delay = reducedMotionRef.current ? 0 : distance;
         if (!ctx) return;
         pxs.push(
           new Pixel(
@@ -229,7 +227,7 @@ export default function PixelCard({
             x,
             y,
             color,
-            getEffectiveSpeed(finalSpeed, reducedMotion),
+            getEffectiveSpeed(finalSpeed, reducedMotionRef.current),
             delay
           )
         );
@@ -238,9 +236,8 @@ export default function PixelCard({
     pixelsRef.current = pxs;
   };
 
-  const doAnimate = (fnName: keyof Pixel) => {
-    animationRef.current = requestAnimationFrame(() => doAnimate(fnName));
-    const timeNow = performance.now();
+  const doAnimate = (fnName: keyof Pixel, timeNow: DOMHighResTimeStamp) => {
+    animationRef.current = requestAnimationFrame((ts) => doAnimate(fnName, ts));
     const timePassed = timeNow - timePreviousRef.current;
     const timeInterval = 1000 / 60;
 
@@ -269,7 +266,7 @@ export default function PixelCard({
     if (animationRef.current !== null) {
       cancelAnimationFrame(animationRef.current);
     }
-    animationRef.current = requestAnimationFrame(() => doAnimate(name));
+    animationRef.current = requestAnimationFrame((ts) => doAnimate(name, ts));
   };
 
   const onMouseEnter = () => handleAnimation("appear");
@@ -284,6 +281,8 @@ export default function PixelCard({
   };
 
   useEffect(() => {
+    reducedMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    timePreviousRef.current = performance.now();
     initPixels();
     const observer = new ResizeObserver(() => {
       initPixels();

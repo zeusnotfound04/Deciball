@@ -105,11 +105,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
       return;
     }
 
-    if (socket) {
-      
-      socket.close(1000, "Creating new connection");
-      setSocket(null);
-    }
+    // A stale socket is already closed and nulled by this effect's cleanup before the body re-runs.
 
     let isCleanedUp = false;
     let reconnectTimer: NodeJS.Timeout | null = null;
@@ -118,8 +114,14 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
     const connectWebSocket = async () => {
       if (isCleanedUp) {
-        
         return;
+      }
+
+      // Only show the loader when there is no socket at all (fresh mount or
+      // login after logout). On a session-driven reconnect the previous socket
+      // is still in the closure, so this stays false and the loader doesn't flash.
+      if (connectionAttempts === 0 && !socket) {
+        setLoading(true);
       }
 
       connectionAttempts++;
@@ -388,14 +390,6 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
         setLoading(false);
       }
     };
-
-    setConnectionError(false);
-
-    // Start connecting immediately, don't set loading if we already have a session
-    // This prevents the full-screen loader from flashing
-    if (!socket) {
-      setLoading(true);
-    }
 
     connectWebSocket();
 

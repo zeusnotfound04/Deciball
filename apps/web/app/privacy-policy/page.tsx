@@ -170,7 +170,7 @@ export default function PrivacyPolicy() {
                       <li>Playback control for streaming through our platform</li>
                     </ul>
                     <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed mt-2">
-                      This data is used solely to provide music streaming features and is subject to Spotify's Privacy Policy.
+                      This data is used solely to provide music streaming features and is subject to Spotify&apos;s Privacy Policy.
                     </p>
                   </div>
                   <div>
@@ -182,7 +182,7 @@ export default function PrivacyPolicy() {
                   <div>
                     <h3 className="text-lg font-semibold font-serif italic text-paper-white mb-2">5.3 YouTube Integration</h3>
                     <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed">
-                      We use YouTube's API to search for and stream music content. Your interactions with YouTube content are subject to YouTube's Privacy Policy.
+                      We use YouTube&apos;s API to search for and stream music content. Your interactions with YouTube content are subject to YouTube&apos;s Privacy Policy.
                     </p>
                   </div>
                   <div>
@@ -216,7 +216,7 @@ export default function PrivacyPolicy() {
                     <h3 className="text-lg font-semibold font-serif italic text-paper-white mb-2">6.2 Data Deletion</h3>
                     <ul className="font-satoshi text-[17px] text-ghost-gray space-y-2 ml-6 list-disc">
                       <li>Delete your account and associated data</li>
-                      <li>Remove specific content you've uploaded</li>
+                      <li>Remove specific content you&apos;ve uploaded</li>
                       <li>Disconnect third-party service integrations</li>
                       <li>Request deletion of specific data categories</li>
                     </ul>
@@ -257,7 +257,7 @@ export default function PrivacyPolicy() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-bold mb-4 font-serif italic text-paper-white">8. Children's Privacy</h2>
+                <h2 className="text-2xl font-bold mb-4 font-serif italic text-paper-white">8. Children&apos;s Privacy</h2>
                 <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed">
                   Our service is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13. If you are a parent or guardian and believe your child has provided us with personal information, please contact us to have the information removed.
                 </p>
@@ -273,7 +273,7 @@ export default function PrivacyPolicy() {
               <section>
                 <h2 className="text-2xl font-bold mb-4 font-serif italic text-paper-white">10. Changes to Privacy Policy</h2>
                 <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed">
-                  We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new Privacy Policy on this page and updating the "Last updated" date. Your continued use of the service constitutes acceptance of the updated policy.
+                  We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new Privacy Policy on this page and updating the &ldquo;Last updated&rdquo; date. Your continued use of the service constitutes acceptance of the updated policy.
                 </p>
               </section>
 
@@ -282,7 +282,7 @@ export default function PrivacyPolicy() {
                 <div className="space-y-4">
                   <p className="font-satoshi text-[17px] text-ghost-gray leading-relaxed">We process your personal data based on:</p>
                   <ul className="font-satoshi text-[17px] text-ghost-gray space-y-2 ml-6 list-disc">
-                    <li><strong>Contract Performance:</strong> To provide the services you've requested</li>
+                    <li><strong>Contract Performance:</strong> To provide the services you&apos;ve requested</li>
                     <li><strong>Legitimate Interest:</strong> To improve our services and prevent fraud</li>
                     <li><strong>Consent:</strong> For optional features like personalized recommendations</li>
                     <li><strong>Legal Obligation:</strong> To comply with applicable laws and regulations</li>

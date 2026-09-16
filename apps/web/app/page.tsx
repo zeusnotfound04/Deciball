@@ -36,9 +36,11 @@ export default function Page() {
   const createSpaceMutation = useCreateSpace();
   const prefetchUserSpaces = usePrefetchUserSpaces();
 
-  useEffect(() => {
+  // Resolve the initial-load gate as soon as auth status settles (adjust-state-during-render pattern).
+  const [seenStatus, setSeenStatus] = useState<typeof status | null>(null);
+  if (status !== seenStatus) {
+    setSeenStatus(status);
     if (status === 'authenticated' && !initialLoadComplete) {
-      prefetchUserSpaces();
       if (spaces.length > 0) {
         setShowPastSpaces(true);
       }
@@ -46,7 +48,13 @@ export default function Page() {
     } else if (status !== 'loading' && status !== 'authenticated') {
       setInitialLoadComplete(true);
     }
-  }, [status, spaces.length, initialLoadComplete, prefetchUserSpaces]);
+  }
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      prefetchUserSpaces();
+    }
+  }, [status, prefetchUserSpaces]);
 
   const navigateToSpace = (spaceId: string) => {
     setIsExiting(true);

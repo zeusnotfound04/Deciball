@@ -70,7 +70,7 @@ const SpaceEndedModal: React.FC<SpaceEndedModalProps> = ({
                     </h2>
                     {spaceName && (
                       <p className="text-sm text-steel-gray font-satoshi">
-                        "{spaceName}"
+                        &ldquo;{spaceName}&rdquo;
                       </p>
                     )}
                   </div>

@@ -50,19 +50,24 @@ export default function ProfileSection() {
     }, 5000)
   }
 
-  useEffect(() => {
-    if (session?.user) {
+  // Re-seed the form whenever the session user changes (adjust-state-during-render pattern).
+  const [loadedAt] = useState(() => new Date().toISOString())
+  const sessionUser = session?.user
+  const [syncedUser, setSyncedUser] = useState(sessionUser)
+  if (sessionUser !== syncedUser) {
+    setSyncedUser(sessionUser)
+    if (sessionUser) {
       const initialProfile: ProfileData = {
-        name: String(session.user.name || ""),
-        username: session.user.username || session.user.email?.split('@')[0] || "",
-        pfpUrl: session.user.pfpUrl || "",
-        email: session.user.email || "",
-        createdAt: new Date().toISOString()
+        name: String(sessionUser.name || ""),
+        username: sessionUser.username || sessionUser.email?.split('@')[0] || "",
+        pfpUrl: sessionUser.pfpUrl || "",
+        email: sessionUser.email || "",
+        createdAt: loadedAt
       }
       setProfile(initialProfile)
       setEditForm(initialProfile)
     }
-  }, [session])
+  }
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
@@ -211,7 +216,7 @@ export default function ProfileSection() {
     )
   }
 
-  const NotificationToast = () => (
+  const notificationToast = (
     <AnimatePresence>
       {notification.show && (
         <motion.div
@@ -247,7 +252,7 @@ export default function ProfileSection() {
 
   return (
     <>
-      <NotificationToast />
+      {notificationToast}
       <DarkGradientBackground>
         <div className="min-h-screen flex items-center justify-center p-6">
           <motion.div

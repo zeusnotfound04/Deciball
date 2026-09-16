@@ -272,6 +272,28 @@ const AudioController: React.FC<AudioControllerProps> = ({
 
   const progressBarRef = useRef<HTMLDivElement>(null);
 
+  const skipBy = useCallback((delta: number) => {
+    if (!isAdmin) return;
+    const newTime = Math.min(duration, Math.max(0, displayTime + delta));
+    setIgnoreSync(true);
+    setSeekingProgress(newTime);
+    debouncedSeek(newTime);
+    setTimeout(() => setSeekingProgress(null), 400);
+    setTimeout(() => setIgnoreSync(false), 800);
+  }, [isAdmin, duration, displayTime, debouncedSeek]);
+
+  const handleSkipBackward = useCallback((e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    skipBy(-10);
+  }, [skipBy]);
+
+  const handleSkipForward = useCallback((e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    skipBy(10);
+  }, [skipBy]);
+
   // Memoized event position handler
   const getEventPosition = useCallback((e: any) => {
     // Handle both mouse and touch events
@@ -795,22 +817,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={handleClick(() => {
-                if (isAdmin) {
-                  const newTime = Math.max(0, displayTime - 10);
-                  setIgnoreSync(true);
-                  setSeekingProgress(newTime);
-                  debouncedSeek(newTime);
-                  
-                  setTimeout(() => {
-                    setSeekingProgress(null);
-                  }, 400);
-                  
-                  setTimeout(() => {
-                    setIgnoreSync(false);
-                  }, 800);
-                }
-              })}
+              onClick={handleSkipBackward}
               style={{ touchAction: 'manipulation' }}
               className={`p-1 transition-colors rounded-full hover:bg-charcoal active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${
                 isAdmin ? 'text-steel-gray hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
@@ -845,22 +852,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={handleClick(() => {
-                if (isAdmin) {
-                  const newTime = Math.min(duration, displayTime + 10);
-                  setIgnoreSync(true);
-                  setSeekingProgress(newTime);
-                  debouncedSeek(newTime);
-                  
-                  setTimeout(() => {
-                    setSeekingProgress(null);
-                  }, 400);
-                  
-                  setTimeout(() => {
-                    setIgnoreSync(false);
-                  }, 800);
-                }
-              })}
+              onClick={handleSkipForward}
               style={{ touchAction: 'manipulation' }}
               className={`p-1 transition-colors rounded-full hover:bg-charcoal active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center ${
                 isAdmin ? 'text-steel-gray hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
@@ -958,22 +950,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={handleClick(() => {
-                if (isAdmin) {
-                  const newTime = Math.max(0, displayTime - 10);
-                  setIgnoreSync(true);
-                  setSeekingProgress(newTime);
-                  debouncedSeek(newTime);
-                  
-                  setTimeout(() => {
-                    setSeekingProgress(null);
-                  }, 400);
-                  
-                  setTimeout(() => {
-                    setIgnoreSync(false);
-                  }, 800);
-                }
-              })}
+              onClick={handleSkipBackward}
               style={{ touchAction: 'manipulation' }}
               className={`p-1 transition-colors rounded-full hover:bg-charcoal active:scale-95 ${
                 isAdmin ? 'text-steel-gray hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'
@@ -1008,22 +985,7 @@ const AudioController: React.FC<AudioControllerProps> = ({
             </button>
 
             <button
-              onClick={handleClick(() => {
-                if (isAdmin) {
-                  const newTime = Math.min(duration, displayTime + 10);
-                  setIgnoreSync(true);
-                  setSeekingProgress(newTime);
-                  seek(newTime);
-                  
-                  setTimeout(() => {
-                    setSeekingProgress(null);
-                  }, 800);
-                  
-                  setTimeout(() => {
-                    setIgnoreSync(false);
-                  }, 1200);
-                }
-              })}
+              onClick={handleSkipForward}
               style={{ touchAction: 'manipulation' }}
               className={`p-1 transition-colors rounded-full hover:bg-charcoal active:scale-95 ${
                 isAdmin ? 'text-steel-gray hover:text-paper-white cursor-pointer' : 'text-steel-gray/50 cursor-not-allowed opacity-50'

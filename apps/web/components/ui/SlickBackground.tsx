@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unknown-property */
-import React, { forwardRef, useMemo, useRef, useLayoutEffect, useEffect } from 'react';
+import React, { forwardRef, useMemo, useRef, useLayoutEffect } from 'react';
 import { Canvas, useFrame, useThree, type RootState } from '@react-three/fiber';
 import { Color, Mesh, ShaderMaterial } from 'three';
 import { type IUniform } from 'three';
@@ -87,9 +87,17 @@ void main() {
 
 interface SilkPlaneProps {
   uniforms: SilkUniforms;
+  speed: number;
+  scale: number;
+  noiseIntensity: number;
+  color: string;
+  rotation: number;
 }
 
-const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane({ uniforms }, ref) {
+const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane(
+  { uniforms, speed, scale, noiseIntensity, color, rotation },
+  ref
+) {
   const { viewport } = useThree();
 
   useLayoutEffect(() => {
@@ -105,7 +113,13 @@ const SilkPlane = forwardRef<Mesh, SilkPlaneProps>(function SilkPlane({ uniforms
       const material = mesh.current.material as ShaderMaterial & {
         uniforms: SilkUniforms;
       };
-      material.uniforms.uTime.value += 0.1 * delta;
+      const u = material.uniforms;
+      u.uTime.value += 0.1 * delta;
+      u.uSpeed.value = speed;
+      u.uScale.value = scale;
+      u.uNoiseIntensity.value = noiseIntensity;
+      u.uRotation.value = rotation;
+      u.uColor.value.setRGB(...hexToNormalizedRGB(color));
     }
   });
 
@@ -142,17 +156,17 @@ const Silk: React.FC<SilkProps> = ({ speed = 2, scale = 1, color = '#191919', no
     []
   );
 
-  useEffect(() => {
-    uniforms.uSpeed.value = speed;
-    uniforms.uScale.value = scale;
-    uniforms.uNoiseIntensity.value = noiseIntensity;
-    uniforms.uColor.value.setRGB(...hexToNormalizedRGB(color));
-    uniforms.uRotation.value = rotation;
-  }, [speed, scale, noiseIntensity, color, rotation, uniforms]);
-
   return (
     <Canvas dpr={[1, 2]} frameloop="always">
-      <SilkPlane ref={meshRef} uniforms={uniforms} />
+      <SilkPlane
+        ref={meshRef}
+        uniforms={uniforms}
+        speed={speed}
+        scale={scale}
+        noiseIntensity={noiseIntensity}
+        color={color}
+        rotation={rotation}
+      />
     </Canvas>
   );
 };

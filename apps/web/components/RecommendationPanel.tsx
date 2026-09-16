@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSocket } from '@/context/socket-context';
 import { useUserStore } from '@/store/userStore';
 import { useAudio } from '@/store/audioStore';
@@ -29,6 +30,34 @@ interface RecommendationPanelProps {
   className?: string;
 }
 
+async function fetchNewReleasesFromApi(): Promise<SpotifyTrack[]> {
+  const response = await fetch('/api/spotify/newReleases?limit=10', { method: 'GET' });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  if (!result || !result.items) {
+    throw new Error('No new releases returned');
+  }
+
+  return result.items.map((album: any) => ({
+    id: album.id,
+    name: album.name,
+    artists: album.artists,
+    album: {
+      id: album.id,
+      name: album.name,
+      images: album.images
+    },
+    popularity: 80,
+    preview_url: null,
+    external_urls: album.external_urls
+  }));
+}
+
 export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({ 
   spaceId, 
   isAdmin, 
@@ -37,57 +66,26 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
   const { sendMessage } = useSocket();
   const { user } = useUserStore();
   const { currentSong } = useAudio();
-  const [newReleases, setNewReleases] = useState<SpotifyTrack[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [addingTrack, setAddingTrack] = useState<string | null>(null);
 
-  const fetchNewReleases = async () => {
-    setLoading(true);
-    setError(null);
+  const {
+    data: newReleases = [],
+    isFetching: loading,
+    error: releasesError,
+    refetch: fetchNewReleases,
+  } = useQuery({
+    queryKey: ['spotify', 'newReleases', 10],
+    queryFn: fetchNewReleasesFromApi,
+    staleTime: 1000 * 60 * 10,
+  });
+  const error = releasesError ? `Failed to load new releases: ${releasesError.message}` : null;
 
-    try {
-      
-      
-      const response = await fetch('/api/spotify/newReleases?limit=10', {
-        method: 'GET'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      
-      if (result && result.items) {
-        const tracks: SpotifyTrack[] = result.items.map((album: any) => ({
-          id: album.id,
-          name: album.name,
-          artists: album.artists,
-          album: {
-            id: album.id,
-            name: album.name,
-            images: album.images
-          },
-          popularity: 80,
-          preview_url: null,
-          external_urls: album.external_urls
-        }));
-        
-        setNewReleases(tracks);
-        
-      } else {
-        throw new Error('No new releases returned');
-      }
-    } catch (error: any) {
-      console.error('Error fetching new releases:', error);
-      setError(`Failed to load new releases: ${error.message}`);
+  useEffect(() => {
+    if (releasesError) {
+      console.error('Error fetching new releases:', releasesError);
       toast.error('Failed to load new releases');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [releasesError]);
 
   const addToQueue = async (track: SpotifyTrack) => {
     if (!isAdmin) {
@@ -166,10 +164,6 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
     }
   };
 
-  useEffect(() => {
-    fetchNewReleases();
-  }, []);
-
   const getArtistNames = (artists: Array<{ name: string }>) => {
     return artists.map(artist => artist.name).join(', ');
   };
@@ -214,7 +208,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
           <h3 className="text-base sm:text-lg font-serif font-semibold text-ghost-gray">New Releases</h3>
         </div>
         <Button
-          onClick={fetchNewReleases}
+          onClick={() => fetchNewReleases()}
           disabled={loading}
           size="sm"
           variant="outline"
@@ -232,7 +226,7 @@ export const RecommendationPanel: React.FC<RecommendationPanelProps> = ({
         <div className="bg-graphite border border-red-500/30 rounded-cards p-3 mb-3 sm:mb-4">
           <p className="text-red-400 text-xs sm:text-sm">{error}</p>
           <Button
-            onClick={fetchNewReleases}
+            onClick={() => fetchNewReleases()}
             size="sm"
             variant="outline"
             className="mt-2 bg-transparent border-red-500/30 hover:bg-graphite text-red-400 text-xs"

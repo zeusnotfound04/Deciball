@@ -32,11 +32,13 @@ export const Listener: React.FC<ListenerProps> = ({
   const [listeners, setListeners] = useState<ConnectedUser[]>([]);
   const { socket } = useSocket();
 
-  useEffect(() => {
+  const [seenUserDetails, setSeenUserDetails] = useState(userDetails);
+  if (userDetails !== seenUserDetails) {
+    setSeenUserDetails(userDetails);
     if (userDetails.length > 0) {
       setListeners(userDetails);
     }
-  }, [userDetails]);
+  }
 
   useEffect(() => {
     if (!socket) return;

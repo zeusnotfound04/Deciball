@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, memo } from "react";
+import { useMemo, useState, memo } from "react";
 import { motion } from "framer-motion";
 import { Heart } from "lucide-react";
 import { PlayIcon, PreviousIcon, NextIcon } from "@/components/icons";
@@ -94,12 +94,6 @@ const NUM_COLUMNS = 8;
 const CARDS_PER_COLUMN = 6;
 
 function AlbumGridInner({ className = "" }: { className?: string }) {
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    setLoaded(true);
-  }, []);
-
   // Build columns — each column gets a shuffled slice of albums
   const columns = useMemo(() => {
     const cols: { album: typeof ALBUMS[0]; progress: number }[][] = [];
@@ -107,7 +101,7 @@ function AlbumGridInner({ className = "" }: { className?: string }) {
       const col: { album: typeof ALBUMS[0]; progress: number }[] = [];
       for (let r = 0; r < CARDS_PER_COLUMN; r++) {
         const idx = (c * CARDS_PER_COLUMN + r) % ALBUMS.length;
-        col.push({ album: ALBUMS[idx], progress: 15 + Math.random() * 70 });
+        col.push({ album: ALBUMS[idx], progress: 15 + ((c * 37 + r * 53) % 71) });
       }
       cols.push(col);
     }
@@ -136,7 +130,7 @@ function AlbumGridInner({ className = "" }: { className?: string }) {
           height: "140vh",
         }}
         initial={{ opacity: 0 }}
-        animate={{ opacity: loaded ? 0.4 : 0 }}
+        animate={{ opacity: 0.4 }}
         transition={{ duration: 2, ease: "easeOut" }}
       >
         {columns.map((col, colIdx) => {

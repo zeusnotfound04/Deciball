@@ -60,6 +60,158 @@ const getUserColor = (userId: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+// --- Listener Item ---
+const ListenerItem = React.memo(function ListenerItem({
+  listener,
+  index,
+  isAdmin,
+  isExpanded,
+}: {
+  listener: UserDetail;
+  index: number;
+  isAdmin: boolean;
+  isExpanded: boolean;
+}) {
+  const initial = listener.name?.charAt(0).toUpperCase() || listener.userId.slice(0, 1).toUpperCase();
+  const displayName = listener.name || `User ${listener.userId.slice(0, 6)}`;
+  const canDrag = isAdmin && !listener.isCreator;
+  const gradientColor = getUserColor(listener.userId);
+
+  const { attributes, listeners: dndListeners, setNodeRef, transform, isDragging } = useDraggable({ id: listener.userId });
+
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  if (!isExpanded) {
+    // Collapsed — bigger avatar, tooltip-style
+    return (
+      <motion.div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...(canDrag ? dndListeners : {})}
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: index * 0.06, type: "spring", stiffness: 300, damping: 20 }}
+        className="flex justify-center py-1.5"
+      >
+        <div className={cn("relative group", canDrag && "cursor-grab active:cursor-grabbing")}>
+          <Avatar className={cn(
+            "h-11 w-11 transition-transform duration-200 group-hover:scale-110",
+            listener.isCreator && "ring-2 ring-electric-cyan/60"
+          )}>
+            {listener.imageUrl && listener.imageUrl.length > 0 && (
+              <AvatarImage src={listener.imageUrl} alt={displayName} className="object-cover" referrerPolicy="no-referrer" />
+            )}
+            <AvatarFallback className={cn("bg-gradient-to-br text-paper-white font-satoshi font-bold text-sm", gradientColor)}>
+              {initial}
+            </AvatarFallback>
+          </Avatar>
+          {/* Online indicator */}
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-void-black" />
+          {/* Creator crown */}
+          {listener.isCreator && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-electric-cyan rounded-full flex items-center justify-center">
+              <Crown className="w-2.5 h-2.5 text-void-black" />
+            </span>
+          )}
+          {/* Hover tooltip */}
+          <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-midnight-surface border border-graphite/50 rounded-lg px-3 py-1.5 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+            <span className="font-satoshi text-xs text-paper-white">{displayName}</span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Expanded — premium card row
+  return (
+    <motion.div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...(canDrag ? dndListeners : {})}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className={cn(
+        "group relative",
+        isDragging && "z-50",
+        canDrag && "cursor-grab active:cursor-grabbing"
+      )}
+    >
+      <div className={cn(
+        "flex items-center gap-3.5 p-3 rounded-2xl transition-all duration-200",
+        "bg-paper-white/[0.02] hover:bg-paper-white/[0.06]",
+        "border border-transparent hover:border-paper-white/[0.06]",
+        listener.isCreator && "bg-electric-cyan/[0.04] border-electric-cyan/[0.08]",
+        isDragging && "ring-1 ring-red-500/40 bg-red-500/[0.04]"
+      )}>
+        {/* Avatar */}
+        <div className="relative flex-shrink-0">
+          <Avatar className={cn(
+            "h-10 w-10 transition-transform duration-200 group-hover:scale-105",
+            listener.isCreator && "ring-2 ring-electric-cyan/50"
+          )}>
+            {listener.imageUrl && listener.imageUrl.length > 0 && (
+              <AvatarImage src={listener.imageUrl} alt={displayName} className="object-cover" referrerPolicy="no-referrer" />
+            )}
+            <AvatarFallback className={cn("bg-gradient-to-br text-paper-white font-satoshi font-bold text-base", gradientColor)}>
+              {initial}
+            </AvatarFallback>
+          </Avatar>
+          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-midnight-surface" />
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-satoshi font-medium text-sm text-paper-white truncate">{displayName}</span>
+            {listener.isCreator && (
+              <span className="flex items-center gap-1 bg-electric-cyan/15 text-electric-cyan font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-full flex-shrink-0">
+                <Crown className="w-2.5 h-2.5" />
+                Host
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <Wifi className="w-2.5 h-2.5 text-green-500" />
+            <span className="font-mono text-[10px] text-steel-gray">
+              {listener.isCreator ? "Connected · Hosting" : "Connected · Listening"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
+// --- Kick Zone ---
+const KickZone: React.FC<{ isOver: boolean }> = ({ isOver }) => {
+  const { setNodeRef } = useDroppable({ id: 'kick-zone' });
+  return (
+    <motion.div
+      ref={setNodeRef}
+      initial={{ opacity: 0, height: 0, marginTop: 0 }}
+      animate={{ opacity: 1, height: 'auto', marginTop: 8 }}
+      exit={{ opacity: 0, height: 0, marginTop: 0 }}
+      className={cn(
+        "mx-2 p-4 border-2 border-dashed rounded-2xl text-center transition-all duration-200",
+        isOver
+          ? "border-red-500/50 bg-red-500/10"
+          : "border-graphite/50 bg-paper-white/[0.02]"
+      )}
+    >
+      <Trash2 className={cn("w-5 h-5 mx-auto mb-1.5", isOver ? "text-red-400" : "text-steel-gray/40")} />
+      <span className={cn("font-mono text-[10px]", isOver ? "text-red-400" : "text-steel-gray/40")}>
+        {isOver ? "Release to remove" : "Drop to kick"}
+      </span>
+    </motion.div>
+  );
+};
+
 const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
   listeners,
   isAdmin = false,
@@ -120,148 +272,6 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
   }, [sidebarWidth]);
 
   const listenersCount = uniqueListeners.length;
-
-  // --- Listener Item ---
-  const ListenerItem = React.memo(({ listener, index }: { listener: UserDetail; index: number }) => {
-    const initial = listener.name?.charAt(0).toUpperCase() || listener.userId.slice(0, 1).toUpperCase();
-    const displayName = listener.name || `User ${listener.userId.slice(0, 6)}`;
-    const canDrag = isAdmin && !listener.isCreator;
-    const gradientColor = getUserColor(listener.userId);
-
-    const { attributes, listeners: dndListeners, setNodeRef, transform, isDragging } = useDraggable({ id: listener.userId });
-
-    const style = {
-      transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-      opacity: isDragging ? 0.4 : 1,
-    };
-
-    if (!isExpanded) {
-      // Collapsed — bigger avatar, tooltip-style
-      return (
-        <motion.div
-          ref={setNodeRef}
-          style={style}
-          {...attributes}
-          {...(canDrag ? dndListeners : {})}
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: index * 0.06, type: "spring", stiffness: 300, damping: 20 }}
-          className="flex justify-center py-1.5"
-        >
-          <div className={cn("relative group", canDrag && "cursor-grab active:cursor-grabbing")}>
-            <Avatar className={cn(
-              "h-11 w-11 transition-transform duration-200 group-hover:scale-110",
-              listener.isCreator && "ring-2 ring-electric-cyan/60"
-            )}>
-              {listener.imageUrl && listener.imageUrl.length > 0 && (
-                <AvatarImage src={listener.imageUrl} alt={displayName} className="object-cover" referrerPolicy="no-referrer" />
-              )}
-              <AvatarFallback className={cn("bg-gradient-to-br text-paper-white font-satoshi font-bold text-sm", gradientColor)}>
-                {initial}
-              </AvatarFallback>
-            </Avatar>
-            {/* Online indicator */}
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-void-black" />
-            {/* Creator crown */}
-            {listener.isCreator && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-electric-cyan rounded-full flex items-center justify-center">
-                <Crown className="w-2.5 h-2.5 text-void-black" />
-              </span>
-            )}
-            {/* Hover tooltip */}
-            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 bg-midnight-surface border border-graphite/50 rounded-lg px-3 py-1.5 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-              <span className="font-satoshi text-xs text-paper-white">{displayName}</span>
-            </div>
-          </div>
-        </motion.div>
-      );
-    }
-
-    // Expanded — premium card row
-    return (
-      <motion.div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        {...(canDrag ? dndListeners : {})}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.05 }}
-        className={cn(
-          "group relative",
-          isDragging && "z-50",
-          canDrag && "cursor-grab active:cursor-grabbing"
-        )}
-      >
-        <div className={cn(
-          "flex items-center gap-3.5 p-3 rounded-2xl transition-all duration-200",
-          "bg-paper-white/[0.02] hover:bg-paper-white/[0.06]",
-          "border border-transparent hover:border-paper-white/[0.06]",
-          listener.isCreator && "bg-electric-cyan/[0.04] border-electric-cyan/[0.08]",
-          isDragging && "ring-1 ring-red-500/40 bg-red-500/[0.04]"
-        )}>
-          {/* Avatar */}
-          <div className="relative flex-shrink-0">
-            <Avatar className={cn(
-              "h-10 w-10 transition-transform duration-200 group-hover:scale-105",
-              listener.isCreator && "ring-2 ring-electric-cyan/50"
-            )}>
-              {listener.imageUrl && listener.imageUrl.length > 0 && (
-                <AvatarImage src={listener.imageUrl} alt={displayName} className="object-cover" referrerPolicy="no-referrer" />
-              )}
-              <AvatarFallback className={cn("bg-gradient-to-br text-paper-white font-satoshi font-bold text-base", gradientColor)}>
-                {initial}
-              </AvatarFallback>
-            </Avatar>
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-midnight-surface" />
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-satoshi font-medium text-sm text-paper-white truncate">{displayName}</span>
-              {listener.isCreator && (
-                <span className="flex items-center gap-1 bg-electric-cyan/15 text-electric-cyan font-mono text-[9px] tracking-wider uppercase px-1.5 py-0.5 rounded-full flex-shrink-0">
-                  <Crown className="w-2.5 h-2.5" />
-                  Host
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Wifi className="w-2.5 h-2.5 text-green-500" />
-              <span className="font-mono text-[10px] text-steel-gray">
-                {listener.isCreator ? "Connected · Hosting" : "Connected · Listening"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    );
-  });
-
-  // --- Kick Zone ---
-  const KickZone: React.FC<{ isOver: boolean }> = ({ isOver }) => {
-    const { setNodeRef } = useDroppable({ id: 'kick-zone' });
-    return (
-      <motion.div
-        ref={setNodeRef}
-        initial={{ opacity: 0, height: 0, marginTop: 0 }}
-        animate={{ opacity: 1, height: 'auto', marginTop: 8 }}
-        exit={{ opacity: 0, height: 0, marginTop: 0 }}
-        className={cn(
-          "mx-2 p-4 border-2 border-dashed rounded-2xl text-center transition-all duration-200",
-          isOver
-            ? "border-red-500/50 bg-red-500/10"
-            : "border-graphite/50 bg-paper-white/[0.02]"
-        )}
-      >
-        <Trash2 className={cn("w-5 h-5 mx-auto mb-1.5", isOver ? "text-red-400" : "text-steel-gray/40")} />
-        <span className={cn("font-mono text-[10px]", isOver ? "text-red-400" : "text-steel-gray/40")}>
-          {isOver ? "Release to remove" : "Drop to kick"}
-        </span>
-      </motion.div>
-    );
-  };
 
   return (
     <div
@@ -340,7 +350,7 @@ const ListenerSidebar: React.FC<ListenerSidebarProps> = ({
                   ) : (
                     uniqueListeners.map((listener, index) => (
                       <SidebarMenuItem key={listener.userId}>
-                        <ListenerItem listener={listener} index={index} />
+                        <ListenerItem listener={listener} index={index} isAdmin={isAdmin} isExpanded={isExpanded} />
                       </SidebarMenuItem>
                     ))
                   )}
