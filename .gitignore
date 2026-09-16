@@ -36,7 +36,8 @@ out/
 .DS_Store
 
 
-.claude
+.claude/*
+!.claude/rules/
 # Testing
 coverage/
 *.lcov
