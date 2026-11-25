@@ -1,0 +1,15 @@
+# Rendered by deploy/deploy.sh. Temporary: answers the Let's Encrypt HTTP-01 challenge
+# until the certificate exists, then deploy.sh replaces it with nginx.conf.template.
+server {
+    listen 80;
+    server_name __DOMAIN__;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root __ACME_ROOT__;
+        default_type text/plain;
+    }
+
+    location / {
+        return 503;
+    }
+}

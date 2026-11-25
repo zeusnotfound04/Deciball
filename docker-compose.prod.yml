@@ -1,4 +1,8 @@
-version: '3.9'
+# Production stack. Run through deploy/deploy.sh, which generates the env files below.
+#   .env                        compose interpolation: Postgres/Redis passwords, host ports
+#   apps/web/.env.production    web + migrate runtime env; also read by `next build`
+#   apps/ws/.env.production     ws runtime env
+name: deciball
 
 services:
   postgres:
@@ -7,15 +11,15 @@ services:
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-deciball}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-deciball}
     volumes:
       - deciball-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-deciball}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-deciball} -d ${POSTGRES_DB:-deciball}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
     networks:
       - deciball
 
@@ -23,14 +27,34 @@ services:
     container_name: deciball-redis
     image: redis:7-alpine
     restart: always
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
     volumes:
       - deciball-redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 12
+    networks:
+      - deciball
+
+  # The web runner is a Next.js standalone bundle with no Prisma CLI, so migrations run
+  # from the deps stage, which has the full install. `migrate deploy` is idempotent and
+  # runs on every `up`; web does not start unless it exits 0.
+  migrate:
+    container_name: deciball-migrate
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: deps
+    env_file:
+      - apps/web/.env.production
+    working_dir: /app/packages/database
+    command: ["/app/node_modules/.bin/prisma", "migrate", "deploy"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - deciball
 
@@ -43,10 +67,10 @@ services:
     env_file:
       - apps/web/.env.production
     ports:
-      - "127.0.0.1:4000:4000"
+      - "127.0.0.1:${WEB_HOST_PORT:-4000}:4000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -61,10 +85,8 @@ services:
     env_file:
       - apps/ws/.env.production
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${WS_HOST_PORT:-8080}:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
