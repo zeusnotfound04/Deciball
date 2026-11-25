@@ -352,8 +352,14 @@ setup_nginx() {
 
 verify_tls() {
   # --resolve hits this host's nginx directly, so the check does not depend on hairpin NAT.
-  local resolve=(--resolve "$DOMAIN:443:127.0.0.1") code
-  code="$(http_code "https://$DOMAIN/api/auth/providers" 15 "${resolve[@]}")"
+  # `systemctl reload` returns before the new workers take over; until they do, old workers
+  # answer 443 without this site's cert and curl reports 000. Retry briefly.
+  local resolve=(--resolve "$DOMAIN:443:127.0.0.1") code=""
+  for _ in $(seq 1 15); do
+    code="$(http_code "https://$DOMAIN/api/auth/providers" 10 "${resolve[@]}")"
+    if [ "$code" = 200 ]; then break; fi
+    sleep 1
+  done
   [ "$code" = 200 ] || die "https://$DOMAIN/api/auth/providers via local nginx returned '$code'"
   code="$(ws_probe "https://$DOMAIN/ws" "${resolve[@]}")"
   [ "$code" = 101 ] || die "wss://$DOMAIN/ws handshake via local nginx returned '$code', expected 101"
